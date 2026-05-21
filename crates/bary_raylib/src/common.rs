@@ -4,7 +4,6 @@ use crossbeam_queue::SegQueue;
 use renet_netcode::NETCODE_USER_DATA_BYTES;
 use serde::{Deserialize, Serialize};
 use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::Arc,
     time::{Duration, SystemTime},
 };

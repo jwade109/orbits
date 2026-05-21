@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 
 #[derive(Debug)]
 pub enum ParseError {
@@ -66,19 +66,21 @@ impl<T> Command<T> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LogLevel {
     Debug,
     Info,
     Error,
+    Terminal,
 }
 
 pub struct Terminal<T> {
-    pub contents: String,
-    pub is_active: bool,
-    pub lines: Vec<(String, LogLevel)>,
-    pub suggest_text: String,
-    pub commands: Vec<Command<T>>,
+    contents: String,
+    is_active: bool,
+    lines: VecDeque<(String, LogLevel)>,
+    suggest_text: String,
+    commands: Vec<Command<T>>,
+    log_level: LogLevel,
 }
 
 impl<T> Terminal<T> {
@@ -86,15 +88,25 @@ impl<T> Terminal<T> {
         Self {
             contents: String::new(),
             is_active: false,
-            lines: Vec::new(),
+            lines: VecDeque::new(),
             suggest_text: String::new(),
             commands: commands.into(),
+            log_level: LogLevel::Debug,
         }
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.is_active
+    }
+
+    pub fn lines(&self) -> impl Iterator<Item = &(String, LogLevel)> {
+        self.lines.iter()
     }
 
     pub fn on_event(&mut self, event: &rdev::Event) -> Option<T> {
         if let rdev::EventType::KeyPress(k) = &event.event_type {
             match k {
+                rdev::Key::Alt => self.on_alt(),
                 rdev::Key::Backspace => self.on_backspace(),
                 rdev::Key::Return => return self.on_enter(),
                 rdev::Key::BackQuote => self.focus(),
@@ -113,6 +125,18 @@ impl<T> Terminal<T> {
         None
     }
 
+    pub fn on_alt(&mut self) {
+        if self.is_active {
+            self.log_level = match self.log_level {
+                LogLevel::Debug => LogLevel::Info,
+                LogLevel::Info => LogLevel::Debug,
+                LogLevel::Error => LogLevel::Error,
+                LogLevel::Terminal => LogLevel::Terminal,
+            };
+            self.log_terminal(format!("Set log level to {:?}", self.log_level));
+        }
+    }
+
     pub fn on_backspace(&mut self) {
         if !self.is_active {
             return;
@@ -129,7 +153,7 @@ impl<T> Terminal<T> {
             return None;
         }
 
-        self.log_info(self.contents.clone());
+        self.log_info("bsh > ".to_string() + &self.contents);
 
         let mut ret = None;
 
@@ -217,16 +241,30 @@ impl<T> Terminal<T> {
         }
     }
 
+    fn push_log(&mut self, s: String, level: LogLevel) {
+        if self.log_level > level {
+            return;
+        }
+        self.lines.push_front((s, level));
+        if self.lines.len() > 1000 {
+            self.lines.pop_back();
+        }
+    }
+
     pub fn log_debug(&mut self, s: String) {
-        self.lines.push((s, LogLevel::Debug));
+        self.push_log(s, LogLevel::Debug);
     }
 
     pub fn log_info(&mut self, s: String) {
-        self.lines.push((s, LogLevel::Info));
+        self.push_log(s, LogLevel::Info);
     }
 
     pub fn log_error(&mut self, s: String) {
-        self.lines.push((s, LogLevel::Error));
+        self.push_log(s, LogLevel::Error);
+    }
+
+    pub fn log_terminal(&mut self, s: String) {
+        self.push_log(s, LogLevel::Terminal);
     }
 
     pub fn display_text(&self) -> Vec<(char, bool)> {

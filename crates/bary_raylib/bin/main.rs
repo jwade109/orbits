@@ -143,8 +143,6 @@ fn main() {
     let mut active_sounds = Vec::new();
 
     while !rl.window_should_close() {
-        let loop_start = std::time::Instant::now();
-
         // HANDLE INPUTS FROM RDEV LISTENER THREAD
 
         let mut rdev_events = Vec::new();

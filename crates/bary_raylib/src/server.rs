@@ -56,6 +56,7 @@ impl Server {
             .broadcast_message(DefaultChannel::ReliableOrdered, message);
     }
 
+    #[must_use]
     pub fn update(&mut self) -> Vec<ClientMessage> {
         let mut messages = Vec::new();
 
@@ -112,7 +113,7 @@ mod tests {
 
         for _ in 0..20 {
             _ = server.update();
-            client.update();
+            _ = client.update();
             std::thread::sleep(dur);
         }
 

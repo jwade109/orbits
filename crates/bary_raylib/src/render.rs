@@ -1588,16 +1588,17 @@ fn severity_to_color(s: LogLevel) -> Color {
     match s {
         LogLevel::Debug => Color::GRAY.alpha(0.3),
         LogLevel::Error => Color::RED,
-        LogLevel::Info => Color::RAYWHITE,
+        LogLevel::Info => Color::WHITE,
+        LogLevel::Terminal => Color::ORANGE,
     }
 }
 
 pub fn draw_terminal(d: &mut RaylibDrawHandle, cmd: &Terminal<Action>, assets: &Assets) {
-    if !cmd.is_active {
+    if !cmd.is_active() {
         return;
     };
 
-    let Some(font) = &assets.fira_code else {
+    let Some(font) = &assets.consolas else {
         return;
     };
 
@@ -1621,18 +1622,18 @@ pub fn draw_terminal(d: &mut RaylibDrawHandle, cmd: &Terminal<Action>, assets: &
         .map(|(c, b)| if !*b { *c } else { ' ' })
         .collect();
 
-    let display = format!("> {}", fg);
-    let display_bg = format!("> {}", bg);
+    let display = format!("bsh > {}", fg);
+    let display_bg = format!("bsh > {}", bg);
     // let width = d.get_render_width();
     let height = d.get_render_height();
 
     let padding = 14;
     let line_gap = 0;
-    let font_size = 22;
+    let font_size = 30;
 
     let text_origin = IVec2::new(padding, height - padding - font_size);
 
-    for (i, (line, severity)) in cmd.lines.iter().rev().enumerate() {
+    for (i, (line, severity)) in cmd.lines().enumerate() {
         let origin = text_origin - IVec2::Y * (font_size + line_gap) * (i as i32 + 1);
         d.draw_text_ex(
             font,
