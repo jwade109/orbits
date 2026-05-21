@@ -8,7 +8,6 @@ fn main() {
     let mut app = BasicApp::new("Test app");
 
     let mut cmd = CommandPrompt::new();
-    let mut actions = Vec::new();
 
     let mut client = Client::new(127, 0, 0, 1, 5000);
 
@@ -22,17 +21,9 @@ fn main() {
     while app.frame() {
         // app.fixed_50_fps(|| info!("FRAME"));
 
-        client.update();
-
-        while let Some(action) = cmd.pop_action() {
-            actions.push(format!("{:?}", action));
-            let tr = Transaction::new(0, action);
-            client.send_message(ClientMessage::Transaction(tr));
-        }
-
-        for (_, msg) in client.history() {
+        for msg in client.update() {
             if let ServerMessage::GridPos(name, pos) = msg {
-                grids.insert(name.clone(), *pos);
+                grids.insert(name.clone(), pos);
             }
         }
 
@@ -42,7 +33,10 @@ fn main() {
             // d.draw_text(&format!("{:#?}", app.input), 100, 150, 24, Color::GRAY);
 
             for t in app.input.events() {
-                cmd.on_event(t);
+                if let Some(action) = cmd.on_event(t) {
+                    let tr = Transaction::new(0, action);
+                    client.send_message(ClientMessage::Transaction(tr));
+                }
             }
 
             d.draw_text(

@@ -1,6 +1,5 @@
 use super::commands::*;
 use crate::Action;
-use std::collections::VecDeque;
 
 pub enum Severity {
     Info,
@@ -10,7 +9,6 @@ pub enum Severity {
 pub struct CommandPrompt {
     pub contents: String,
     pub is_active: bool,
-    pub queued_commands: VecDeque<Action>,
     pub lines: Vec<(String, Severity)>,
     pub suggest_text: String,
     pub commands: Vec<Command>,
@@ -21,18 +19,17 @@ impl CommandPrompt {
         Self {
             contents: String::new(),
             is_active: false,
-            queued_commands: VecDeque::new(),
             lines: Vec::new(),
             suggest_text: String::new(),
             commands: all_commands(),
         }
     }
 
-    pub fn on_event(&mut self, event: &rdev::Event) {
+    pub fn on_event(&mut self, event: &rdev::Event) -> Option<Action> {
         if let rdev::EventType::KeyPress(k) = &event.event_type {
             match k {
                 rdev::Key::Backspace => self.on_backspace(),
-                rdev::Key::Return => self.on_enter(),
+                rdev::Key::Return => return self.on_enter(),
                 rdev::Key::BackQuote => self.focus(),
                 rdev::Key::Escape => self.dismiss(),
                 rdev::Key::Tab => self.on_tab_complete(),
@@ -45,6 +42,8 @@ impl CommandPrompt {
                 }
             }
         }
+
+        None
     }
 
     pub fn on_backspace(&mut self) {
@@ -60,20 +59,22 @@ impl CommandPrompt {
         self.lines.push((s, Severity::Error));
     }
 
-    fn on_enter(&mut self) {
+    fn on_enter(&mut self) -> Option<Action> {
         if !self.is_active {
-            return;
+            return None;
         }
         if self.contents.is_empty() {
-            return;
+            return None;
         }
 
         self.lines.push((self.contents.clone(), Severity::Info));
 
+        let mut ret = None;
+
         if let Some(cmd) = self.find_best_command() {
             match cmd.parse(&self.get_args()) {
                 Ok(action) => {
-                    self.queued_commands.push_back(action);
+                    ret = Some(action);
                 }
                 Err(e) => {
                     self.error(format!("Failed to parse: {e:?}"));
@@ -85,6 +86,8 @@ impl CommandPrompt {
 
         self.contents.clear();
         self.update_suggest_text();
+
+        ret
     }
 
     pub fn append(&mut self, s: &str) {
@@ -196,10 +199,6 @@ impl CommandPrompt {
 
     pub fn bg_text(&self) -> String {
         self.display_text().into_iter().map(|(c, _)| c).collect()
-    }
-
-    pub fn pop_action(&mut self) -> Option<Action> {
-        self.queued_commands.pop_front()
     }
 }
 

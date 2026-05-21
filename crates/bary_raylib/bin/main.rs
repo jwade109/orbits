@@ -162,13 +162,6 @@ fn main() {
         app.client.screen_dims =
             Vec2::new(rl.get_screen_width() as f32, rl.get_screen_height() as f32);
 
-        // GET COMMANDS FROM THE DEBUG TERMINAL
-
-        while let Some(action) = app.cmd.pop_action() {
-            let tr = Transaction::new(0, action);
-            apply_action(&mut app.world, tr.action);
-        }
-
         // GET COMMANDS FROM THE MULTIPLAYER SERVER
 
         while let Some(n) = app.incoming_network_queue.pop() {

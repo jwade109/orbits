@@ -120,6 +120,7 @@ impl Client {
         }
     }
 
+    #[must_use]
     pub fn update(&mut self) -> Vec<ServerMessage> {
         let now = Instant::now();
         let duration = now - self.last_updated;
