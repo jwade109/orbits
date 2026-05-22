@@ -31,19 +31,26 @@ impl From<Button> for KB {
 
 impl InputState {
     pub fn process_rdev_event(&mut self, event: &rdev::Event, focused: bool) {
-        self.events.push(event.clone());
         if let rdev::EventType::KeyPress(k) = event.event_type {
             if focused {
                 self.set_pressed(k);
+                self.events.push(event.clone());
             }
         } else if let rdev::EventType::KeyRelease(k) = event.event_type {
             self.set_released(k);
+            self.events.push(event.clone());
         } else if let rdev::EventType::ButtonPress(mb) = event.event_type {
             if focused {
                 self.set_pressed(mb);
+                self.events.push(event.clone());
             }
         } else if let rdev::EventType::ButtonRelease(mb) = event.event_type {
             self.set_released(mb);
+            self.events.push(event.clone());
+        } else {
+            if focused {
+                self.events.push(event.clone());
+            }
         }
     }
 

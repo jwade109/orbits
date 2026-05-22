@@ -72,6 +72,10 @@ pub enum Action {
     ListParts,
     ListThrusters,
     ListComputers,
+    ServerDisconnect,
+    ServerConnect,
+    RequestServerStatistics,
+    SetWaypoint(Ent, Isometry2d),
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

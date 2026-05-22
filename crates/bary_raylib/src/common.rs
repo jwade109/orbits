@@ -1,7 +1,4 @@
-use crate::{
-    sim::{Part, Thruster},
-    *,
-};
+use crate::sim::{Part, Thruster};
 use bary_core::prelude::{Ent, Isometry2d};
 use bary_parts::PartPrototype;
 use bary_sim::Computer;
@@ -54,6 +51,31 @@ impl Message {
     }
 }
 
+/// clone of [`renet::NetworkInfo`]
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub struct NetworkInfo {
+    pub rtt: f64,
+    pub packet_loss: f64,
+    pub bytes_sent_per_second: f64,
+    pub bytes_received_per_second: f64,
+}
+
+impl From<renet::NetworkInfo> for NetworkInfo {
+    fn from(value: renet::NetworkInfo) -> Self {
+        Self {
+            rtt: value.rtt,
+            packet_loss: value.packet_loss,
+            bytes_received_per_second: value.bytes_received_per_second,
+            bytes_sent_per_second: value.bytes_sent_per_second,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub struct ServerStatistics {
+    pub clients: Vec<(u64, NetworkInfo)>,
+}
+
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum MessageKind {
     Pong,
@@ -68,7 +90,7 @@ pub enum MessageKind {
     Unsupported,
     FindGridByName(String),
     Entity(Ent),
-    ServerInfo { connected_users: usize },
+    ServerStatistics(ServerStatistics),
     ListGrids,
     ListProtos,
     ListParts,
@@ -79,6 +101,8 @@ pub enum MessageKind {
     Part(Ent, Part),
     Thruster(Ent, Thruster),
     Computer(Ent, Computer),
+    RequestServerStatistics,
+    SetWaypoint(Ent, Isometry2d),
 }
 
 impl MessageKind {

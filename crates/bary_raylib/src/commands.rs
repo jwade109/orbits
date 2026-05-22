@@ -29,10 +29,7 @@ pub fn cmd_waypoint(args: &ArgsMap) -> Result<Action, ParseError> {
     let x = parse_arg(args, "x")?;
     let y = parse_arg(args, "y")?;
     let pos = Vec2::new(x, y);
-    Ok(Action::World(WorldAction::SetWaypoint {
-        grid_id: Ent(grid_id),
-        waypoint: Isometry2d::from_pos(pos),
-    }))
+    Ok(Action::SetWaypoint(Ent(grid_id), Isometry2d::from_pos(pos)))
 }
 
 pub fn cmd_edit(args: &ArgsMap) -> Result<Action, ParseError> {
@@ -96,5 +93,12 @@ pub fn all_commands() -> Vec<Command<Action>> {
         Command::new("ls.parts", vec![], |_| Ok(Action::ListParts)),
         Command::new("ls.thrusters", vec![], |_| Ok(Action::ListThrusters)),
         Command::new("ls.cpus", vec![], |_| Ok(Action::ListComputers)),
+        Command::new("server.disconnect", vec![], |_| {
+            Ok(Action::ServerDisconnect)
+        }),
+        Command::new("server.connect", vec![], |_| Ok(Action::ServerConnect)),
+        Command::new("server.info", vec![], |_| {
+            Ok(Action::RequestServerStatistics)
+        }),
     ]
 }

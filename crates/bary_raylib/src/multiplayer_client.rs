@@ -25,7 +25,6 @@ pub struct Client {
     client: RenetClient,
     transport: NetcodeClientTransport,
     last_updated: Instant,
-    has_introduced: bool,
     username: String,
     rx_count: usize,
     tx_count: usize,
@@ -60,7 +59,6 @@ impl Client {
             client,
             transport,
             last_updated,
-            has_introduced: false,
             username: username.to_string(),
             tx_count: 0,
             rx_count: 0,
@@ -68,7 +66,11 @@ impl Client {
         }
     }
 
-    fn reconnect(&mut self) {
+    pub fn reconnect(&mut self) {
+        if self.is_connected() {
+            return;
+        }
+
         let username = format!("u{}", randint(1, 1000000));
 
         let client = RenetClient::new(ConnectionConfig::default());
@@ -93,7 +95,6 @@ impl Client {
             client,
             transport,
             last_updated,
-            has_introduced: false,
             username: username.to_string(),
             tx_count: 0,
             rx_count: 0,
@@ -128,45 +129,20 @@ impl Client {
 
         self.client.update(duration);
 
-        if let Err(e) = self.transport.update(duration, &mut self.client) {
-            error!("Failed to update network transport: {}", e);
-            self.reconnect();
+        if self.transport.update(duration, &mut self.client).is_err() {
             return Vec::new();
         }
 
         let mut messages = Vec::new();
 
-        if self.client.is_connected() {
-            if !self.has_introduced {
-                self.has_introduced = true;
-                self.send_message(
-                    MessageKind::Introduction {
-                        username: self.username.clone(),
-                    }
-                    .into(),
-                );
+        while let Some(bytes) = self.client.receive_message(DefaultChannel::ReliableOrdered) {
+            let msg: Message = bincode::deserialize(&bytes).unwrap();
+            self.message_history.push_back((self.rx_count, msg.clone()));
+            if self.message_history.len() > 20 {
+                self.message_history.pop_front();
             }
-
-            while let Some(bytes) = self.client.receive_message(DefaultChannel::ReliableOrdered) {
-                let msg: Message = bincode::deserialize(&bytes).unwrap();
-                debug!("Got from server: {:?}", msg);
-
-                self.message_history.push_back((self.rx_count, msg.clone()));
-                if self.message_history.len() > 20 {
-                    self.message_history.pop_front();
-                }
-
-                self.rx_count += 1;
-
-                match &msg.kind {
-                    MessageKind::Text(msg) => {
-                        info!("Server message: ~ {}", msg);
-                    }
-                    _ => (),
-                }
-
-                messages.push(msg);
-            }
+            self.rx_count += 1;
+            messages.push(msg);
         }
 
         if let Err(e) = self.transport.send_packets(&mut self.client) {
@@ -187,8 +163,11 @@ impl Client {
         self.tx_count += 1;
     }
 
+    pub fn send_command(&mut self, kind: MessageKind) {
+        self.send_message(Message::command("client", kind));
+    }
+
     pub fn disconnect(&mut self) {
-        self.transport.disconnect();
         self.client.disconnect();
     }
 }

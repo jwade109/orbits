@@ -121,7 +121,7 @@ fn main() {
 
     let (mut rl, thread) = raylib::init()
         .size(1080, 700)
-        .title("Hello world!")
+        .title("Barycenter")
         .log_level(TraceLogLevel::LOG_WARNING)
         .msaa_4x()
         .resizable()
@@ -136,6 +136,8 @@ fn main() {
 
     let mut app = new_app(false);
 
+    let mut client = Client::new(127, 0, 0, 1, 5000);
+
     let mut assets = Assets::default();
 
     load_assets(&mut assets, &mut rl, &thread);
@@ -144,6 +146,10 @@ fn main() {
 
     while !rl.window_should_close() {
         // HANDLE INPUTS FROM RDEV LISTENER THREAD
+
+        for msg in client.update() {
+            app.cmd.log_debug(format!("{:?}", msg));
+        }
 
         let mut rdev_events = Vec::new();
         while let Some(e) = app.input_queue.pop() {
@@ -185,8 +191,9 @@ fn main() {
 
         // HANDLE RDEV EVENTS (DEPRECATED - USE INPUTSTATE)
 
-        for e in rdev_events {
-            app.process_event(e, &mut sounds, &mut actions, gui.is_hovering_gui());
+        let events: Vec<_> = app.client.input.events().cloned().collect();
+        for e in events {
+            app.process_event(e.clone(), &mut sounds, &mut actions, gui.is_hovering_gui());
         }
 
         // EMIT ACTIONS TO OTHER MULTIPLAYER CLIENTS

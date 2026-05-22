@@ -1,19 +1,23 @@
 use bary_core::prelude::*;
+use bary_factory::*;
+use bary_raylib::render::draw_terminal;
 use bary_raylib::sim::World;
-use bary_raylib::utils::WallTimer;
+use bary_raylib::utils::{BasicApp, WallTimer};
 use bary_raylib::world_builder::WorldBuilder;
 use bary_raylib::*;
 use log::{info, warn};
+use raylib::prelude::*;
+use std::sync::{Arc, RwLock};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
 pub struct ServerApp {
     world: World,
+    server: Arc<RwLock<Server>>,
     incoming_transactions: MessageQueue<Message>,
     outgoing_transactions: MessageQueue<Message>,
     _server_thread: JoinHandle<()>,
     world_timer: WallTimer,
-    world_echo_timer: WallTimer,
     sync_timer: WallTimer,
 }
 
@@ -24,38 +28,73 @@ impl ServerApp {
 
         let world = WorldBuilder::new()
             .assets()
-            .blueprint("pollux")
+            .blueprint(("pollux", 0))
+            .blueprint(("pollux", 2))
             .blueprint("bellerophon")
             .blueprint("remora")
             .blueprint("spacestation")
-            .spawn("pollux", "", Isometry2d::ZERO)
-            .spawn("remora", "jill", Isometry2d::from_pos(randvec(20.0, 40.0)))
-            .spawn("remora", "", Isometry2d::from_pos(randvec(20.0, 40.0)))
-            .spawn("remora", "bob", Isometry2d::from_pos(randvec(20.0, 40.0)))
-            .waypoint("bob", (-900.0, 140.0, 0.0))
-            .waypoint("jill", (700.0, -400.0, 0.4))
+            .blueprint("foundation")
+            .blueprint("miner")
+            .blueprint("icecream")
+            .spawn(("pollux", 0), "", (30.0, 0.0, 0.0))
+            .spawn(("pollux", 2), "", (0.0, 0.0, 0.0))
+            .insert_source((19, 7), Item::Magnesium)
+            .insert_source((20, 7), Item::Iron)
+            .insert_source((21, 7), Item::Titanium)
+            .set_recipe((21, 7), RecipeListing::TitaniumLattice)
+            .insert_source((22, 11), Item::Water)
+            .insert_pipe((22, 11), (22, 10))
+            .set_recipe((27, 7), RecipeListing::WaterElectrolysis)
+            .insert_pipe((17, 10), (15, 10))
+            .insert_pipe((27, 7), (34, 7))
+            .insert_pipe((26, 7), (25, 6))
+            .spawn("remora", "", (10.0, 30.0, 0.1))
+            .spawn("miner", "", (-9.0, 12.0, -0.3))
+            .spawn("remora", "", (-7.0, 23.0, 0.7))
+            .spawn("bellerophon", "", (130.0, 50.0, 0.1))
+            .command(WorldAction::SetSpeed(10))
+            .command(WorldAction::Ping(Vec2::ZERO))
+            .command(WorldAction::Ping(Vec2::splat(10.0)))
+            .asteroid((-80.0, 30.0, 0.1), 20.0, 391)
+            .asteroid((60.0, 300.0, 0.7), 50.0, 2384)
+            .asteroid((400.0, -2000.0, 0.7), 500.0, 9312)
             .build();
+
+        let server = Arc::new(RwLock::new(Server::new()));
 
         Self {
             world,
+            server: server.clone(),
             incoming_transactions: incoming_transactions.clone(),
             outgoing_transactions: outgoing_transactions.clone(),
             _server_thread: std::thread::spawn(|| {
-                server_thread(incoming_transactions, outgoing_transactions)
+                server_thread(server, incoming_transactions, outgoing_transactions)
             }),
             world_timer: WallTimer::with_dur(Duration::from_millis(20)),
-            world_echo_timer: WallTimer::with_dur(Duration::from_secs(1)),
             sync_timer: WallTimer::with_dur(Duration::from_millis(250)),
         }
     }
 
-    pub fn update(&mut self) {
-        while let Some(msg) = self.incoming_transactions.pop() {
-            self.on_accept_message(msg);
+    pub fn get_statistics(&self) -> ServerStatistics {
+        if let Ok(server) = self.server.read() {
+            let mut clients = Vec::new();
+            for client in server.renet().clients_id_iter() {
+                if let Ok(info) = server.renet().network_info(client) {
+                    clients.push((client, info.into()));
+                }
+            }
+            ServerStatistics { clients }
+        } else {
+            ServerStatistics::default()
         }
+    }
 
-        if self.world_echo_timer.tick() {
-            // info!("Running world: {:?}", self.world);
+    #[must_use]
+    pub fn update(&mut self) -> Vec<Message> {
+        let mut messages = Vec::new();
+        while let Some(msg) = self.incoming_transactions.pop() {
+            self.on_accept_message(msg.clone());
+            messages.push(msg);
         }
 
         if self.world_timer.tick() {
@@ -69,6 +108,8 @@ impl ServerApp {
             self.send_tlm_grid_pos();
             self.send_tlm_server_info();
         }
+
+        messages
     }
 
     fn send_tlm_current_tick(&mut self) {
@@ -90,8 +131,11 @@ impl ServerApp {
     }
 
     fn send_tlm_server_info(&mut self) {
-        self.outgoing_transactions
-            .push(MessageKind::ServerInfo { connected_users: 0 }.with_source("server"));
+        self.outgoing_transactions.push(Message::new(
+            "server",
+            MessageLevel::Telemetry,
+            MessageKind::ServerStatistics(self.get_statistics()),
+        ));
         self.outgoing_transactions
             .push(MessageKind::Text("Hello there!".to_string()).with_source("server"));
     }
@@ -131,6 +175,9 @@ impl ServerApp {
             }
             MessageKind::ListComputers => {
                 self.on_accept_list_computers();
+            }
+            MessageKind::RequestServerStatistics => {
+                self.on_accept_req_server_info();
             }
             _ => self.on_unsupported_message(),
         }
@@ -235,43 +282,76 @@ impl ServerApp {
             ));
         }
     }
+
+    fn on_accept_req_server_info(&mut self) {
+        self.outgoing_transactions.push(Message::new(
+            "server",
+            MessageLevel::Response,
+            MessageKind::ServerStatistics(self.get_statistics()),
+        ));
+    }
 }
 
-fn server_thread(incoming_queue: MessageQueue<Message>, outgoing_queue: MessageQueue<Message>) {
-    let mut server = Server::new();
-
+fn server_thread(
+    server: Arc<RwLock<Server>>,
+    incoming_queue: MessageQueue<Message>,
+    outgoing_queue: MessageQueue<Message>,
+) {
     let mut update_timer = WallTimer::with_dur(Duration::from_millis(50));
     let mut echo_timer = WallTimer::with_dur(Duration::from_millis(3000));
 
     loop {
-        if update_timer.tick() {
-            for msg in server.update() {
-                incoming_queue.push(msg);
+        if let Ok(mut server) = server.write() {
+            if update_timer.tick() {
+                for msg in server.update() {
+                    incoming_queue.push(msg);
+                }
             }
-        }
 
-        if echo_timer.tick() {
-            info!("{} users connected", server.renet().clients_id().len());
-        }
+            if echo_timer.tick() {
+                info!("{} users connected", server.renet().clients_id().len());
+            }
 
-        while let Some(sm) = outgoing_queue.pop() {
-            server.broadcast(sm);
+            while let Some(sm) = outgoing_queue.pop() {
+                server.broadcast(sm);
+            }
         }
     }
 }
 
 fn main() {
-    simple_logger::SimpleLogger::new()
-        .with_level(log::LevelFilter::Debug)
-        .env()
-        .init()
-        .unwrap();
-
     println!("Starting dedicated server...");
 
-    let mut app = ServerApp::new();
+    let mut app = BasicApp::new("Barycenter Server");
+    let mut terminal = bary_terminal::Terminal::with_commands(all_commands());
+    let mut server = ServerApp::new();
+    let mut assets = assets::Assets::default();
 
-    loop {
-        app.update();
+    assets::load_assets(&mut assets, &mut app.handle, &app.thread);
+
+    while app.frame() {
+        for msg in server.update() {
+            let s = format!("{:?}", msg);
+            terminal.log_debug(s);
+        }
+
+        for e in app.input.events() {
+            terminal.on_event(e);
+        }
+
+        terminal.focus();
+
+        app.handle.draw(&app.thread, |mut d| {
+            d.clear_background(Color::new(140, 140, 30, 255));
+            d.draw_rectangle(
+                3,
+                3,
+                d.get_render_width() - 6,
+                d.get_render_height() - 6,
+                Color::ORANGE,
+            );
+            draw_terminal(&mut d, &terminal, &assets);
+            d.draw_text("Server Application", 10, 10, 24, Color::ORANGE);
+        })
     }
 }

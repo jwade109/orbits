@@ -10,6 +10,8 @@ fn main() {
 
     let mut client = Client::new(127, 0, 0, 1, 5000);
 
+    let mut server_stats = ServerStatistics::default();
+
     let mut grids = BTreeMap::new();
 
     let mut assets = assets::Assets::default();
@@ -17,8 +19,6 @@ fn main() {
     assets::load_assets(&mut assets, &mut app.handle, &app.thread);
 
     while app.frame() {
-        // app.fixed_50_fps(|| info!("FRAME"));
-
         for msg in client.update() {
             let s = format!("{:?}", msg);
             let k = if let MessageKind::Text(text) = &msg.kind {
@@ -39,8 +39,12 @@ fn main() {
                 _ => (),
             }
 
-            if let MessageKind::GridPos(name, pos) = msg.kind {
-                grids.insert(name.clone(), pos);
+            if let MessageKind::GridPos(name, pos) = &msg.kind {
+                grids.insert(name.clone(), *pos);
+            }
+
+            if let MessageKind::ServerStatistics(stats) = msg.kind {
+                server_stats = stats;
             }
         }
 
@@ -50,10 +54,10 @@ fn main() {
             if let Some(action) = terminal.on_event(t) {
                 match action {
                     Action::Say(s) => {
-                        client.send_message(Message::command("client", MessageKind::Text(s)));
+                        client.send_command(MessageKind::Text(s));
                     }
                     Action::Ping => {
-                        client.send_message(Message::command("client", MessageKind::Ping));
+                        client.send_command(MessageKind::Ping);
                     }
                     Action::Clear => {
                         terminal.clear();
@@ -74,19 +78,31 @@ fn main() {
                         should_exit = true;
                     }
                     Action::ListGrids => {
-                        client.send_message(Message::command("client", MessageKind::ListGrids));
+                        client.send_command(MessageKind::ListGrids);
                     }
                     Action::ListProtos => {
-                        client.send_message(Message::command("client", MessageKind::ListProtos));
+                        client.send_command(MessageKind::ListProtos);
                     }
                     Action::ListParts => {
-                        client.send_message(Message::command("client", MessageKind::ListParts));
+                        client.send_command(MessageKind::ListParts);
                     }
                     Action::ListThrusters => {
-                        client.send_message(Message::command("client", MessageKind::ListThrusters));
+                        client.send_command(MessageKind::ListThrusters);
                     }
                     Action::ListComputers => {
-                        client.send_message(Message::command("client", MessageKind::ListComputers));
+                        client.send_command(MessageKind::ListComputers);
+                    }
+                    Action::ServerConnect => {
+                        client.reconnect();
+                    }
+                    Action::ServerDisconnect => {
+                        client.disconnect();
+                    }
+                    Action::RequestServerStatistics => {
+                        client.send_command(MessageKind::RequestServerStatistics);
+                    }
+                    Action::SetWaypoint(id, iso) => {
+                        client.send_command(MessageKind::SetWaypoint(id, iso));
                     }
                     _ => (),
                 }
@@ -97,16 +113,20 @@ fn main() {
             app.exit();
         }
 
+        let focused = app.handle.is_window_focused();
+
         app.handle.draw(&app.thread, |mut d| {
             d.clear_background(Color::new(10, 10, 10, 255));
 
             d.draw_text(
-                &format!("{:#?}", client.stats()),
+                &format!("{}\n{:#?}", focused, client.stats()),
                 100,
                 100,
-                24,
+                18,
                 Color::WHITE,
             );
+
+            d.draw_text(&format!("{:#?}", server_stats), 600, 100, 18, Color::WHITE);
 
             for (name, pos) in &grids {
                 let x = pos.translation.x as i32 + d.get_render_width() / 2;
