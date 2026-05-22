@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use bary_core::prelude::*;
+use bary_ipc::*;
 use bary_raylib::app::*;
 use bary_raylib::assets::*;
 use bary_raylib::imgui;
@@ -10,7 +11,6 @@ use bary_raylib::sounds::SoundEffects;
 use bary_raylib::tests::is_world_consistent;
 use bary_raylib::utils::WallTimer;
 use bary_raylib::utils::raylib_to_glam;
-use bary_raylib::*;
 use log::*;
 use raylib::prelude::*;
 

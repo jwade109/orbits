@@ -1,5 +1,6 @@
 use bary_core::prelude::*;
 use bary_factory::*;
+use bary_ipc::*;
 use bary_raylib::assets::Assets;
 use bary_raylib::render::draw_terminal;
 use bary_raylib::sim::World;

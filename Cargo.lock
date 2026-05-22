@@ -477,6 +477,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "bary_ipc"
+version = "0.1.0"
+dependencies = [
+ "bary_core",
+ "bary_parts",
+ "bary_sim",
+ "bincode",
+ "crossbeam-queue",
+ "log",
+ "renet",
+ "renet_netcode",
+ "serde",
+]
+
+[[package]]
 name = "bary_orbital"
 version = "0.1.0"
 dependencies = [
@@ -512,6 +527,7 @@ dependencies = [
  "bary_core",
  "bary_factory",
  "bary_input",
+ "bary_ipc",
  "bary_orbital",
  "bary_parts",
  "bary_sim",
@@ -521,7 +537,6 @@ dependencies = [
  "chrono",
  "clap 4.6.0",
  "criterion",
- "crossbeam-queue",
  "early_returns",
  "enum-iterator",
  "env_logger",
@@ -531,8 +546,6 @@ dependencies = [
  "rand 0.10.1",
  "raylib",
  "rdev",
- "renet",
- "renet_netcode",
  "rfd 0.17.2",
  "serde",
  "serde_yaml",
@@ -3479,9 +3492,9 @@ dependencies = [
 
 [[package]]
 name = "typenum"
-version = "1.19.0"
+version = "1.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
+checksum = "40ce102ab67701b8526c123c1bab5cbe42d7040ccfd0f64af1a385808d2f43de"
 
 [[package]]
 name = "uds_windows"

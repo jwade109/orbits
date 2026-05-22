@@ -1,7 +1,6 @@
-use crate::sim::{Part, Thruster};
 use bary_core::prelude::{Ent, Isometry2d};
 use bary_parts::PartPrototype;
-use bary_sim::Computer;
+use bary_sim::{Computer, Part, Thruster};
 use crossbeam_queue::SegQueue;
 use serde::{Deserialize, Serialize};
 use std::{

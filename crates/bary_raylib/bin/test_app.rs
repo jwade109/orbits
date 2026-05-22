@@ -1,3 +1,4 @@
+use bary_ipc::*;
 use bary_raylib::{render::draw_terminal, *};
 use bary_terminal::*;
 use raylib::prelude::*;

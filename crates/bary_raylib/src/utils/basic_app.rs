@@ -1,5 +1,5 @@
-use crate::{MessageQueue, new_message_queue};
 use bary_input::*;
+use bary_ipc::{MessageQueue, new_message_queue};
 use raylib::prelude::*;
 use std::thread::JoinHandle;
 
