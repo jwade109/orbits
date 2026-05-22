@@ -117,30 +117,31 @@ impl ServerApp {
 
     fn send_tlm_current_tick(&mut self) {
         self.outgoing_transactions
-            .push(MessageKind::CurrentTick(self.world.ticks).with_source("server"));
+            .push(MessageKind::CurrentTick(self.world.ticks).with_source(MessageSource::Server));
     }
 
     fn send_tlm_grid_pos(&mut self) {
         for grid in self.world.grids.values() {
             let pos = grid.particle_location;
-            self.outgoing_transactions
-                .push(MessageKind::GridPos(grid.name.clone(), pos).with_source("server"));
+            self.outgoing_transactions.push(
+                MessageKind::GridPos(grid.name.clone(), pos).with_source(MessageSource::Server),
+            );
         }
     }
 
     fn send_tlm_ack(&mut self) {
         self.outgoing_transactions
-            .push(MessageKind::Ack.with_source("server"));
+            .push(MessageKind::Ack.with_source(MessageSource::Server));
     }
 
     fn send_tlm_server_info(&mut self) {
         self.outgoing_transactions.push(Message::new(
-            "server",
+            MessageSource::Server,
             MessageLevel::Telemetry,
             MessageKind::ServerStatistics(self.get_statistics()),
         ));
         self.outgoing_transactions
-            .push(MessageKind::Text("Hello there!".to_string()).with_source("server"));
+            .push(MessageKind::Text("Hello there!".to_string()).with_source(MessageSource::Server));
     }
 
     fn on_accept_message(&mut self, msg: Message) {
@@ -189,7 +190,7 @@ impl ServerApp {
     fn on_unsupported_message(&mut self) {
         warn!("Unsupported message type!");
         self.outgoing_transactions.push(Message::new(
-            "server",
+            MessageSource::Server,
             MessageLevel::Response,
             MessageKind::Unsupported,
         ));
@@ -197,7 +198,7 @@ impl ServerApp {
 
     fn on_accept_ping(&mut self) {
         self.outgoing_transactions.push(Message::new(
-            "server",
+            MessageSource::Server,
             MessageLevel::Response,
             MessageKind::Pong,
         ));
@@ -205,7 +206,7 @@ impl ServerApp {
 
     fn on_accept_text(&mut self, s: String) {
         self.outgoing_transactions.push(Message::new(
-            "server",
+            MessageSource::Server,
             MessageLevel::Response,
             MessageKind::Text(format!("Here king, you dropped this: \"{s:}\"")),
         ));
@@ -214,7 +215,7 @@ impl ServerApp {
     fn on_accept_set_sim_speed(&mut self, speed: u32) {
         self.world.tick_rate = speed;
         self.outgoing_transactions.push(Message::new(
-            "server",
+            MessageSource::Server,
             MessageLevel::Response,
             MessageKind::Ack,
         ));
@@ -223,13 +224,13 @@ impl ServerApp {
     fn on_accept_find_grid_by_name(&mut self, name: String) {
         if let Some(id) = get_grid_by_name(&self.world.grids, &name) {
             self.outgoing_transactions.push(Message::new(
-                "server",
+                MessageSource::Server,
                 MessageLevel::Response,
                 MessageKind::Entity(id),
             ));
         } else {
             self.outgoing_transactions.push(Message::new(
-                "server",
+                MessageSource::Server,
                 MessageLevel::Response,
                 MessageKind::Text("No grid with that name.".into()),
             ));
@@ -239,7 +240,7 @@ impl ServerApp {
     fn on_accept_list_grids(&mut self) {
         for (id, grid) in self.world.grids.iter() {
             self.outgoing_transactions.push(Message::new(
-                "server",
+                MessageSource::Server,
                 MessageLevel::Response,
                 MessageKind::GridInfo(*id, grid.name.clone(), grid.particle_location),
             ));
@@ -249,7 +250,7 @@ impl ServerApp {
     fn on_accept_list_protos(&mut self) {
         for (id, proto) in self.world.prototypes.iter() {
             self.outgoing_transactions.push(Message::new(
-                "server",
+                MessageSource::Server,
                 MessageLevel::Response,
                 MessageKind::Proto(*id, proto.clone()),
             ));
@@ -259,7 +260,7 @@ impl ServerApp {
     fn on_accept_list_parts(&mut self) {
         for (id, part) in self.world.parts.iter() {
             self.outgoing_transactions.push(Message::new(
-                "server",
+                MessageSource::Server,
                 MessageLevel::Response,
                 MessageKind::Part(*id, *part),
             ));
@@ -269,7 +270,7 @@ impl ServerApp {
     fn on_accept_list_thrusters(&mut self) {
         for (id, thr) in self.world.thrusters.iter() {
             self.outgoing_transactions.push(Message::new(
-                "server",
+                MessageSource::Server,
                 MessageLevel::Response,
                 MessageKind::Thruster(*id, thr.clone()),
             ));
@@ -279,7 +280,7 @@ impl ServerApp {
     fn on_accept_list_computers(&mut self) {
         for (id, cpu) in self.world.computers.iter() {
             self.outgoing_transactions.push(Message::new(
-                "server",
+                MessageSource::Server,
                 MessageLevel::Response,
                 MessageKind::Computer(*id, cpu.clone()),
             ));
@@ -288,7 +289,7 @@ impl ServerApp {
 
     fn on_accept_req_server_info(&mut self) {
         self.outgoing_transactions.push(Message::new(
-            "server",
+            MessageSource::Server,
             MessageLevel::Response,
             MessageKind::ServerStatistics(self.get_statistics()),
         ));

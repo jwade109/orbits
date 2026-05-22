@@ -27,7 +27,7 @@ fn main() {
             } else {
                 format!("{:?}", msg.kind)
             };
-            let t = format!("[{}] {}", msg.source, k);
+            let t = format!("[{:?}] {}", msg.source, k);
             terminal.log_debug(s);
 
             match msg.level {
@@ -64,16 +64,10 @@ fn main() {
                         terminal.clear();
                     }
                     Action::SetSimSpeed(speed) => {
-                        client.send_message(Message::command(
-                            "client",
-                            MessageKind::SetSimSpeed(speed),
-                        ));
+                        client.send_command(MessageKind::SetSimSpeed(speed));
                     }
                     Action::FindGridByName(name) => {
-                        client.send_message(Message::command(
-                            "client",
-                            MessageKind::FindGridByName(name),
-                        ));
+                        client.send_command(MessageKind::FindGridByName(name));
                     }
                     Action::Exit => {
                         should_exit = true;

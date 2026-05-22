@@ -21,27 +21,36 @@ pub enum MessageLevel {
     Response,
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ClientId(pub u64);
+
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MessageSource {
+    Server,
+    Client(ClientId),
+}
+
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Message {
-    pub source: String,
+    pub source: MessageSource,
     pub level: MessageLevel,
     pub kind: MessageKind,
 }
 
 impl Message {
-    pub fn new(source: impl Into<String>, level: MessageLevel, kind: MessageKind) -> Self {
+    pub fn new(source: MessageSource, level: MessageLevel, kind: MessageKind) -> Self {
         Self {
-            source: source.into(),
+            source,
             level,
             kind,
         }
     }
 
-    pub fn ack_tlm(source: impl Into<String>) -> Self {
+    pub fn ack_tlm(source: MessageSource) -> Self {
         Self::new(source, MessageLevel::Telemetry, MessageKind::Ack)
     }
 
-    pub fn nack_tlm(source: impl Into<String>) -> Self {
+    pub fn nack_tlm(source: MessageSource) -> Self {
         Self::new(source, MessageLevel::Telemetry, MessageKind::Ack)
     }
 
@@ -61,15 +70,15 @@ impl Message {
         }
     }
 
-    pub fn telemetry(source: impl Into<String>, kind: MessageKind) -> Self {
+    pub fn telemetry(source: MessageSource, kind: MessageKind) -> Self {
         Self::new(source, MessageLevel::Telemetry, kind)
     }
 
-    pub fn response(source: impl Into<String>, kind: MessageKind) -> Self {
+    pub fn response(source: MessageSource, kind: MessageKind) -> Self {
         Self::new(source, MessageLevel::Response, kind)
     }
 
-    pub fn command(source: impl Into<String>, kind: MessageKind) -> Self {
+    pub fn command(source: MessageSource, kind: MessageKind) -> Self {
         Self::new(source, MessageLevel::Command, kind)
     }
 }
@@ -130,9 +139,9 @@ pub enum MessageKind {
 }
 
 impl MessageKind {
-    pub fn with_source(self, s: impl Into<String>) -> Message {
+    pub fn with_source(self, source: MessageSource) -> Message {
         Message {
-            source: s.into(),
+            source,
             level: MessageLevel::Telemetry,
             kind: self,
         }
@@ -140,11 +149,11 @@ impl MessageKind {
 }
 
 impl From<MessageKind> for Message {
-    fn from(value: MessageKind) -> Self {
+    fn from(kind: MessageKind) -> Self {
         Self {
-            source: String::new(),
+            source: MessageSource::Client(ClientId(0)),
             level: MessageLevel::Telemetry,
-            kind: value,
+            kind,
         }
     }
 }

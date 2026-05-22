@@ -1,7 +1,7 @@
 mod common;
-mod multiplayer_client;
+mod client;
 mod server;
 
 pub use common::*;
-pub use multiplayer_client::*;
+pub use client::*;
 pub use server::*;

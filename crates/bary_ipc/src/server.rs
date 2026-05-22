@@ -1,4 +1,4 @@
-use crate::{ClientId, Message, MessageKind};
+use crate::{ClientId, Message, MessageKind, MessageSource};
 use log::{debug, info};
 use renet::*;
 use renet_netcode::*;
@@ -48,32 +48,32 @@ impl Server {
     }
 
     pub fn broadcast_telemetry(&mut self, kind: MessageKind) {
-        let msg = Message::telemetry("server", kind);
+        let msg = Message::telemetry(MessageSource::Server, kind);
         self.broadcast(msg);
     }
 
     pub fn send_telemetry(&mut self, id: ClientId, kind: MessageKind) {
-        let msg = Message::telemetry("server", kind);
+        let msg = Message::telemetry(MessageSource::Server, kind);
         self.send(id, msg);
     }
 
     pub fn broadcast_response(&mut self, kind: MessageKind) {
-        let msg = Message::response("server", kind);
+        let msg = Message::response(MessageSource::Server, kind);
         self.broadcast(msg);
     }
 
     pub fn send_response(&mut self, id: ClientId, kind: MessageKind) {
-        let msg = Message::response("server", kind);
+        let msg = Message::response(MessageSource::Server, kind);
         self.send(id, msg);
     }
 
     pub fn broadcast_command(&mut self, kind: MessageKind) {
-        let msg = Message::command("server", kind);
+        let msg = Message::command(MessageSource::Server, kind);
         self.broadcast(msg);
     }
 
     pub fn send_command(&mut self, id: ClientId, kind: MessageKind) {
-        let msg = Message::command("server", kind);
+        let msg = Message::command(MessageSource::Server, kind);
         self.send(id, msg);
     }
 
@@ -201,6 +201,10 @@ mod tests {
         assert_eq!(msgs[0].level, MessageLevel::Response);
         assert_eq!(msgs[1].level, MessageLevel::Telemetry);
         assert_eq!(msgs[2].level, MessageLevel::Command);
+
+        assert_eq!(msgs[0].source, MessageSource::Server);
+        assert_eq!(msgs[1].source, MessageSource::Server);
+        assert_eq!(msgs[2].source, MessageSource::Server);
     }
 
     #[test]

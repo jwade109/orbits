@@ -1,4 +1,5 @@
-use super::common::*;
+use crate::ClientId;
+use crate::*;
 use log::*;
 use renet::*;
 use renet_netcode::*;
@@ -17,9 +18,6 @@ pub struct ClientStatistics {
     pub rx_count: usize,
     pub tx_count: usize,
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ClientId(pub u64);
 
 #[derive(Debug)]
 pub struct Client {
@@ -159,11 +157,11 @@ impl Client {
     }
 
     pub fn send_command(&mut self, kind: MessageKind) {
-        self.send_message(Message::command("client", kind));
+        self.send_message(Message::command(MessageSource::Client(self.id), kind));
     }
 
     pub fn send_telemetry(&mut self, kind: MessageKind) {
-        self.send_message(Message::telemetry("client", kind));
+        self.send_message(Message::telemetry(MessageSource::Client(self.id), kind));
     }
 
     pub fn disconnect(&mut self) {
