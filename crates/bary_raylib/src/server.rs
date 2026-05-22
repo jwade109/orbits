@@ -1,12 +1,9 @@
-use super::common::*;
+use crate::{Message, MessageKind};
 use log::{debug, info};
 use renet::*;
 use renet_netcode::*;
 use std::net::*;
 use std::time::{Instant, SystemTime};
-
-pub const SYSTEM_MESSAGE_CLIENT_ID: ClientId = 0;
-pub const HOST_CLIENT_ID: ClientId = 1;
 
 pub struct Server {
     renet: RenetServer,
@@ -15,9 +12,9 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new() -> Self {
-        let socket: UdpSocket =
-            UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 5000)).unwrap();
+    pub fn new(port: u16) -> Self {
+        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), port);
+        let socket: UdpSocket = UdpSocket::bind(addr).unwrap();
 
         let current_time = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
@@ -50,10 +47,36 @@ impl Server {
         &self.renet
     }
 
+    pub fn broadcast_telemetry(&mut self, kind: MessageKind) {
+        let msg = Message::telemetry("server", kind);
+        self.broadcast(msg);
+    }
+
+    pub fn send_telemetry(&mut self, client_id: u64, kind: MessageKind) {
+        let msg = Message::telemetry("server", kind);
+        self.send(client_id, msg);
+    }
+
+    pub fn broadcast_response(&mut self, kind: MessageKind) {
+        let msg = Message::response("server", kind);
+        self.broadcast(msg);
+    }
+
+    pub fn send_response(&mut self, client_id: u64, kind: MessageKind) {
+        let msg = Message::response("server", kind);
+        self.send(client_id, msg);
+    }
+
     pub fn broadcast(&mut self, msg: Message) {
         let message = bincode::serialize(&msg).unwrap();
         self.renet
             .broadcast_message(DefaultChannel::ReliableOrdered, message);
+    }
+
+    pub fn send(&mut self, client_id: u64, msg: Message) {
+        let message = bincode::serialize(&msg).unwrap();
+        self.renet
+            .send_message(client_id, DefaultChannel::ReliableOrdered, message);
     }
 
     #[must_use]
@@ -106,8 +129,8 @@ mod tests {
 
     #[test]
     fn test_connection() {
-        let mut server = Server::new();
-        let mut client = Client::new(127, 0, 0, 1, 5000);
+        let mut server = Server::new(7000);
+        let mut client = Client::new(127, 0, 0, 1, 7000);
 
         let dur = Duration::from_millis(10);
 
@@ -117,6 +140,21 @@ mod tests {
             std::thread::sleep(dur);
         }
 
-        assert_eq!(client.is_connected(), true);
+        assert!(client.is_connected());
+
+        server.broadcast_telemetry(MessageKind::Ack);
+        _ = server.update();
+
+        let msgs = client.update();
+
+        let msg = msgs.first().unwrap();
+
+        let is_ack = if let MessageKind::Ack = msg.kind {
+            true
+        } else {
+            false
+        };
+
+        assert!(is_ack);
     }
 }

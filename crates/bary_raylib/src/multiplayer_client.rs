@@ -1,9 +1,7 @@
 use super::common::*;
-use bary_core::prelude::randint;
-use log::{debug, error, info};
+use log::*;
 use renet::*;
 use renet_netcode::*;
-use std::collections::VecDeque;
 use std::net::*;
 use std::time::Instant;
 
@@ -21,20 +19,18 @@ pub struct ClientStatistics {
 }
 
 pub struct Client {
+    id: u64,
     server_addr: SocketAddr,
     client: RenetClient,
     transport: NetcodeClientTransport,
     last_updated: Instant,
-    username: String,
     rx_count: usize,
     tx_count: usize,
-    message_history: VecDeque<(usize, Message)>,
 }
 
 impl Client {
     pub fn new(a: u8, b: u8, c: u8, d: u8, port: u16) -> Self {
         let server_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(a, b, c, d)), port);
-        let username = format!("u{}", randint(1, 1000000));
 
         let client = RenetClient::new(ConnectionConfig::default());
 
@@ -55,14 +51,13 @@ impl Client {
         let last_updated = Instant::now();
 
         Self {
+            id: client_id,
             server_addr,
             client,
             transport,
             last_updated,
-            username: username.to_string(),
             tx_count: 0,
             rx_count: 0,
-            message_history: VecDeque::new(),
         }
     }
 
@@ -71,17 +66,14 @@ impl Client {
             return;
         }
 
-        let username = format!("u{}", randint(1, 1000000));
-
         let client = RenetClient::new(ConnectionConfig::default());
 
-        let client_id = (get_current_time().as_micros() % 1000000000) as u64;
         let socket = UdpSocket::bind(CLIENT_BIND_ADDRESS).unwrap();
         let current_time = get_current_time();
 
         let authentication = ClientAuthentication::Unsecure {
             server_addr: self.server_addr,
-            client_id,
+            client_id: self.id,
             user_data: None,
             protocol_id: 0,
         };
@@ -91,14 +83,13 @@ impl Client {
         let last_updated = Instant::now();
 
         *self = Self {
+            id: self.id,
             server_addr: self.server_addr,
             client,
             transport,
             last_updated,
-            username: username.to_string(),
-            tx_count: 0,
-            rx_count: 0,
-            message_history: VecDeque::new(),
+            tx_count: self.tx_count,
+            rx_count: self.rx_count,
         }
     }
 
@@ -137,10 +128,6 @@ impl Client {
 
         while let Some(bytes) = self.client.receive_message(DefaultChannel::ReliableOrdered) {
             let msg: Message = bincode::deserialize(&bytes).unwrap();
-            self.message_history.push_back((self.rx_count, msg.clone()));
-            if self.message_history.len() > 20 {
-                self.message_history.pop_front();
-            }
             self.rx_count += 1;
             messages.push(msg);
         }
@@ -150,10 +137,6 @@ impl Client {
         }
 
         messages
-    }
-
-    pub fn history(&self) -> impl Iterator<Item = &(usize, Message)> {
-        self.message_history.iter().rev()
     }
 
     pub fn send_message(&mut self, msg: Message) {

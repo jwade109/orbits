@@ -62,7 +62,7 @@ impl ServerApp {
             .asteroid((400.0, -2000.0, 0.7), 500.0, 9312)
             .build();
 
-        let server = Arc::new(RwLock::new(Server::new()));
+        let server = Arc::new(RwLock::new(Server::new(5000)));
 
         Self {
             world,
