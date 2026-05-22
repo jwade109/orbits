@@ -18,8 +18,12 @@ pub struct ClientStatistics {
     pub tx_count: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ClientId(pub u64);
+
+#[derive(Debug)]
 pub struct Client {
-    id: u64,
+    id: ClientId,
     server_addr: SocketAddr,
     client: RenetClient,
     transport: NetcodeClientTransport,
@@ -29,8 +33,12 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(a: u8, b: u8, c: u8, d: u8, port: u16) -> Self {
-        let server_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(a, b, c, d)), port);
+    pub fn localhost(server_port: u16) -> Self {
+        Self::new(127, 0, 0, 1, server_port)
+    }
+
+    pub fn new(a: u8, b: u8, c: u8, d: u8, server_port: u16) -> Self {
+        let server_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(a, b, c, d)), server_port);
 
         let client = RenetClient::new(ConnectionConfig::default());
 
@@ -51,7 +59,7 @@ impl Client {
         let last_updated = Instant::now();
 
         Self {
-            id: client_id,
+            id: ClientId(client_id),
             server_addr,
             client,
             transport,
@@ -59,6 +67,10 @@ impl Client {
             tx_count: 0,
             rx_count: 0,
         }
+    }
+
+    pub fn id(&self) -> ClientId {
+        self.id
     }
 
     pub fn reconnect(&mut self) {
@@ -73,7 +85,7 @@ impl Client {
 
         let authentication = ClientAuthentication::Unsecure {
             server_addr: self.server_addr,
-            client_id: self.id,
+            client_id: self.id.0,
             user_data: None,
             protocol_id: 0,
         };

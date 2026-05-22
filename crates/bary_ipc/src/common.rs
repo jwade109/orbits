@@ -37,6 +37,30 @@ impl Message {
         }
     }
 
+    pub fn ack_tlm(source: impl Into<String>) -> Self {
+        Self::new(source, MessageLevel::Telemetry, MessageKind::Ack)
+    }
+
+    pub fn nack_tlm(source: impl Into<String>) -> Self {
+        Self::new(source, MessageLevel::Telemetry, MessageKind::Ack)
+    }
+
+    pub fn is_ack(&self) -> bool {
+        if let MessageKind::Ack = self.kind {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_nack(&self) -> bool {
+        if let MessageKind::Nack = self.kind {
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn telemetry(source: impl Into<String>, kind: MessageKind) -> Self {
         Self::new(source, MessageLevel::Telemetry, kind)
     }

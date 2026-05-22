@@ -1,4 +1,4 @@
-use crate::{Message, MessageKind};
+use crate::{ClientId, Message, MessageKind};
 use log::{debug, info};
 use renet::*;
 use renet_netcode::*;
@@ -12,8 +12,8 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(port: u16) -> Self {
-        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), port);
+    pub fn new(host_port: u16) -> Self {
+        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), host_port);
         let socket: UdpSocket = UdpSocket::bind(addr).unwrap();
 
         let current_time = SystemTime::now()
@@ -25,9 +25,9 @@ impl Server {
             max_clients: 64,
             protocol_id: 0,
             public_addresses: vec![
-                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5000),
-                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 5000),
-                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 252)), 5000),
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), host_port),
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), host_port),
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 252)), host_port),
             ],
             authentication: ServerAuthentication::Unsecure,
         };
@@ -52,9 +52,9 @@ impl Server {
         self.broadcast(msg);
     }
 
-    pub fn send_telemetry(&mut self, client_id: u64, kind: MessageKind) {
+    pub fn send_telemetry(&mut self, id: ClientId, kind: MessageKind) {
         let msg = Message::telemetry("server", kind);
-        self.send(client_id, msg);
+        self.send(id, msg);
     }
 
     pub fn broadcast_response(&mut self, kind: MessageKind) {
@@ -62,9 +62,19 @@ impl Server {
         self.broadcast(msg);
     }
 
-    pub fn send_response(&mut self, client_id: u64, kind: MessageKind) {
+    pub fn send_response(&mut self, id: ClientId, kind: MessageKind) {
         let msg = Message::response("server", kind);
-        self.send(client_id, msg);
+        self.send(id, msg);
+    }
+
+    pub fn broadcast_command(&mut self, kind: MessageKind) {
+        let msg = Message::command("server", kind);
+        self.broadcast(msg);
+    }
+
+    pub fn send_command(&mut self, id: ClientId, kind: MessageKind) {
+        let msg = Message::command("server", kind);
+        self.send(id, msg);
     }
 
     pub fn broadcast(&mut self, msg: Message) {
@@ -73,10 +83,10 @@ impl Server {
             .broadcast_message(DefaultChannel::ReliableOrdered, message);
     }
 
-    pub fn send(&mut self, client_id: u64, msg: Message) {
+    pub fn send(&mut self, id: ClientId, msg: Message) {
         let message = bincode::serialize(&msg).unwrap();
         self.renet
-            .send_message(client_id, DefaultChannel::ReliableOrdered, message);
+            .send_message(id.0, DefaultChannel::ReliableOrdered, message);
     }
 
     #[must_use]
@@ -128,9 +138,44 @@ mod tests {
     use std::time::Duration;
 
     #[test]
-    fn test_connection() {
-        let mut server = Server::new(7000);
-        let mut client = Client::new(127, 0, 0, 1, 7000);
+    fn server_send_to() {
+        let mut server = Server::new(5000);
+        let mut c1 = Client::localhost(5000);
+        let mut c2 = Client::localhost(5000);
+
+        let dur = Duration::from_millis(10);
+
+        for _ in 0..20 {
+            _ = server.update();
+            _ = c1.update();
+            _ = c2.update();
+            std::thread::sleep(dur);
+        }
+
+        assert_eq!(server.renet().connected_clients(), 2);
+        assert!(c1.is_connected());
+        assert!(c2.is_connected());
+
+        server.send_telemetry(c1.id(), MessageKind::Ack);
+
+        _ = server.update();
+
+        // std::thread::sleep(dur);
+
+        let m1 = c1.update();
+        let m2 = c2.update();
+
+        assert!(m2.is_empty());
+
+        let msg = m1.first().unwrap();
+
+        assert!(msg.is_ack());
+    }
+
+    #[test]
+    fn multiple_messages() {
+        let mut server = Server::new(8000);
+        let mut client = Client::localhost(8000);
 
         let dur = Duration::from_millis(10);
 
@@ -140,21 +185,45 @@ mod tests {
             std::thread::sleep(dur);
         }
 
+        assert_eq!(server.renet().connected_clients(), 1);
+        assert!(client.is_connected());
+
+        server.broadcast_response(MessageKind::Ack);
+        server.broadcast_telemetry(MessageKind::ListGrids);
+        server.send_command(client.id(), MessageKind::ListComputers);
+
+        _ = server.update();
+
+        let msgs = client.update();
+
+        assert_eq!(msgs.len(), 3);
+
+        assert_eq!(msgs[0].level, MessageLevel::Response);
+        assert_eq!(msgs[1].level, MessageLevel::Telemetry);
+        assert_eq!(msgs[2].level, MessageLevel::Command);
+    }
+
+    #[test]
+    fn test_connection() {
+        let mut server = Server::new(7000);
+        let mut client = Client::localhost(7000);
+
+        let dur = Duration::from_millis(10);
+
+        for _ in 0..20 {
+            _ = server.update();
+            _ = client.update();
+            std::thread::sleep(dur);
+        }
+
+        assert_eq!(server.renet().connected_clients(), 1);
         assert!(client.is_connected());
 
         server.broadcast_telemetry(MessageKind::Ack);
         _ = server.update();
 
         let msgs = client.update();
-
         let msg = msgs.first().unwrap();
-
-        let is_ack = if let MessageKind::Ack = msg.kind {
-            true
-        } else {
-            false
-        };
-
-        assert!(is_ack);
+        assert!(msg.is_ack());
     }
 }
