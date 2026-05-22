@@ -167,6 +167,10 @@ impl Client {
         self.send_message(Message::command("client", kind));
     }
 
+    pub fn send_telemetry(&mut self, kind: MessageKind) {
+        self.send_message(Message::telemetry("client", kind));
+    }
+
     pub fn disconnect(&mut self) {
         self.client.disconnect();
     }

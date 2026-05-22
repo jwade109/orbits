@@ -9,11 +9,15 @@ def work(cmd):
     subprocess.check_call(cmd, shell=False)
 
 if __name__ == '__main__':
-    pool = multiprocessing.Pool(2, init_worker)
+
+    subprocess.check_call("cargo build --release", shell=False)
+
+    pool = multiprocessing.Pool(3, init_worker)
     try:
         pool.map(work, [
-            "cargo run --release --bin server_app",
-            "cargo run --release --bin test_app",
+            "./target/release/server_app.exe",
+            "./target/release/main.exe",
+            "./target/release/main.exe",
         ])
     except KeyboardInterrupt:
         print("Caught KeyboardInterrupt, terminating workers")

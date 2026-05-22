@@ -103,6 +103,7 @@ pub enum MessageKind {
     Computer(Ent, Computer),
     RequestServerStatistics,
     SetWaypoint(Ent, Isometry2d),
+    CameraPosition(Isometry2d),
 }
 
 impl MessageKind {

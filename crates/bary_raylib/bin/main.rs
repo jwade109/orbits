@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use bary_core::prelude::*;
 use bary_raylib::app::*;
 use bary_raylib::assets::*;
@@ -6,6 +8,7 @@ use bary_raylib::render::*;
 use bary_raylib::sim::*;
 use bary_raylib::sounds::SoundEffects;
 use bary_raylib::tests::is_world_consistent;
+use bary_raylib::utils::WallTimer;
 use bary_raylib::utils::raylib_to_glam;
 use bary_raylib::*;
 use log::*;
@@ -140,6 +143,8 @@ fn main() {
 
     let mut assets = Assets::default();
 
+    let mut wall_timer = WallTimer::with_dur(Duration::from_millis(500));
+
     load_assets(&mut assets, &mut rl, &thread);
 
     let mut active_sounds = Vec::new();
@@ -156,6 +161,10 @@ fn main() {
             let focused = rl.is_window_focused();
             app.client.input.process_rdev_event(&e, focused);
             rdev_events.push(e);
+        }
+
+        if wall_timer.tick() {
+            client.send_telemetry(MessageKind::CameraPosition(app.client.camera.isometry))
         }
 
         // GET SOME BASIC INPUT INFORMATION FROM RAYLIB

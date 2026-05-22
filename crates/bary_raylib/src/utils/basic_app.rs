@@ -1,31 +1,44 @@
-use crate::constants::TICKS_PER_SECOND;
 use crate::{MessageQueue, new_message_queue};
 use bary_input::*;
 use raylib::prelude::*;
 use std::thread::JoinHandle;
-use std::time::{Duration, Instant};
+
+pub trait Application: Sized {
+    fn update(&mut self);
+
+    fn draw(&mut self);
+
+    fn should_exit(&self) -> bool;
+
+    fn spin_forever(mut self) {
+        while !self.should_exit() {
+            self.spin_once();
+        }
+    }
+
+    fn spin_once(&mut self) {
+        self.update();
+        self.draw();
+    }
+}
 
 pub struct BasicApp {
     pub handle: RaylibHandle,
     pub thread: RaylibThread,
-
     pub input: InputState,
     _input_thread: JoinHandle<()>,
     input_queue: MessageQueue<rdev::Event>,
-    pub this_frame: Instant,
-    pub last_frame: Instant,
-
-    pub next_fixed: Instant,
-    pub should_exit: bool,
+    should_exit: bool,
 }
 
 impl BasicApp {
-    pub fn new(title: &str) -> Self {
+    pub fn new(title: &str, level: TraceLogLevel) -> Self {
         let (mut handle, thread) = raylib::init()
             .size(1080, 700)
             .title(title)
             .msaa_4x()
             .resizable()
+            .log_level(level)
             .build();
 
         simple_logger::SimpleLogger::new()
@@ -48,31 +61,18 @@ impl BasicApp {
             }
         });
 
-        let now = Instant::now();
-
         Self {
             handle,
             thread,
             input,
             input_queue,
             _input_thread,
-            this_frame: now,
-            last_frame: now,
-            next_fixed: now,
             should_exit: false,
         }
     }
 
     pub fn exit(&mut self) {
         self.should_exit = true;
-    }
-
-    pub fn fixed_50_fps(&mut self, mut func: impl FnMut()) {
-        let now = Instant::now();
-        if now > self.next_fixed {
-            self.next_fixed += Duration::from_millis(1000 / TICKS_PER_SECOND);
-            func();
-        }
     }
 
     pub fn should_loop(&self) -> bool {
@@ -86,9 +86,6 @@ impl BasicApp {
     }
 
     pub fn frame(&mut self) -> bool {
-        let now = Instant::now();
-        self.last_frame = self.this_frame;
-        self.this_frame = now;
         self.input.on_frame_boundary();
         while let Some(e) = self.input_queue.pop() {
             let focused = self.handle.is_window_focused();

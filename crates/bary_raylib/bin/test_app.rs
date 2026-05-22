@@ -4,7 +4,7 @@ use raylib::prelude::*;
 use std::collections::BTreeMap;
 
 fn main() {
-    let mut app = utils::BasicApp::new("Test app");
+    let mut app = utils::BasicApp::new("Test app", TraceLogLevel::LOG_INFO);
 
     let mut terminal = Terminal::with_commands(all_commands());
 

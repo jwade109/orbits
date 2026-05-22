@@ -1,10 +1,12 @@
 use bary_core::prelude::*;
 use bary_factory::*;
+use bary_raylib::assets::Assets;
 use bary_raylib::render::draw_terminal;
 use bary_raylib::sim::World;
-use bary_raylib::utils::{BasicApp, WallTimer};
+use bary_raylib::utils::{Application, BasicApp, WallTimer};
 use bary_raylib::world_builder::WorldBuilder;
 use bary_raylib::*;
+use bary_terminal::Terminal;
 use log::{info, warn};
 use raylib::prelude::*;
 use std::sync::{Arc, RwLock};
@@ -319,29 +321,48 @@ fn server_thread(
     }
 }
 
-fn main() {
-    println!("Starting dedicated server...");
+struct DedicatedServerApp {
+    app: BasicApp,
+    terminal: Terminal<Action>,
+    server: ServerApp,
+    assets: Assets,
+}
 
-    let mut app = BasicApp::new("Barycenter Server");
-    let mut terminal = bary_terminal::Terminal::with_commands(all_commands());
-    let mut server = ServerApp::new();
-    let mut assets = assets::Assets::default();
+impl DedicatedServerApp {
+    fn new() -> Self {
+        let mut app = BasicApp::new("Barycenter Server", TraceLogLevel::LOG_INFO);
 
-    assets::load_assets(&mut assets, &mut app.handle, &app.thread);
+        let mut assets = Assets::default();
 
-    while app.frame() {
-        for msg in server.update() {
+        assets::load_assets(&mut assets, &mut app.handle, &app.thread);
+
+        Self {
+            app,
+            terminal: Terminal::with_commands(all_commands()),
+            server: ServerApp::new(),
+            assets,
+        }
+    }
+}
+
+impl Application for DedicatedServerApp {
+    fn update(&mut self) {
+        self.app.frame();
+
+        for msg in self.server.update() {
             let s = format!("{:?}", msg);
-            terminal.log_debug(s);
+            self.terminal.log_debug(s);
         }
 
-        for e in app.input.events() {
-            terminal.on_event(e);
+        for e in self.app.input.events() {
+            self.terminal.on_event(e);
         }
 
-        terminal.focus();
+        self.terminal.focus();
+    }
 
-        app.handle.draw(&app.thread, |mut d| {
+    fn draw(&mut self) {
+        self.app.handle.draw(&self.app.thread, |mut d| {
             d.clear_background(Color::new(140, 140, 30, 255));
             d.draw_rectangle(
                 3,
@@ -350,8 +371,18 @@ fn main() {
                 d.get_render_height() - 6,
                 Color::ORANGE,
             );
-            draw_terminal(&mut d, &terminal, &assets);
+            draw_terminal(&mut d, &self.terminal, &self.assets);
             d.draw_text("Server Application", 10, 10, 24, Color::ORANGE);
-        })
+        });
     }
+
+    fn should_exit(&self) -> bool {
+        !self.app.should_loop()
+    }
+}
+
+fn main() {
+    info!("Starting dedicated server...");
+    let app = DedicatedServerApp::new();
+    app.spin_forever();
 }
