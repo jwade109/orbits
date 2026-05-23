@@ -11,6 +11,7 @@ use bary_raylib::sounds::SoundEffects;
 use bary_raylib::tests::is_world_consistent;
 use bary_raylib::utils::WallTimer;
 use bary_raylib::utils::raylib_to_glam;
+use clap::Parser;
 use log::*;
 use raylib::prelude::*;
 
@@ -115,7 +116,16 @@ fn handle_sounds<'a>(
     active_sounds.retain(|s| s.is_playing());
 }
 
-fn main() {
+/// Run the test client app
+#[derive(Parser, Debug, Default, Clone)]
+#[command(version, about, long_about = None)]
+pub struct Args {
+    server_addr: String,
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Args::parse();
+
     simple_logger::SimpleLogger::new()
         .with_level(log::LevelFilter::Debug)
         .env()
@@ -139,7 +149,7 @@ fn main() {
 
     let mut app = new_app(false);
 
-    let mut client = Client::new(127, 0, 0, 1, 5000);
+    let mut client = Client::with_str_addr(&args.server_addr)?;
 
     let mut assets = Assets::default();
 
@@ -237,4 +247,6 @@ fn main() {
     }
 
     info!("Done.");
+
+    Ok(())
 }

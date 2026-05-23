@@ -6,6 +6,7 @@ use bary_raylib::sim::World;
 use bary_raylib::utils::{Application, BasicApp, WallTimer};
 use bary_raylib::*;
 use bary_terminal::Terminal;
+use clap::Parser;
 use log::{info, warn};
 use raylib::prelude::*;
 use std::path::PathBuf;
@@ -26,14 +27,14 @@ pub struct ServerApp {
 }
 
 impl ServerApp {
-    pub fn new(saves_dir: impl Into<PathBuf>, save_name: impl Into<String>) -> Self {
+    pub fn new(saves_dir: impl Into<PathBuf>, save_name: impl Into<String>, port: u16) -> Self {
         let saves_dir = saves_dir.into();
         let save_name = save_name.into();
 
         let incoming_transactions = new_message_queue();
         let outgoing_transactions = new_message_queue();
 
-        let server = Arc::new(RwLock::new(Server::new(5000)));
+        let server = Arc::new(RwLock::new(Server::new(port)));
 
         Self {
             saves_dir,
@@ -303,7 +304,7 @@ struct DedicatedServerApp {
 }
 
 impl DedicatedServerApp {
-    fn new(saves_dir: &str, save_name: &str) -> Self {
+    fn new(saves_dir: &str, save_name: &str, port: u16) -> Self {
         let mut app = BasicApp::new("Barycenter Server", TraceLogLevel::LOG_INFO);
 
         let mut assets = Assets::default();
@@ -313,7 +314,7 @@ impl DedicatedServerApp {
         Self {
             app,
             terminal: Terminal::with_commands(server_console_commands()),
-            server: ServerApp::new(saves_dir, save_name),
+            server: ServerApp::new(saves_dir, save_name, port),
             assets,
         }
     }
@@ -444,16 +445,19 @@ impl Application for DedicatedServerApp {
     }
 }
 
-fn main() {
-    let saves_dir = std::env::args()
-        .nth(1)
-        .expect("Requires directory containing saves");
+/// Run the test client app
+#[derive(Parser, Debug, Default, Clone)]
+#[command(version, about, long_about = None)]
+pub struct Args {
+    server_port: u16,
+    saves_dir: String,
+    save_name: String,
+}
 
-    let save_name = std::env::args()
-        .nth(2)
-        .expect("Requires name of save to load");
+fn main() {
+    let args = Args::parse();
 
     info!("Starting dedicated server...");
 
-    DedicatedServerApp::new(&saves_dir, &save_name).spin_forever();
+    DedicatedServerApp::new(&args.saves_dir, &args.save_name, args.server_port).spin_forever();
 }

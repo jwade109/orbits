@@ -35,9 +35,7 @@ impl Client {
         Self::new(127, 0, 0, 1, server_port)
     }
 
-    pub fn new(a: u8, b: u8, c: u8, d: u8, server_port: u16) -> Self {
-        let server_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(a, b, c, d)), server_port);
-
+    fn from_addr(server_addr: SocketAddr) -> Self {
         let client = RenetClient::new(ConnectionConfig::default());
 
         let client_id = (get_current_time().as_micros() % 1000000000) as u64;
@@ -65,6 +63,16 @@ impl Client {
             tx_count: 0,
             rx_count: 0,
         }
+    }
+
+    pub fn with_str_addr(addr: &str) -> Result<Self, AddrParseError> {
+        let addr: SocketAddr = addr.parse()?;
+        Ok(Self::from_addr(addr))
+    }
+
+    pub fn new(a: u8, b: u8, c: u8, d: u8, server_port: u16) -> Self {
+        let server_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(a, b, c, d)), server_port);
+        Self::from_addr(server_addr)
     }
 
     pub fn id(&self) -> ClientId {

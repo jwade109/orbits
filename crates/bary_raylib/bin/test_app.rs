@@ -1,20 +1,25 @@
 use bary_ipc::*;
 use bary_raylib::{render::draw_terminal, *};
 use bary_terminal::*;
+use clap::Parser;
 use raylib::prelude::*;
 use std::collections::BTreeMap;
 
-fn main() {
+/// Run the test client app
+#[derive(Parser, Debug, Default, Clone)]
+#[command(version, about, long_about = None)]
+pub struct Args {
+    server_addr: String,
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Args::parse();
+
     let mut app = utils::BasicApp::new("Test app", TraceLogLevel::LOG_INFO);
-
     let mut terminal = Terminal::with_commands(all_commands());
-
-    let mut client = Client::new(192, 168, 1, 252, 5000);
-
+    let mut client = Client::with_str_addr(&args.server_addr)?;
     let mut server_stats = ServerStatistics::default();
-
     let mut grids = BTreeMap::new();
-
     let mut assets = assets::Assets::default();
 
     assets::load_assets(&mut assets, &mut app.handle, &app.thread);
@@ -141,4 +146,6 @@ fn main() {
             draw_terminal(&mut d, &terminal, &assets);
         });
     }
+
+    Ok(())
 }
