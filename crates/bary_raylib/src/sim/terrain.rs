@@ -3,6 +3,8 @@ use std::collections::BTreeMap;
 use bary_core::prelude::*;
 use bary_orbital::Asteroid;
 use early_returns::{ok_or_continue, some_or_continue};
+use enum_iterator::Sequence;
+use serde::{Deserialize, Serialize};
 
 use crate::sim::*;
 
@@ -12,7 +14,7 @@ pub const TILES_PER_CHUNK_SIDE: u8 = 32;
 pub const TERRAIN_CHUNK_WIDTH_METERS: f32 = TERRAIN_TILE_WIDTH_METERS * TILES_PER_CHUNK_SIDE as f32;
 pub const TERRAIN_VARIANTS: u8 = 8;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub enum TerrainMaterial {
     Rock,
     Dirt,
@@ -35,7 +37,7 @@ impl TerrainMaterial {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LocalTileIndex(pub I8Vec2);
 
 impl LocalTileIndex {
@@ -101,7 +103,7 @@ impl GlobalTileIndex {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 pub struct ChunkIndex(pub IVec2);
 
 impl PartialOrd for ChunkIndex {
@@ -155,7 +157,7 @@ pub struct BigRock {
     pub chunks: BTreeMap<ChunkIndex, Ent>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TerrainChunk {
     pub parent: Ent,
     pub index: ChunkIndex,
@@ -174,7 +176,7 @@ impl TerrainChunk {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct TerrainTile {
     parent: Ent,
     material: TerrainMaterial,
@@ -346,7 +348,6 @@ pub fn fully_reveal_terrain_tile(
 
     for x in -rmax..=rmax {
         for y in -rmax..=rmax {
-
             // TODO(optimization) we can batch chunk lookups here, since
             // GlobalTileIndex will probably refer to the same chunk
 

@@ -70,8 +70,10 @@ impl<T> Command<T> {
 pub enum LogLevel {
     Debug,
     Info,
+    Warning,
     Error,
     Terminal,
+    Command,
 }
 
 pub struct Terminal<T> {
@@ -227,8 +229,7 @@ impl<T: std::fmt::Debug> Terminal<T> {
             self.log_level = match self.log_level {
                 LogLevel::Debug => LogLevel::Info,
                 LogLevel::Info => LogLevel::Debug,
-                LogLevel::Error => LogLevel::Error,
-                LogLevel::Terminal => LogLevel::Terminal,
+                _ => self.log_level,
             };
             self.log_terminal(format!("Set log level to {:?}", self.log_level));
         }
@@ -253,14 +254,13 @@ impl<T: std::fmt::Debug> Terminal<T> {
         self.command_history.push_front(self.contents.clone());
         self.history_index = None;
 
-        self.log_info("bsh > ".to_string() + &self.contents);
+        self.push_log("bsh > ".to_string() + &self.contents, LogLevel::Command);
 
         let mut ret = None;
 
         match self.find_best_command() {
             Ok(cmd) => match cmd.parse(&self.get_args()) {
                 Ok(action) => {
-                    self.log_terminal(format!("{:?}", &action));
                     ret = Some(action);
                 }
                 Err(e) => {
@@ -288,7 +288,7 @@ impl<T: std::fmt::Debug> Terminal<T> {
 
     pub fn on_tab_complete(&mut self) {
         if let Ok(cmd) = self.find_best_command() {
-            self.contents = cmd.entrypoint.clone();
+            self.contents = cmd.entrypoint.clone() + " ";
         }
     }
 
@@ -341,36 +341,53 @@ impl<T: std::fmt::Debug> Terminal<T> {
     }
 
     pub fn update_suggest_text(&mut self) {
-        if let Ok(cmd) = self.find_best_command() {
+        // find commands that can start with current text
+        let cmds: Vec<String> = self
+            .commands
+            .iter()
+            .filter(|c| c.entrypoint.starts_with(&self.contents))
+            .map(|c| c.entrypoint.clone())
+            .collect();
+
+        let cmds = cmds.join(" ");
+
+        if let Ok(cmd) = self.find_best_command()
+            && cmds.len() == 1
+        {
             self.suggest_text = cmd.to_suggestion();
         } else {
-            self.suggest_text = self.get_list_of_entrypoints();
+            self.suggest_text = cmds;
         }
     }
 
-    fn push_log(&mut self, s: String, level: LogLevel) {
+    fn push_log(&mut self, s: impl Into<String>, level: LogLevel) {
         if self.log_level > level {
             return;
         }
+        let s = s.into();
         self.lines.push_front((s, level));
         if self.lines.len() > 1000 {
             self.lines.pop_back();
         }
     }
 
-    pub fn log_debug(&mut self, s: String) {
+    pub fn log_debug(&mut self, s: impl Into<String>) {
         self.push_log(s, LogLevel::Debug);
     }
 
-    pub fn log_info(&mut self, s: String) {
+    pub fn log_info(&mut self, s: impl Into<String>) {
         self.push_log(s, LogLevel::Info);
     }
 
-    pub fn log_error(&mut self, s: String) {
+    pub fn log_warn(&mut self, s: impl Into<String>) {
+        self.push_log(s, LogLevel::Warning);
+    }
+
+    pub fn log_error(&mut self, s: impl Into<String>) {
         self.push_log(s, LogLevel::Error);
     }
 
-    pub fn log_terminal(&mut self, s: String) {
+    pub fn log_terminal(&mut self, s: impl Into<String>) {
         self.push_log(s, LogLevel::Terminal);
     }
 

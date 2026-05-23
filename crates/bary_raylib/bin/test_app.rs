@@ -9,7 +9,7 @@ fn main() {
 
     let mut terminal = Terminal::with_commands(all_commands());
 
-    let mut client = Client::new(127, 0, 0, 1, 5000);
+    let mut client = Client::new(192, 168, 1, 252, 5000);
 
     let mut server_stats = ServerStatistics::default();
 

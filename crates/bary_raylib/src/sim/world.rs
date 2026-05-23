@@ -46,9 +46,8 @@ pub struct World {
 
     #[serde(skip)]
     pub asteroids: Components<BigRock>,
-    #[serde(skip)]
+
     pub terrain_chunks: Components<TerrainChunk>,
-    #[serde(skip)]
     pub terrain_tiles: Components<TerrainTile>,
 
     // TODO might move this to assets.

@@ -74,6 +74,24 @@ pub fn cmd_clear(_args: &ArgsMap) -> Result<Action, ParseError> {
     Ok(Action::Clear)
 }
 
+pub fn server_console_commands() -> Vec<Command<Action>> {
+    vec![
+        Command::new("echo", vec![], |_| Ok(Action::EchoSave)),
+        Command::new("load", vec!["path"], |args| {
+            let save = parse_arg(args, "path")?;
+            Ok(Action::LoadSave(save))
+        }),
+        Command::new("save", vec!["savename", "overwrite"], |args| {
+            let savename = parse_arg(args, "savename")?;
+            let overwrite = parse_arg(args, "overwrite")?;
+            Ok(Action::SaveWorldToDisk(savename, overwrite))
+        }),
+        Command::new("clear", vec![], cmd_clear),
+        Command::new("ls.saves", vec![], |_| Ok(Action::ListSaves)),
+        Command::new("speed", vec!["speed"], cmd_set_speed),
+    ]
+}
+
 pub fn all_commands() -> Vec<Command<Action>> {
     vec![
         Command::new("spawn", vec!["bp_name", "x", "y"], cmd_spawn),

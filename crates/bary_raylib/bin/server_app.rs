@@ -1,20 +1,21 @@
-use bary_core::prelude::*;
-use bary_factory::*;
 use bary_ipc::*;
 use bary_raylib::assets::Assets;
+use bary_raylib::persistence::{list_saves_in_dir, load_world, save_world};
 use bary_raylib::render::draw_terminal;
 use bary_raylib::sim::World;
 use bary_raylib::utils::{Application, BasicApp, WallTimer};
-use bary_raylib::world_builder::WorldBuilder;
 use bary_raylib::*;
 use bary_terminal::Terminal;
 use log::{info, warn};
 use raylib::prelude::*;
+use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
 pub struct ServerApp {
+    saves_dir: PathBuf,
+    save_name: Option<String>,
     world: World,
     server: Arc<RwLock<Server>>,
     incoming_transactions: MessageQueue<Message>,
@@ -25,48 +26,19 @@ pub struct ServerApp {
 }
 
 impl ServerApp {
-    pub fn new() -> Self {
+    pub fn new(saves_dir: impl Into<PathBuf>, save_name: impl Into<String>) -> Self {
+        let saves_dir = saves_dir.into();
+        let save_name = save_name.into();
+
         let incoming_transactions = new_message_queue();
         let outgoing_transactions = new_message_queue();
-
-        let world = WorldBuilder::new()
-            .assets()
-            .blueprint(("pollux", 0))
-            .blueprint(("pollux", 2))
-            .blueprint("bellerophon")
-            .blueprint("remora")
-            .blueprint("spacestation")
-            .blueprint("foundation")
-            .blueprint("miner")
-            .blueprint("icecream")
-            .spawn(("pollux", 0), "", (30.0, 0.0, 0.0))
-            .spawn(("pollux", 2), "", (0.0, 0.0, 0.0))
-            .insert_source((19, 7), Item::Magnesium)
-            .insert_source((20, 7), Item::Iron)
-            .insert_source((21, 7), Item::Titanium)
-            .set_recipe((21, 7), RecipeListing::TitaniumLattice)
-            .insert_source((22, 11), Item::Water)
-            .insert_pipe((22, 11), (22, 10))
-            .set_recipe((27, 7), RecipeListing::WaterElectrolysis)
-            .insert_pipe((17, 10), (15, 10))
-            .insert_pipe((27, 7), (34, 7))
-            .insert_pipe((26, 7), (25, 6))
-            .spawn("remora", "", (10.0, 30.0, 0.1))
-            .spawn("miner", "", (-9.0, 12.0, -0.3))
-            .spawn("remora", "", (-7.0, 23.0, 0.7))
-            .spawn("bellerophon", "", (130.0, 50.0, 0.1))
-            .command(WorldAction::SetSpeed(10))
-            .command(WorldAction::Ping(Vec2::ZERO))
-            .command(WorldAction::Ping(Vec2::splat(10.0)))
-            .asteroid((-80.0, 30.0, 0.1), 20.0, 391)
-            .asteroid((60.0, 300.0, 0.7), 50.0, 2384)
-            .asteroid((400.0, -2000.0, 0.7), 500.0, 9312)
-            .build();
 
         let server = Arc::new(RwLock::new(Server::new(5000)));
 
         Self {
-            world,
+            saves_dir,
+            save_name: Some(save_name),
+            world: World::empty(),
             server: server.clone(),
             incoming_transactions: incoming_transactions.clone(),
             outgoing_transactions: outgoing_transactions.clone(),
@@ -331,7 +303,7 @@ struct DedicatedServerApp {
 }
 
 impl DedicatedServerApp {
-    fn new() -> Self {
+    fn new(saves_dir: &str, save_name: &str) -> Self {
         let mut app = BasicApp::new("Barycenter Server", TraceLogLevel::LOG_INFO);
 
         let mut assets = Assets::default();
@@ -340,9 +312,67 @@ impl DedicatedServerApp {
 
         Self {
             app,
-            terminal: Terminal::with_commands(all_commands()),
-            server: ServerApp::new(),
+            terminal: Terminal::with_commands(server_console_commands()),
+            server: ServerApp::new(saves_dir, save_name),
             assets,
+        }
+    }
+
+    fn on_terminal_command(&mut self, cmd: Action) {
+        match cmd {
+            Action::Say(_) => self.terminal.log_info("Woooo!".to_string()),
+            Action::Clear => self.terminal.clear(),
+            Action::Exit => self.app.exit(),
+            Action::EchoSave => {
+                self.list_saves();
+            }
+            Action::LoadSave(name) => {
+                self.load_save_file(name);
+            }
+            Action::SaveWorldToDisk(path, overwrite) => {
+                self.save_world_to_disk(path, overwrite);
+            }
+            Action::ListSaves => {
+                self.list_saves();
+            }
+            Action::SetSimSpeed(speed) => {
+                self.server.world.tick_rate = speed;
+            }
+            _ => self.terminal.log_warn(format!("Unsupported: {:?}", cmd)),
+        }
+    }
+
+    fn list_saves(&mut self) {
+        let saves = list_saves_in_dir(&self.server.saves_dir);
+        for s in saves {
+            self.terminal.log_info(format!("{}", s.display()));
+        }
+    }
+
+    fn load_save_file(&mut self, name: String) {
+        let path = self.server.saves_dir.join(&name);
+
+        match load_world(&path) {
+            Ok(world) => {
+                self.server.world = world;
+                self.terminal.log_info(format!("Loaded save {name}"));
+                self.server.save_name = Some(name);
+            }
+            Err(e) => {
+                self.terminal
+                    .log_error(format!("Failed to load world: {e:?}",));
+            }
+        }
+    }
+
+    fn save_world_to_disk(&mut self, save_name: String, overwrite: bool) {
+        let path = self.server.saves_dir.join(save_name);
+        let res = save_world(&path, &self.server.world, overwrite);
+        if let Err(e) = res {
+            self.terminal.log_error(format!("Failed: {e:?}"));
+        } else {
+            self.terminal
+                .log_info(format!("Saved to {}", path.display()));
         }
     }
 }
@@ -356,8 +386,16 @@ impl Application for DedicatedServerApp {
             self.terminal.log_debug(s);
         }
 
+        let mut cmds = Vec::new();
+
         for e in self.app.input.events() {
-            self.terminal.on_event(e);
+            if let Some(cmd) = self.terminal.on_event(e) {
+                cmds.push(cmd);
+            }
+        }
+
+        for cmd in cmds {
+            self.on_terminal_command(cmd);
         }
 
         self.terminal.focus();
@@ -374,7 +412,30 @@ impl Application for DedicatedServerApp {
                 Color::ORANGE,
             );
             draw_terminal(&mut d, &self.terminal, &self.assets);
-            d.draw_text("Server Application", 10, 10, 24, Color::ORANGE);
+
+            let lines = vec![
+                "Server Application".to_string(),
+                format!("Ticks:     {}", self.server.world.ticks),
+                format!("Grids:     {}", self.server.world.grids.len()),
+                format!("Parts:     {}", self.server.world.parts.len()),
+                format!("Protos:    {}", self.server.world.prototypes.len()),
+                format!("BPs:       {}", self.server.world.blueprints.len()),
+                format!("Thrusters: {}", self.server.world.thrusters.len()),
+                format!("Invs:      {}", self.server.world.inventories.len()),
+                format!("Asteroids: {}", self.server.world.asteroids.len()),
+                format!("Clients:   {}", self.server.get_statistics().clients.len()),
+            ];
+
+            let text = lines.join("\n");
+
+            d.draw_text_ex(
+                self.assets.consolas.as_ref().unwrap(),
+                &text,
+                Vector2::new(10.0, 10.0),
+                16.0,
+                0.0,
+                Color::ORANGE,
+            );
         });
     }
 
@@ -384,7 +445,15 @@ impl Application for DedicatedServerApp {
 }
 
 fn main() {
+    let saves_dir = std::env::args()
+        .nth(1)
+        .expect("Requires directory containing saves");
+
+    let save_name = std::env::args()
+        .nth(2)
+        .expect("Requires name of save to load");
+
     info!("Starting dedicated server...");
-    let app = DedicatedServerApp::new();
-    app.spin_forever();
+
+    DedicatedServerApp::new(&saves_dir, &save_name).spin_forever();
 }

@@ -1,7 +1,7 @@
 use crate::sim::*;
 use bary_core::prelude::*;
 use log::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> BaryResult<()> {
     let dir = dir.as_ref();
@@ -61,6 +61,12 @@ pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> Bary
     let s = toml::to_string(&world.machines)?;
     std::fs::write(machines_path, s)?;
 
+    // let s = toml::to_string(&world.terrain_chunks)?;
+    // std::fs::write(dir.join("terrain_chunks.toml"), s)?;
+
+    let s = toml::to_string(&world.terrain_tiles)?;
+    std::fs::write(dir.join("terrain_tiles.toml"), s)?;
+
     Ok(())
 }
 
@@ -91,7 +97,25 @@ pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
     let s = std::fs::read_to_string(computers_path)?;
     world.computers = toml::from_str(&s)?;
 
+    // let s = std::fs::read_to_string(dir.join("terrain_chunks.toml"))?;
+    // world.terrain_chunks = toml::from_str(&s)?;
+
+    let s = std::fs::read_to_string(dir.join("terrain_tiles.toml"))?;
+    world.terrain_tiles = toml::from_str(&s)?;
+
     Ok(world)
+}
+
+pub fn list_saves_in_dir(dir: &Path) -> Vec<PathBuf> {
+    let mut ret = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries {
+            if let Ok(e) = entry {
+                ret.push(e.path());
+            }
+        }
+    }
+    ret
 }
 
 #[cfg(test)]

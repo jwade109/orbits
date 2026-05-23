@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::sim::*;
 use bary_core::prelude::*;
 use bary_factory::*;
@@ -76,6 +78,10 @@ pub enum Action {
     ServerConnect,
     RequestServerStatistics,
     SetWaypoint(Ent, Isometry2d),
+    EchoSave,
+    LoadSave(String),
+    SaveWorldToDisk(String, bool),
+    ListSaves,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

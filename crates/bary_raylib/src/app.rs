@@ -1,6 +1,9 @@
 use crate::sim::*;
 use crate::sounds::SoundEffects;
+use crate::world_builder::WorldBuilder;
 use crate::*;
+use bary_core::prelude::*;
+use bary_factory::*;
 use bary_ipc::*;
 use bary_sim::*;
 use bary_terminal::Terminal;
@@ -85,8 +88,10 @@ pub fn new_app(multiplayer: bool) -> App {
         }
     });
 
+    let world = World::empty();
+
     App {
-        world: World::empty(),
+        world,
         client: ClientSpecificInfo::new(),
         runner: WorldRunner::new(),
         debug: DebugInfo::default(),
