@@ -59,7 +59,7 @@ impl WorldRunner {
         world: &mut World,
         client: &mut ClientSpecificInfo,
         sounds: &mut SoundEffects,
-        _actions: &mut Vec<Action>,
+        _actions: &mut Vec<TermCmd>,
     ) -> DebugTimers {
         let now = Instant::now();
         let delta = now - self.last_update;

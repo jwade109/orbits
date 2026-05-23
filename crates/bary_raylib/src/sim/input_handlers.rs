@@ -179,7 +179,7 @@ pub fn toggle_following_on_key_f(client: &mut ClientSpecificInfo, sounds: &mut S
 pub fn ping_on_alt_left_click(
     world: &mut World,
     client: &mut ClientSpecificInfo,
-    actions: &mut Vec<Action>,
+    actions: &mut Vec<TermCmd>,
     sounds: &mut SoundEffects,
 ) {
     let Some(screen_pos) = client.mouse_screen_position else {
@@ -194,7 +194,7 @@ pub fn ping_on_alt_left_click(
 
     let particle = PingParticle::new(pos);
     world.particles.push(particle);
-    actions.push(Action::World(WorldAction::Ping(pos)));
+    actions.push(TermCmd::World(WorldAction::Ping(pos)));
     client.chat.log(format!("Pinged {}", pos));
     sounds.push(SoundEffect::Ping);
 }

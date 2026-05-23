@@ -60,7 +60,7 @@ pub enum ClientAction {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub enum Action {
+pub enum TermCmd {
     World(WorldAction),
     Client(ClientAction),
     Exit,
@@ -87,17 +87,17 @@ pub enum Action {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Transaction {
     pub tick: u64,
-    pub action: Action,
+    pub action: TermCmd,
 }
 
 impl Transaction {
-    pub fn new(tick: u64, action: Action) -> Self {
+    pub fn new(tick: u64, action: TermCmd) -> Self {
         Self { tick, action }
     }
 }
 
-pub fn apply_action(world: &mut World, action: Action) {
-    if let Action::World(action) = action {
+pub fn apply_action(world: &mut World, action: TermCmd) {
+    if let TermCmd::World(action) = action {
         apply_world_action(world, action);
     }
 }

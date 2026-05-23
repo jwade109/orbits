@@ -59,49 +59,49 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for t in app.input.events() {
             if let Some(action) = terminal.on_event(t) {
                 match action {
-                    Action::Say(s) => {
+                    TermCmd::Say(s) => {
                         client.send_command(MessageKind::Text(s));
                     }
-                    Action::Ping => {
+                    TermCmd::Ping => {
                         client.send_command(MessageKind::Ping);
                     }
-                    Action::Clear => {
+                    TermCmd::Clear => {
                         terminal.clear();
                     }
-                    Action::SetSimSpeed(speed) => {
+                    TermCmd::SetSimSpeed(speed) => {
                         client.send_command(MessageKind::SetSimSpeed(speed));
                     }
-                    Action::FindGridByName(name) => {
+                    TermCmd::FindGridByName(name) => {
                         client.send_command(MessageKind::FindGridByName(name));
                     }
-                    Action::Exit => {
+                    TermCmd::Exit => {
                         should_exit = true;
                     }
-                    Action::ListGrids => {
+                    TermCmd::ListGrids => {
                         client.send_command(MessageKind::ListGrids);
                     }
-                    Action::ListProtos => {
+                    TermCmd::ListProtos => {
                         client.send_command(MessageKind::ListProtos);
                     }
-                    Action::ListParts => {
+                    TermCmd::ListParts => {
                         client.send_command(MessageKind::ListParts);
                     }
-                    Action::ListThrusters => {
+                    TermCmd::ListThrusters => {
                         client.send_command(MessageKind::ListThrusters);
                     }
-                    Action::ListComputers => {
+                    TermCmd::ListComputers => {
                         client.send_command(MessageKind::ListComputers);
                     }
-                    Action::ServerConnect => {
+                    TermCmd::ServerConnect => {
                         client.reconnect();
                     }
-                    Action::ServerDisconnect => {
+                    TermCmd::ServerDisconnect => {
                         client.disconnect();
                     }
-                    Action::RequestServerStatistics => {
+                    TermCmd::RequestServerStatistics => {
                         client.send_command(MessageKind::RequestServerStatistics);
                     }
-                    Action::SetWaypoint(id, iso) => {
+                    TermCmd::SetWaypoint(id, iso) => {
                         client.send_command(MessageKind::SetWaypoint(id, iso));
                     }
                     _ => (),

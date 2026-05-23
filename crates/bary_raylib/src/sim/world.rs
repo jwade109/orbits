@@ -1,4 +1,4 @@
-use crate::Action;
+use crate::TermCmd;
 use crate::camera::Camera;
 use crate::constants::*;
 use crate::imgui::*;
@@ -617,7 +617,7 @@ pub fn process_event(
     client: &mut ClientSpecificInfo,
     event: &rdev::Event,
     sounds: &mut SoundEffects,
-    actions: &mut Vec<Action>,
+    actions: &mut Vec<TermCmd>,
     on_gui: bool,
 ) {
     match event.event_type {

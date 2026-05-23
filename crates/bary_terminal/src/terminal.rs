@@ -76,7 +76,7 @@ pub enum LogLevel {
     Command,
 }
 
-pub struct Terminal<T> {
+pub struct Terminal<T: std::fmt::Debug> {
     contents: String,
     is_active: bool,
     lines: VecDeque<(String, LogLevel)>,

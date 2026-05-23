@@ -41,7 +41,7 @@ pub struct App {
     pub _input_thread: JoinHandle<()>,
     pub input_queue: MessageQueue<rdev::Event>,
 
-    pub cmd: Terminal<Action>,
+    pub cmd: Terminal<TermCmd>,
 }
 
 impl App {
@@ -49,7 +49,7 @@ impl App {
         &mut self,
         e: rdev::Event,
         sounds: &mut SoundEffects,
-        actions: &mut Vec<Action>,
+        actions: &mut Vec<TermCmd>,
         on_gui: bool,
     ) {
         self.cmd.on_event(&e);

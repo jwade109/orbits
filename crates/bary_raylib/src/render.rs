@@ -3,7 +3,7 @@ use crate::editor_state::EditorState;
 use crate::imgui::{ImGui, ZOOM_NEAR_FAR_THRESHOLD};
 use crate::sim::*;
 use crate::utils::*;
-use crate::{Action, assets::*};
+use crate::{TermCmd, assets::*};
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use bary_factory::*;
@@ -1595,7 +1595,11 @@ fn severity_to_color(s: LogLevel) -> Color {
     }
 }
 
-pub fn draw_terminal(d: &mut RaylibDrawHandle, cmd: &Terminal<Action>, assets: &Assets) {
+pub fn draw_terminal<T: std::fmt::Debug>(
+    d: &mut RaylibDrawHandle,
+    cmd: &Terminal<T>,
+    assets: &Assets,
+) {
     if !cmd.is_active() {
         return;
     };

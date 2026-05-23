@@ -298,7 +298,7 @@ fn server_thread(
 
 struct DedicatedServerApp {
     app: BasicApp,
-    terminal: Terminal<Action>,
+    terminal: Terminal<TermCmd>,
     server: ServerApp,
     assets: Assets,
 }
@@ -319,24 +319,24 @@ impl DedicatedServerApp {
         }
     }
 
-    fn on_terminal_command(&mut self, cmd: Action) {
+    fn on_terminal_command(&mut self, cmd: TermCmd) {
         match cmd {
-            Action::Say(_) => self.terminal.log_info("Woooo!".to_string()),
-            Action::Clear => self.terminal.clear(),
-            Action::Exit => self.app.exit(),
-            Action::EchoSave => {
+            TermCmd::Say(_) => self.terminal.log_info("Woooo!".to_string()),
+            TermCmd::Clear => self.terminal.clear(),
+            TermCmd::Exit => self.app.exit(),
+            TermCmd::EchoSave => {
                 self.list_saves();
             }
-            Action::LoadSave(name) => {
+            TermCmd::LoadSave(name) => {
                 self.load_save_file(name);
             }
-            Action::SaveWorldToDisk(path, overwrite) => {
+            TermCmd::SaveWorldToDisk(path, overwrite) => {
                 self.save_world_to_disk(path, overwrite);
             }
-            Action::ListSaves => {
+            TermCmd::ListSaves => {
                 self.list_saves();
             }
-            Action::SetSimSpeed(speed) => {
+            TermCmd::SetSimSpeed(speed) => {
                 self.server.world.tick_rate = speed;
             }
             _ => self.terminal.log_warn(format!("Unsupported: {:?}", cmd)),
