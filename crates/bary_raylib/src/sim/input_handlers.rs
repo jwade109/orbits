@@ -7,7 +7,7 @@ use crate::utils::*;
 use crate::*;
 use bary_core::prelude::*;
 use bary_input::*;
-use bary_sim::PingParticle;
+use bary_sim::*;
 use early_returns::*;
 use log::*;
 
@@ -194,7 +194,7 @@ pub fn ping_on_alt_left_click(
 
     let particle = PingParticle::new(pos);
     world.particles.push(particle);
-    actions.push(TermCmd::World(WorldAction::Ping(pos)));
+    actions.push(TermCmd::World(WorldDelta::Ping(pos)));
     client.chat.log(format!("Pinged {}", pos));
     sounds.push(SoundEffect::Ping);
 }

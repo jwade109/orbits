@@ -81,6 +81,99 @@ impl World {
             ..Default::default()
         }
     }
+
+    pub fn apply(&mut self, delta: WorldDelta) {
+        info!("Applying delta {:?} at tick {}", delta, self.ticks);
+        match delta {
+            WorldDelta::Ping(pos) => {
+                ping(self, pos);
+            }
+            WorldDelta::SpawnShipAt(bp_name, iso) => {
+                if let Ok(grid_id) = spawn_grid_with_random_name(self, bp_name) {
+                    _ = set_grid_pose(self, grid_id, iso);
+                }
+            }
+            WorldDelta::FastForwardTo(tick) => {
+                if self.ticks < tick {
+                    let delta = tick - self.ticks;
+                    warn!("Fast forwarding by {} ticks", delta);
+                    while self.ticks < tick {
+                        update_world(self);
+                    }
+                } else if tick < self.ticks {
+                    let delta = self.ticks - tick;
+                    warn!("Already ahead of fast forward directive by {} ticks", delta);
+                }
+            }
+            WorldDelta::SetWaypoint { grid_id, waypoint } => {
+                _ = set_primary_computer_waypoint(grid_id, waypoint, self);
+                _ = set_primary_computer_state(grid_id, true, self);
+            }
+            WorldDelta::SetWaypointByName { name, waypoint } => {
+                if let Some(grid_id) = get_grid_by_name(&self.grids, &name) {
+                    _ = set_primary_computer_waypoint(grid_id, waypoint, self);
+                    _ = set_primary_computer_state(grid_id, true, self);
+                    _ = toggle_tracking(self, grid_id);
+                } else {
+                    warn!("Failed to find grid with name {name}");
+                }
+            }
+            WorldDelta::DespawnGrid(grid_id) => {
+                _ = despawn_grid(self, grid_id);
+            }
+            WorldDelta::InsertPart {
+                grid_id,
+                name,
+                coord,
+                rotation,
+                layer,
+            } => {
+                let proto_id = some_or_return!(get_proto_by_name(&self.prototypes, &name));
+                let proto = ok_or_return!(self.prototypes.try_get(proto_id));
+                let region = GridRegion::new(coord, rotation, proto.dims);
+
+                let instance = PartInstance {
+                    name,
+                    layer,
+                    region,
+                };
+                _ = insert_part(grid_id, self, &instance, true);
+            }
+            WorldDelta::SetSpeed(speed) => {
+                self.tick_rate = speed;
+            }
+            WorldDelta::SetSourceItem {
+                grid_id,
+                coord,
+                item,
+            } => {
+                let grid = ok_or_return!(self.grids.try_get(grid_id));
+                let occ = grid.get_parts_at(coord).cloned().unwrap_or_default();
+                let part_id = some_or_return!(occ.at_layer(PartLayer::Plumbing));
+                let part = ok_or_return!(self.debug_portals.try_get_mut(part_id));
+                if let PortalState::Source(old_item) = &mut part.state {
+                    *old_item = Some(item);
+                }
+            }
+            WorldDelta::InsertPipe { grid_id, src, dst } => {
+                _ = insert_pipe(grid_id, src, dst, self);
+            }
+            WorldDelta::SetRecipe {
+                grid_id,
+                coord,
+                recipe,
+            } => {
+                let grid = ok_or_return!(self.grids.try_get(grid_id));
+                let occ = grid.get_parts_at(coord).cloned().unwrap_or_default();
+                let part_id = some_or_return!(occ.at_layer(PartLayer::Internal));
+                let machine = ok_or_return!(self.machines.try_get_mut(part_id));
+                machine.set_recipe(recipe);
+            }
+            WorldDelta::SpawnAsteroid { iso, radius, seed } => {
+                spawn_random_asteroid(self, iso, radius, seed);
+            }
+        }
+    }
 }
 
 pub fn size_in_bytes(world: &World) -> usize {

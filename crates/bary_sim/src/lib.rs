@@ -10,6 +10,7 @@ mod ring_particle;
 mod star;
 mod thruster;
 mod utils;
+mod world_delta;
 
 pub use chat::*;
 pub use computer::*;
@@ -23,3 +24,4 @@ pub use ring_particle::*;
 pub use star::*;
 pub use thruster::*;
 pub use utils::*;
+pub use world_delta::*;

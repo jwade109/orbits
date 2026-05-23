@@ -1,5 +1,6 @@
 use crate::*;
 use bary_core::prelude::*;
+use bary_sim::*;
 use bary_terminal::*;
 
 fn parse_arg<T>(args: &ArgsMap, key: &'static str) -> Result<T, ParseError>
@@ -18,7 +19,7 @@ pub fn cmd_spawn(args: &ArgsMap) -> Result<TermCmd, ParseError> {
     let bp = parse_arg(args, "bp_name")?;
     let x = parse_arg(args, "x")?;
     let y = parse_arg(args, "y")?;
-    Ok(TermCmd::World(WorldAction::SpawnShipAt(
+    Ok(TermCmd::World(WorldDelta::SpawnShipAt(
         bp,
         Isometry2d::from_pos(Vec2::new(x, y)),
     )))
@@ -29,7 +30,10 @@ pub fn cmd_waypoint(args: &ArgsMap) -> Result<TermCmd, ParseError> {
     let x = parse_arg(args, "x")?;
     let y = parse_arg(args, "y")?;
     let pos = Vec2::new(x, y);
-    Ok(TermCmd::SetWaypoint(Ent(grid_id), Isometry2d::from_pos(pos)))
+    Ok(TermCmd::SetWaypoint(
+        Ent(grid_id),
+        Isometry2d::from_pos(pos),
+    ))
 }
 
 pub fn cmd_edit(args: &ArgsMap) -> Result<TermCmd, ParseError> {
@@ -44,7 +48,7 @@ pub fn cmd_find(args: &ArgsMap) -> Result<TermCmd, ParseError> {
 
 pub fn cmd_despawn(args: &ArgsMap) -> Result<TermCmd, ParseError> {
     let grid_id = Ent(parse_arg(args, "grid_id")?);
-    Ok(TermCmd::World(WorldAction::DespawnGrid(grid_id)))
+    Ok(TermCmd::World(WorldDelta::DespawnGrid(grid_id)))
 }
 
 pub fn cmd_set_speed(args: &ArgsMap) -> Result<TermCmd, ParseError> {
@@ -54,11 +58,6 @@ pub fn cmd_set_speed(args: &ArgsMap) -> Result<TermCmd, ParseError> {
 
 pub fn cmd_placeholder(_args: &ArgsMap) -> Result<TermCmd, ParseError> {
     Err(ParseError::NotImplemented)
-}
-
-pub fn cmd_set_cpu(args: &ArgsMap) -> Result<TermCmd, ParseError> {
-    let state = parse_arg(args, "state")?;
-    Ok(TermCmd::Client(ClientAction::SetCpuSelectedGrid(state)))
 }
 
 pub fn cmd_say(args: &ArgsMap) -> Result<TermCmd, ParseError> {
@@ -103,7 +102,6 @@ pub fn all_commands() -> Vec<Command<TermCmd>> {
         Command::new("speed", vec!["speed"], cmd_set_speed),
         Command::new("save", vec![], cmd_placeholder),
         Command::new("exit", vec![], cmd_exit),
-        Command::new("setcpu", vec!["state"], cmd_set_cpu),
         Command::new("say", vec!["msg"], cmd_say),
         Command::new("clear", vec![], cmd_clear),
         Command::new("ls.grids", vec![], |_| Ok(TermCmd::ListGrids)),

@@ -1,17 +1,16 @@
-use crate::WorldAction;
-use crate::apply_world_action;
 use crate::assets::load_names_from_file;
 use crate::sim::*;
 use bary_core::prelude::*;
 use bary_factory::*;
 use bary_parts::*;
+use bary_sim::*;
 use log::*;
 use std::path::PathBuf;
 
 enum WorldBuilderCommand {
     LoadBlueprint(BlueprintId),
     SpawnShip(BlueprintId, Option<String>, Isometry2d),
-    ModifyWorld(WorldAction),
+    ModifyWorld(WorldDelta),
     InsertDebugSource(PartCoord, Item),
     InsertPipe(PartCoord, PartCoord),
     SetRecipe(PartCoord, RecipeListing),
@@ -81,7 +80,7 @@ impl WorldBuilder {
     }
 
     pub fn waypoint(mut self, grid_name: &str, waypoint: impl Into<Isometry2d>) -> Self {
-        let cmd = WorldAction::SetWaypointByName {
+        let cmd = WorldDelta::SetWaypointByName {
             name: grid_name.to_string(),
             waypoint: waypoint.into(),
         };
@@ -90,7 +89,7 @@ impl WorldBuilder {
         self
     }
 
-    pub fn command(mut self, action: WorldAction) -> Self {
+    pub fn command(mut self, action: WorldDelta) -> Self {
         let cmd = WorldBuilderCommand::ModifyWorld(action);
         self.commands.push(cmd);
         self
@@ -151,52 +150,49 @@ impl WorldBuilder {
                             }
                         }
                     }
-                    WorldBuilderCommand::ModifyWorld(action) => {
-                        apply_world_action(&mut world, action);
+                    WorldBuilderCommand::ModifyWorld(delta) => {
+                        world.apply(delta);
                     }
                     WorldBuilderCommand::InsertDebugSource(coord, item) => {
                         if let Some(grid_id) = self.cursor_grid {
-                            let action = WorldAction::InsertPart {
+                            let delta = WorldDelta::InsertPart {
                                 grid_id,
                                 coord,
                                 rotation: Rotation::East,
                                 layer: PartLayer::Plumbing,
                                 name: "debug-source".to_string(),
                             };
-                            apply_world_action(&mut world, action);
-                            let action = WorldAction::SetSourceItem {
+                            world.apply(delta);
+                            let delta = WorldDelta::SetSourceItem {
                                 grid_id,
                                 coord,
                                 item,
                             };
-                            apply_world_action(&mut world, action);
+                            world.apply(delta);
                         }
                     }
                     WorldBuilderCommand::InsertPipe(src, dst) => {
                         if let Some(grid_id) = self.cursor_grid {
-                            let action = WorldAction::InsertPipe { grid_id, src, dst };
-                            apply_world_action(&mut world, action);
+                            let delta = WorldDelta::InsertPipe { grid_id, src, dst };
+                            world.apply(delta);
                         }
                     }
                     WorldBuilderCommand::SetRecipe(coord, recipe) => {
                         if let Some(grid_id) = self.cursor_grid {
-                            let action = WorldAction::SetRecipe {
+                            let delta = WorldDelta::SetRecipe {
                                 grid_id,
                                 coord,
                                 recipe,
                             };
-                            apply_world_action(&mut world, action);
+                            world.apply(delta);
                         }
                     }
                     WorldBuilderCommand::SpawnAsteroid(p, r, seed) => {
-                        apply_world_action(
-                            &mut world,
-                            WorldAction::SpawnAsteroid {
-                                iso: p,
-                                radius: r,
-                                seed,
-                            },
-                        );
+                        world.apply(WorldDelta::SpawnAsteroid {
+                            iso: p,
+                            radius: r,
+                            seed,
+                        });
                     }
                 }
             }
