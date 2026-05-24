@@ -1,0 +1,6431 @@
+[values.42]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 41
+classification = "Cargo"
+
+[values.42.region]
+bottom_left = [34, 13]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.43]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 41
+classification = "Cargo"
+
+[values.43.region]
+bottom_left = [18, 11]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.44]
+mass = 260000
+layer = "Internal"
+prototype = 2
+grid_id = 41
+classification = "Auxiliary"
+
+[values.44.region]
+bottom_left = [18, 13]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.45]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.45.region]
+bottom_left = [4, 4]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.46]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.46.region]
+bottom_left = [36, 8]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.47]
+mass = 40000
+layer = "Internal"
+prototype = 10
+grid_id = 41
+classification = "DockingPort"
+
+[values.47.region]
+bottom_left = [20, 2]
+rotation = "South"
+part_local_dims = [1, 4]
+
+[values.48]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 41
+classification = "Structure"
+
+[values.48.region]
+bottom_left = [34, 5]
+rotation = "North"
+part_local_dims = [8, 2]
+
+[values.49]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 41
+classification = "Cargo"
+
+[values.49.region]
+bottom_left = [20, 11]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.50]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 41
+classification = "Thruster"
+
+[values.50.region]
+bottom_left = [33, 0]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.51]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.51.region]
+bottom_left = [6, 8]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.52]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 41
+classification = "Structure"
+
+[values.52.region]
+bottom_left = [32, 15]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.53]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.53.region]
+bottom_left = [6, 4]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.54]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 41
+classification = "Thruster"
+
+[values.54.region]
+bottom_left = [10, 0]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.55]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 41
+classification = "Structure"
+
+[values.55.region]
+bottom_left = [34, 13]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.56]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 41
+classification = "Thruster"
+
+[values.56.region]
+bottom_left = [12, 16]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.57]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 41
+classification = "Structure"
+
+[values.57.region]
+bottom_left = [32, 1]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.58]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 41
+classification = "Structure"
+
+[values.58.region]
+bottom_left = [10, 3]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.59]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 41
+classification = "Cargo"
+
+[values.59.region]
+bottom_left = [18, 5]
+rotation = "North"
+part_local_dims = [2, 4]
+
+[values.60]
+mass = 650000
+layer = "Internal"
+prototype = 18
+grid_id = 41
+classification = "Thruster"
+
+[values.60.region]
+bottom_left = [0, 10]
+rotation = "East"
+part_local_dims = [6, 3]
+
+[values.61]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 41
+classification = "Structure"
+
+[values.61.region]
+bottom_left = [36, 5]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.62]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.62.region]
+bottom_left = [32, 4]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.63]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 41
+classification = "Thruster"
+
+[values.63.region]
+bottom_left = [9, 16]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.64]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 41
+classification = "Thruster"
+
+[values.64.region]
+bottom_left = [12, 1]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.65]
+mass = 320000
+layer = "Internal"
+prototype = 6
+grid_id = 41
+classification = "Computer"
+
+[values.65.region]
+bottom_left = [24, 13]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.66]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 41
+classification = "Structure"
+
+[values.66.region]
+bottom_left = [8, 3]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.67]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 41
+classification = "Cargo"
+
+[values.67.region]
+bottom_left = [24, 11]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.68]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 41
+classification = "Thruster"
+
+[values.68.region]
+bottom_left = [31, 1]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.69]
+mass = 8400000
+layer = "Internal"
+prototype = 3
+grid_id = 41
+classification = "Cargo"
+
+[values.69.region]
+bottom_left = [28, 6]
+rotation = "East"
+part_local_dims = [6, 6]
+
+[values.70]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 41
+classification = "Structure"
+
+[values.70.region]
+bottom_left = [21, 7]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.71]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 41
+classification = "Cargo"
+
+[values.71.region]
+bottom_left = [22, 3]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.72]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.72.region]
+bottom_left = [38, 12]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.73]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 41
+classification = "Cargo"
+
+[values.73.region]
+bottom_left = [8, 13]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.74]
+mass = 650000
+layer = "Internal"
+prototype = 18
+grid_id = 41
+classification = "Thruster"
+
+[values.74.region]
+bottom_left = [38, 10]
+rotation = "West"
+part_local_dims = [6, 3]
+
+[values.75]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 41
+classification = "Structure"
+
+[values.75.region]
+bottom_left = [21, 9]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.76]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 41
+classification = "Structure"
+
+[values.76.region]
+bottom_left = [26, 11]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.77]
+mass = 140000
+layer = "Internal"
+prototype = 25
+grid_id = 41
+classification = "Auxiliary"
+
+[values.77.region]
+bottom_left = [28, 13]
+rotation = "North"
+part_local_dims = [1, 4]
+
+[values.78]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.78.region]
+bottom_left = [34, 8]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.79]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.79.region]
+bottom_left = [32, 12]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.80]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 41
+classification = "Cargo"
+
+[values.80.region]
+bottom_left = [22, 11]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.81]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 41
+classification = "Structure"
+
+[values.81.region]
+bottom_left = [6, 5]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.82]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.82.region]
+bottom_left = [36, 4]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.83]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.83.region]
+bottom_left = [34, 12]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.84]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 41
+classification = "Structure"
+
+[values.84.region]
+bottom_left = [32, 13]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.85]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.85.region]
+bottom_left = [10, 12]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.86]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.86.region]
+bottom_left = [10, 4]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.87]
+mass = 140000
+layer = "Internal"
+prototype = 25
+grid_id = 41
+classification = "Auxiliary"
+
+[values.87.region]
+bottom_left = [12, 3]
+rotation = "South"
+part_local_dims = [1, 4]
+
+[values.88]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 41
+classification = "Thruster"
+
+[values.88.region]
+bottom_left = [9, 1]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.89]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 41
+classification = "Structure"
+
+[values.89.region]
+bottom_left = [4, 5]
+rotation = "North"
+part_local_dims = [8, 2]
+
+[values.90]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 41
+classification = "Structure"
+
+[values.90.region]
+bottom_left = [18, 13]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.91]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 41
+classification = "Structure"
+
+[values.91.region]
+bottom_left = [8, 13]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.92]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 41
+classification = "Thruster"
+
+[values.92.region]
+bottom_left = [34, 16]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.93]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.93.region]
+bottom_left = [36, 12]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.94]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 41
+classification = "Thruster"
+
+[values.94.region]
+bottom_left = [31, 16]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.95]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 41
+classification = "Structure"
+
+[values.95.region]
+bottom_left = [10, 13]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.96]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.96.region]
+bottom_left = [38, 8]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.97]
+mass = 140000
+layer = "Internal"
+prototype = 25
+grid_id = 41
+classification = "Auxiliary"
+
+[values.97.region]
+bottom_left = [28, 3]
+rotation = "North"
+part_local_dims = [1, 4]
+
+[values.98]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.98.region]
+bottom_left = [4, 8]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.99]
+mass = 220000
+layer = "Internal"
+prototype = 26
+grid_id = 41
+classification = "Thruster"
+
+[values.99.region]
+bottom_left = [39, 8]
+rotation = "West"
+part_local_dims = [3, 2]
+
+[values.100]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 41
+classification = "Cargo"
+
+[values.100.region]
+bottom_left = [20, 3]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.101]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 41
+classification = "Structure"
+
+[values.101.region]
+bottom_left = [10, 11]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.102]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 41
+classification = "Thruster"
+
+[values.102.region]
+bottom_left = [10, 17]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.103]
+mass = 650000
+layer = "Internal"
+prototype = 18
+grid_id = 41
+classification = "Thruster"
+
+[values.103.region]
+bottom_left = [0, 5]
+rotation = "East"
+part_local_dims = [6, 3]
+
+[values.104]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 41
+classification = "Structure"
+
+[values.104.region]
+bottom_left = [18, 3]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.105]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 41
+classification = "Structure"
+
+[values.105.region]
+bottom_left = [10, 5]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.106]
+mass = 40000
+layer = "Internal"
+prototype = 10
+grid_id = 41
+classification = "DockingPort"
+
+[values.106.region]
+bottom_left = [20, 15]
+rotation = "North"
+part_local_dims = [1, 4]
+
+[values.107]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 41
+classification = "Cargo"
+
+[values.107.region]
+bottom_left = [8, 3]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.108]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.108.region]
+bottom_left = [8, 4]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.109]
+mass = 140000
+layer = "Internal"
+prototype = 25
+grid_id = 41
+classification = "Auxiliary"
+
+[values.109.region]
+bottom_left = [12, 13]
+rotation = "South"
+part_local_dims = [1, 4]
+
+[values.110]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 41
+classification = "Thruster"
+
+[values.110.region]
+bottom_left = [34, 1]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.111]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 41
+classification = "Structure"
+
+[values.111.region]
+bottom_left = [10, 1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.112]
+mass = 650000
+layer = "Internal"
+prototype = 30
+grid_id = 41
+classification = "Cargo"
+
+[values.112.region]
+bottom_left = [6, 5]
+rotation = "North"
+part_local_dims = [4, 4]
+
+[values.113]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.113.region]
+bottom_left = [6, 12]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.114]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.114.region]
+bottom_left = [8, 8]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.115]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 41
+classification = "Cargo"
+
+[values.115.region]
+bottom_left = [22, 13]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.116]
+mass = 220000
+layer = "Internal"
+prototype = 26
+grid_id = 41
+classification = "Thruster"
+
+[values.116.region]
+bottom_left = [2, 8]
+rotation = "East"
+part_local_dims = [3, 2]
+
+[values.117]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 41
+classification = "Structure"
+
+[values.117.region]
+bottom_left = [34, 3]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.118]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 41
+classification = "Thruster"
+
+[values.118.region]
+bottom_left = [33, 17]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.119]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.119.region]
+bottom_left = [34, 4]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.120]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.120.region]
+bottom_left = [4, 12]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.121]
+mass = 650000
+layer = "Internal"
+prototype = 30
+grid_id = 41
+classification = "Cargo"
+
+[values.121.region]
+bottom_left = [34, 9]
+rotation = "North"
+part_local_dims = [4, 4]
+
+[values.122]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 41
+classification = "Structure"
+
+[values.122.region]
+bottom_left = [38, 5]
+rotation = "North"
+part_local_dims = [8, 2]
+
+[values.123]
+mass = 650000
+layer = "Internal"
+prototype = 30
+grid_id = 41
+classification = "Cargo"
+
+[values.123.region]
+bottom_left = [34, 5]
+rotation = "North"
+part_local_dims = [4, 4]
+
+[values.124]
+mass = 8400000
+layer = "Internal"
+prototype = 3
+grid_id = 41
+classification = "Cargo"
+
+[values.124.region]
+bottom_left = [10, 6]
+rotation = "East"
+part_local_dims = [6, 6]
+
+[values.125]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 41
+classification = "Structure"
+
+[values.125.region]
+bottom_left = [18, 11]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.126]
+mass = 260000
+layer = "Internal"
+prototype = 2
+grid_id = 41
+classification = "Auxiliary"
+
+[values.126.region]
+bottom_left = [20, 13]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.127]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.127.region]
+bottom_left = [38, 4]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.128]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 41
+classification = "Structure"
+
+[values.128.region]
+bottom_left = [10, 15]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.129]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 41
+classification = "Cargo"
+
+[values.129.region]
+bottom_left = [22, 5]
+rotation = "North"
+part_local_dims = [2, 4]
+
+[values.130]
+mass = 960000
+layer = "Internal"
+prototype = 4
+grid_id = 41
+classification = "Machine"
+
+[values.130.region]
+bottom_left = [16, 7]
+rotation = "North"
+part_local_dims = [4, 6]
+
+[values.131]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 41
+classification = "Structure"
+
+[values.131.region]
+bottom_left = [32, 3]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.132]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 41
+classification = "Structure"
+
+[values.132.region]
+bottom_left = [8, 5]
+rotation = "North"
+part_local_dims = [8, 2]
+
+[values.133]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 41
+classification = "Structure"
+
+[values.133.region]
+bottom_left = [18, 5]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.134]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 41
+classification = "Structure"
+
+[values.134.region]
+bottom_left = [26, 5]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.135]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 41
+classification = "Cargo"
+
+[values.135.region]
+bottom_left = [34, 3]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.136]
+mass = 650000
+layer = "Internal"
+prototype = 18
+grid_id = 41
+classification = "Thruster"
+
+[values.136.region]
+bottom_left = [38, 5]
+rotation = "West"
+part_local_dims = [6, 3]
+
+[values.137]
+mass = 960000
+layer = "Internal"
+prototype = 4
+grid_id = 41
+classification = "Machine"
+
+[values.137.region]
+bottom_left = [22, 7]
+rotation = "South"
+part_local_dims = [4, 6]
+
+[values.138]
+mass = 650000
+layer = "Internal"
+prototype = 30
+grid_id = 41
+classification = "Cargo"
+
+[values.138.region]
+bottom_left = [6, 9]
+rotation = "North"
+part_local_dims = [4, 4]
+
+[values.139]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 41
+classification = "Decoration"
+
+[values.139.region]
+bottom_left = [8, 12]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.177]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 176
+classification = "Cargo"
+
+[values.177.region]
+bottom_left = [34, 13]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.178]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 176
+classification = "Cargo"
+
+[values.178.region]
+bottom_left = [18, 11]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.179]
+mass = 260000
+layer = "Internal"
+prototype = 2
+grid_id = 176
+classification = "Auxiliary"
+
+[values.179.region]
+bottom_left = [18, 13]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.180]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.180.region]
+bottom_left = [4, 4]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.181]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.181.region]
+bottom_left = [36, 8]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.182]
+mass = 40000
+layer = "Internal"
+prototype = 10
+grid_id = 176
+classification = "DockingPort"
+
+[values.182.region]
+bottom_left = [20, 2]
+rotation = "South"
+part_local_dims = [1, 4]
+
+[values.183]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 176
+classification = "Structure"
+
+[values.183.region]
+bottom_left = [34, 5]
+rotation = "North"
+part_local_dims = [8, 2]
+
+[values.184]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 176
+classification = "Cargo"
+
+[values.184.region]
+bottom_left = [20, 11]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.185]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 176
+classification = "Thruster"
+
+[values.185.region]
+bottom_left = [33, 0]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.186]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.186.region]
+bottom_left = [6, 8]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.187]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 176
+classification = "Structure"
+
+[values.187.region]
+bottom_left = [32, 15]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.188]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.188.region]
+bottom_left = [6, 4]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.189]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 176
+classification = "Thruster"
+
+[values.189.region]
+bottom_left = [10, 0]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.190]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 176
+classification = "Structure"
+
+[values.190.region]
+bottom_left = [34, 13]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.191]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 176
+classification = "Thruster"
+
+[values.191.region]
+bottom_left = [12, 16]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.192]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 176
+classification = "Structure"
+
+[values.192.region]
+bottom_left = [32, 1]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.193]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 176
+classification = "Structure"
+
+[values.193.region]
+bottom_left = [10, 3]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.194]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 176
+classification = "Cargo"
+
+[values.194.region]
+bottom_left = [18, 5]
+rotation = "North"
+part_local_dims = [2, 4]
+
+[values.195]
+mass = 650000
+layer = "Internal"
+prototype = 18
+grid_id = 176
+classification = "Thruster"
+
+[values.195.region]
+bottom_left = [0, 10]
+rotation = "East"
+part_local_dims = [6, 3]
+
+[values.196]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 176
+classification = "Structure"
+
+[values.196.region]
+bottom_left = [36, 5]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.197]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.197.region]
+bottom_left = [32, 4]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.198]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 176
+classification = "Thruster"
+
+[values.198.region]
+bottom_left = [9, 16]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.199]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 176
+classification = "Thruster"
+
+[values.199.region]
+bottom_left = [12, 1]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.200]
+mass = 320000
+layer = "Internal"
+prototype = 6
+grid_id = 176
+classification = "Computer"
+
+[values.200.region]
+bottom_left = [24, 13]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.201]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 176
+classification = "Structure"
+
+[values.201.region]
+bottom_left = [8, 3]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.202]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 176
+classification = "Cargo"
+
+[values.202.region]
+bottom_left = [24, 11]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.203]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 176
+classification = "Thruster"
+
+[values.203.region]
+bottom_left = [31, 1]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.204]
+mass = 8400000
+layer = "Internal"
+prototype = 3
+grid_id = 176
+classification = "Cargo"
+
+[values.204.region]
+bottom_left = [28, 6]
+rotation = "East"
+part_local_dims = [6, 6]
+
+[values.205]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 176
+classification = "Structure"
+
+[values.205.region]
+bottom_left = [21, 7]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.206]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 176
+classification = "Cargo"
+
+[values.206.region]
+bottom_left = [22, 3]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.207]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.207.region]
+bottom_left = [38, 12]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.208]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 176
+classification = "Cargo"
+
+[values.208.region]
+bottom_left = [8, 13]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.209]
+mass = 650000
+layer = "Internal"
+prototype = 18
+grid_id = 176
+classification = "Thruster"
+
+[values.209.region]
+bottom_left = [38, 10]
+rotation = "West"
+part_local_dims = [6, 3]
+
+[values.210]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 176
+classification = "Structure"
+
+[values.210.region]
+bottom_left = [21, 9]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.211]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 176
+classification = "Structure"
+
+[values.211.region]
+bottom_left = [26, 11]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.212]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.212.region]
+bottom_left = [34, 8]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.213]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.213.region]
+bottom_left = [32, 12]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.214]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 176
+classification = "Cargo"
+
+[values.214.region]
+bottom_left = [22, 11]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.215]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 176
+classification = "Structure"
+
+[values.215.region]
+bottom_left = [6, 5]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.216]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.216.region]
+bottom_left = [36, 4]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.217]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.217.region]
+bottom_left = [34, 12]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.218]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 176
+classification = "Structure"
+
+[values.218.region]
+bottom_left = [32, 13]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.219]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.219.region]
+bottom_left = [10, 12]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.220]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.220.region]
+bottom_left = [10, 4]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.221]
+mass = 140000
+layer = "Internal"
+prototype = 25
+grid_id = 176
+classification = "Auxiliary"
+
+[values.221.region]
+bottom_left = [12, 3]
+rotation = "South"
+part_local_dims = [1, 4]
+
+[values.222]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 176
+classification = "Thruster"
+
+[values.222.region]
+bottom_left = [9, 1]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.223]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 176
+classification = "Structure"
+
+[values.223.region]
+bottom_left = [4, 5]
+rotation = "North"
+part_local_dims = [8, 2]
+
+[values.224]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 176
+classification = "Structure"
+
+[values.224.region]
+bottom_left = [18, 13]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.225]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 176
+classification = "Structure"
+
+[values.225.region]
+bottom_left = [8, 13]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.226]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 176
+classification = "Thruster"
+
+[values.226.region]
+bottom_left = [34, 16]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.227]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.227.region]
+bottom_left = [36, 12]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.228]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 176
+classification = "Thruster"
+
+[values.228.region]
+bottom_left = [31, 16]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.229]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 176
+classification = "Structure"
+
+[values.229.region]
+bottom_left = [10, 13]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.230]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.230.region]
+bottom_left = [38, 8]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.231]
+mass = 140000
+layer = "Internal"
+prototype = 25
+grid_id = 176
+classification = "Auxiliary"
+
+[values.231.region]
+bottom_left = [28, 3]
+rotation = "North"
+part_local_dims = [1, 4]
+
+[values.232]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.232.region]
+bottom_left = [4, 8]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.233]
+mass = 220000
+layer = "Internal"
+prototype = 26
+grid_id = 176
+classification = "Thruster"
+
+[values.233.region]
+bottom_left = [39, 8]
+rotation = "West"
+part_local_dims = [3, 2]
+
+[values.234]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 176
+classification = "Cargo"
+
+[values.234.region]
+bottom_left = [20, 3]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.235]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 176
+classification = "Structure"
+
+[values.235.region]
+bottom_left = [10, 11]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.236]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 176
+classification = "Thruster"
+
+[values.236.region]
+bottom_left = [10, 17]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.237]
+mass = 650000
+layer = "Internal"
+prototype = 18
+grid_id = 176
+classification = "Thruster"
+
+[values.237.region]
+bottom_left = [0, 5]
+rotation = "East"
+part_local_dims = [6, 3]
+
+[values.238]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 176
+classification = "Structure"
+
+[values.238.region]
+bottom_left = [18, 3]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.239]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 176
+classification = "Structure"
+
+[values.239.region]
+bottom_left = [10, 5]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.240]
+mass = 40000
+layer = "Internal"
+prototype = 10
+grid_id = 176
+classification = "DockingPort"
+
+[values.240.region]
+bottom_left = [20, 15]
+rotation = "North"
+part_local_dims = [1, 4]
+
+[values.241]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 176
+classification = "Cargo"
+
+[values.241.region]
+bottom_left = [8, 3]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.242]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.242.region]
+bottom_left = [8, 4]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.243]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 176
+classification = "Thruster"
+
+[values.243.region]
+bottom_left = [34, 1]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.244]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 176
+classification = "Structure"
+
+[values.244.region]
+bottom_left = [10, 1]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.245]
+mass = 650000
+layer = "Internal"
+prototype = 30
+grid_id = 176
+classification = "Cargo"
+
+[values.245.region]
+bottom_left = [6, 5]
+rotation = "North"
+part_local_dims = [4, 4]
+
+[values.246]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.246.region]
+bottom_left = [6, 12]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.247]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.247.region]
+bottom_left = [8, 8]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.248]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 176
+classification = "Cargo"
+
+[values.248.region]
+bottom_left = [22, 13]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.249]
+mass = 220000
+layer = "Internal"
+prototype = 26
+grid_id = 176
+classification = "Thruster"
+
+[values.249.region]
+bottom_left = [2, 8]
+rotation = "East"
+part_local_dims = [3, 2]
+
+[values.250]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 176
+classification = "Structure"
+
+[values.250.region]
+bottom_left = [34, 3]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.251]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 176
+classification = "Thruster"
+
+[values.251.region]
+bottom_left = [33, 17]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.252]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.252.region]
+bottom_left = [34, 4]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.253]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.253.region]
+bottom_left = [4, 12]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.254]
+mass = 650000
+layer = "Internal"
+prototype = 30
+grid_id = 176
+classification = "Cargo"
+
+[values.254.region]
+bottom_left = [34, 9]
+rotation = "North"
+part_local_dims = [4, 4]
+
+[values.255]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 176
+classification = "Structure"
+
+[values.255.region]
+bottom_left = [38, 5]
+rotation = "North"
+part_local_dims = [8, 2]
+
+[values.256]
+mass = 650000
+layer = "Internal"
+prototype = 30
+grid_id = 176
+classification = "Cargo"
+
+[values.256.region]
+bottom_left = [34, 5]
+rotation = "North"
+part_local_dims = [4, 4]
+
+[values.257]
+mass = 8400000
+layer = "Internal"
+prototype = 3
+grid_id = 176
+classification = "Cargo"
+
+[values.257.region]
+bottom_left = [10, 6]
+rotation = "East"
+part_local_dims = [6, 6]
+
+[values.258]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 176
+classification = "Structure"
+
+[values.258.region]
+bottom_left = [18, 11]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.259]
+mass = 260000
+layer = "Internal"
+prototype = 2
+grid_id = 176
+classification = "Auxiliary"
+
+[values.259.region]
+bottom_left = [20, 13]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.260]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.260.region]
+bottom_left = [38, 4]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.261]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 176
+classification = "Structure"
+
+[values.261.region]
+bottom_left = [10, 15]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.262]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 176
+classification = "Cargo"
+
+[values.262.region]
+bottom_left = [22, 5]
+rotation = "North"
+part_local_dims = [2, 4]
+
+[values.263]
+mass = 960000
+layer = "Internal"
+prototype = 4
+grid_id = 176
+classification = "Machine"
+
+[values.263.region]
+bottom_left = [16, 7]
+rotation = "North"
+part_local_dims = [4, 6]
+
+[values.264]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 176
+classification = "Structure"
+
+[values.264.region]
+bottom_left = [32, 3]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.265]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 176
+classification = "Structure"
+
+[values.265.region]
+bottom_left = [8, 5]
+rotation = "North"
+part_local_dims = [8, 2]
+
+[values.266]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 176
+classification = "Structure"
+
+[values.266.region]
+bottom_left = [18, 5]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.267]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 176
+classification = "Structure"
+
+[values.267.region]
+bottom_left = [26, 5]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.268]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 176
+classification = "Cargo"
+
+[values.268.region]
+bottom_left = [34, 3]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.269]
+mass = 650000
+layer = "Internal"
+prototype = 18
+grid_id = 176
+classification = "Thruster"
+
+[values.269.region]
+bottom_left = [38, 5]
+rotation = "West"
+part_local_dims = [6, 3]
+
+[values.270]
+mass = 960000
+layer = "Internal"
+prototype = 4
+grid_id = 176
+classification = "Machine"
+
+[values.270.region]
+bottom_left = [22, 7]
+rotation = "South"
+part_local_dims = [4, 6]
+
+[values.271]
+mass = 650000
+layer = "Internal"
+prototype = 30
+grid_id = 176
+classification = "Cargo"
+
+[values.271.region]
+bottom_left = [6, 9]
+rotation = "North"
+part_local_dims = [4, 4]
+
+[values.272]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 176
+classification = "Decoration"
+
+[values.272.region]
+bottom_left = [8, 12]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.273]
+mass = 140000
+layer = "Internal"
+prototype = 25
+grid_id = 176
+classification = "Auxiliary"
+
+[values.273.region]
+bottom_left = [12, 14]
+rotation = "South"
+part_local_dims = [1, 4]
+
+[values.274]
+mass = 140000
+layer = "Internal"
+prototype = 25
+grid_id = 176
+classification = "Auxiliary"
+
+[values.274.region]
+bottom_left = [28, 14]
+rotation = "North"
+part_local_dims = [1, 4]
+
+[values.311]
+mass = 70000
+layer = "Plumbing"
+prototype = 9
+grid_id = 176
+classification = "Other"
+
+[values.311.region]
+bottom_left = [19, 7]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.312]
+mass = 70000
+layer = "Plumbing"
+prototype = 9
+grid_id = 176
+classification = "Other"
+
+[values.312.region]
+bottom_left = [20, 7]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.313]
+mass = 70000
+layer = "Plumbing"
+prototype = 9
+grid_id = 176
+classification = "Other"
+
+[values.313.region]
+bottom_left = [21, 7]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.314]
+mass = 70000
+layer = "Plumbing"
+prototype = 9
+grid_id = 176
+classification = "Other"
+
+[values.314.region]
+bottom_left = [22, 11]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.320]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 319
+classification = "Structure"
+
+[values.320.region]
+bottom_left = [12, 4]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.321]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 319
+classification = "Thruster"
+
+[values.321.region]
+bottom_left = [11, 9]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.322]
+mass = 8400000
+layer = "Internal"
+prototype = 3
+grid_id = 319
+classification = "Cargo"
+
+[values.322.region]
+bottom_left = [8, 2]
+rotation = "East"
+part_local_dims = [6, 6]
+
+[values.323]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 319
+classification = "Thruster"
+
+[values.323.region]
+bottom_left = [2, 8]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.324]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 319
+classification = "Structure"
+
+[values.324.region]
+bottom_left = [9, 0]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.325]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 319
+classification = "Cargo"
+
+[values.325.region]
+bottom_left = [4, 8]
+rotation = "North"
+part_local_dims = [2, 4]
+
+[values.326]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 319
+classification = "Structure"
+
+[values.326.region]
+bottom_left = [9, 8]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.327]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 319
+classification = "Structure"
+
+[values.327.region]
+bottom_left = [12, 2]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.328]
+mass = 40000
+layer = "Internal"
+prototype = 10
+grid_id = 319
+classification = "DockingPort"
+
+[values.328.region]
+bottom_left = [14, 3]
+rotation = "East"
+part_local_dims = [1, 4]
+
+[values.329]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 319
+classification = "Thruster"
+
+[values.329.region]
+bottom_left = [1, 7]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.330]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 319
+classification = "Structure"
+
+[values.330.region]
+bottom_left = [5, 8]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.331]
+mass = 220000
+layer = "Internal"
+prototype = 26
+grid_id = 319
+classification = "Thruster"
+
+[values.331.region]
+bottom_left = [0, 4]
+rotation = "East"
+part_local_dims = [3, 2]
+
+[values.332]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 319
+classification = "Structure"
+
+[values.332.region]
+bottom_left = [10, 6]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.333]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 319
+classification = "Thruster"
+
+[values.333.region]
+bottom_left = [12, 8]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.334]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 319
+classification = "Thruster"
+
+[values.334.region]
+bottom_left = [1, 2]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.335]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 319
+classification = "Thruster"
+
+[values.335.region]
+bottom_left = [11, 0]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.336]
+mass = 90000
+layer = "Structural"
+prototype = 13
+grid_id = 319
+classification = "Structure"
+
+[values.336.region]
+bottom_left = [2, 4]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.337]
+mass = 90000
+layer = "Structural"
+prototype = 13
+grid_id = 319
+classification = "Structure"
+
+[values.337.region]
+bottom_left = [8, 4]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.338]
+mass = 320000
+layer = "Internal"
+prototype = 6
+grid_id = 319
+classification = "Computer"
+
+[values.338.region]
+bottom_left = [8, 8]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.339]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 319
+classification = "Cargo"
+
+[values.339.region]
+bottom_left = [4, 0]
+rotation = "North"
+part_local_dims = [2, 4]
+
+[values.340]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 319
+classification = "Cargo"
+
+[values.340.region]
+bottom_left = [8, 0]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.341]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 319
+classification = "Structure"
+
+[values.341.region]
+bottom_left = [10, 2]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.342]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 319
+classification = "Thruster"
+
+[values.342.region]
+bottom_left = [2, 1]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.343]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 319
+classification = "Thruster"
+
+[values.343.region]
+bottom_left = [12, 1]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.344]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 319
+classification = "Structure"
+
+[values.344.region]
+bottom_left = [5, 0]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.345]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 319
+classification = "Structure"
+
+[values.345.region]
+bottom_left = [7, 0]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.346]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 319
+classification = "Structure"
+
+[values.346.region]
+bottom_left = [7, 8]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.347]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 319
+classification = "Structure"
+
+[values.347.region]
+bottom_left = [12, 6]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.348]
+mass = 500000
+layer = "Internal"
+prototype = 11
+grid_id = 319
+classification = "Cargo"
+
+[values.348.region]
+bottom_left = [4, 2]
+rotation = "North"
+part_local_dims = [6, 4]
+
+[values.349]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 319
+classification = "Structure"
+
+[values.349.region]
+bottom_left = [2, 6]
+rotation = "West"
+part_local_dims = [8, 2]
+
+[values.350]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 319
+classification = "Structure"
+
+[values.350.region]
+bottom_left = [2, 2]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.363]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 362
+classification = "Cargo"
+
+[values.363.region]
+bottom_left = [3, 5]
+rotation = "North"
+part_local_dims = [2, 4]
+
+[values.364]
+mass = 320000
+layer = "Internal"
+prototype = 6
+grid_id = 362
+classification = "Computer"
+
+[values.364.region]
+bottom_left = [5, 3]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.365]
+mass = 1670000
+layer = "Internal"
+prototype = 12
+grid_id = 362
+classification = "Cargo"
+
+[values.365.region]
+bottom_left = [13, 2]
+rotation = "East"
+part_local_dims = [5, 4]
+
+[values.366]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 362
+classification = "Structure"
+
+[values.366.region]
+bottom_left = [3, 3]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.367]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 362
+classification = "Structure"
+
+[values.367.region]
+bottom_left = [13, 5]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.368]
+mass = 260000
+layer = "Internal"
+prototype = 2
+grid_id = 362
+classification = "Auxiliary"
+
+[values.368.region]
+bottom_left = [3, 3]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.369]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 362
+classification = "Structure"
+
+[values.369.region]
+bottom_left = [11, 3]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.370]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 362
+classification = "Thruster"
+
+[values.370.region]
+bottom_left = [12, 0]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.371]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 362
+classification = "Thruster"
+
+[values.371.region]
+bottom_left = [4, 7]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.372]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 362
+classification = "Structure"
+
+[values.372.region]
+bottom_left = [1, 4]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.373]
+mass = 220000
+layer = "Internal"
+prototype = 26
+grid_id = 362
+classification = "Thruster"
+
+[values.373.region]
+bottom_left = [0, 4]
+rotation = "East"
+part_local_dims = [3, 2]
+
+[values.374]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 362
+classification = "Thruster"
+
+[values.374.region]
+bottom_left = [2, 1]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.375]
+mass = 40000
+layer = "Internal"
+prototype = 10
+grid_id = 362
+classification = "DockingPort"
+
+[values.375.region]
+bottom_left = [8, 7]
+rotation = "North"
+part_local_dims = [1, 4]
+
+[values.376]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 362
+classification = "Structure"
+
+[values.376.region]
+bottom_left = [11, 5]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.377]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 362
+classification = "Structure"
+
+[values.377.region]
+bottom_left = [11, 1]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.378]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 362
+classification = "Thruster"
+
+[values.378.region]
+bottom_left = [13, 1]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.379]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 362
+classification = "Structure"
+
+[values.379.region]
+bottom_left = [3, 5]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.380]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 362
+classification = "Structure"
+
+[values.380.region]
+bottom_left = [13, 3]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.381]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 362
+classification = "Thruster"
+
+[values.381.region]
+bottom_left = [4, 0]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.382]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 362
+classification = "Structure"
+
+[values.382.region]
+bottom_left = [13, 1]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.383]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 362
+classification = "Thruster"
+
+[values.383.region]
+bottom_left = [12, 7]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.384]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 362
+classification = "Structure"
+
+[values.384.region]
+bottom_left = [3, 1]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.385]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 362
+classification = "Structure"
+
+[values.385.region]
+bottom_left = [1, 2]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.386]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 362
+classification = "Cargo"
+
+[values.386.region]
+bottom_left = [3, 1]
+rotation = "North"
+part_local_dims = [2, 4]
+
+[values.387]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 362
+classification = "Thruster"
+
+[values.387.region]
+bottom_left = [2, 6]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.388]
+mass = 8400000
+layer = "Internal"
+prototype = 3
+grid_id = 362
+classification = "Cargo"
+
+[values.388.region]
+bottom_left = [7, 1]
+rotation = "East"
+part_local_dims = [6, 6]
+
+[values.389]
+mass = 40000
+layer = "Internal"
+prototype = 10
+grid_id = 362
+classification = "DockingPort"
+
+[values.389.region]
+bottom_left = [8, 0]
+rotation = "South"
+part_local_dims = [1, 4]
+
+[values.390]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 362
+classification = "Thruster"
+
+[values.390.region]
+bottom_left = [13, 6]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.391]
+mass = 220000
+layer = "Internal"
+prototype = 26
+grid_id = 362
+classification = "Thruster"
+
+[values.391.region]
+bottom_left = [0, 2]
+rotation = "East"
+part_local_dims = [3, 2]
+
+[values.405]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 404
+classification = "Structure"
+
+[values.405.region]
+bottom_left = [12, 4]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.406]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 404
+classification = "Thruster"
+
+[values.406.region]
+bottom_left = [11, 9]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.407]
+mass = 8400000
+layer = "Internal"
+prototype = 3
+grid_id = 404
+classification = "Cargo"
+
+[values.407.region]
+bottom_left = [8, 2]
+rotation = "East"
+part_local_dims = [6, 6]
+
+[values.408]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 404
+classification = "Thruster"
+
+[values.408.region]
+bottom_left = [2, 8]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.409]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 404
+classification = "Structure"
+
+[values.409.region]
+bottom_left = [9, 0]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.410]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 404
+classification = "Cargo"
+
+[values.410.region]
+bottom_left = [4, 8]
+rotation = "North"
+part_local_dims = [2, 4]
+
+[values.411]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 404
+classification = "Structure"
+
+[values.411.region]
+bottom_left = [9, 8]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.412]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 404
+classification = "Structure"
+
+[values.412.region]
+bottom_left = [12, 2]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.413]
+mass = 40000
+layer = "Internal"
+prototype = 10
+grid_id = 404
+classification = "DockingPort"
+
+[values.413.region]
+bottom_left = [14, 3]
+rotation = "East"
+part_local_dims = [1, 4]
+
+[values.414]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 404
+classification = "Thruster"
+
+[values.414.region]
+bottom_left = [1, 7]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.415]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 404
+classification = "Structure"
+
+[values.415.region]
+bottom_left = [5, 8]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.416]
+mass = 220000
+layer = "Internal"
+prototype = 26
+grid_id = 404
+classification = "Thruster"
+
+[values.416.region]
+bottom_left = [0, 4]
+rotation = "East"
+part_local_dims = [3, 2]
+
+[values.417]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 404
+classification = "Structure"
+
+[values.417.region]
+bottom_left = [10, 6]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.418]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 404
+classification = "Thruster"
+
+[values.418.region]
+bottom_left = [12, 8]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.419]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 404
+classification = "Thruster"
+
+[values.419.region]
+bottom_left = [1, 2]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.420]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 404
+classification = "Thruster"
+
+[values.420.region]
+bottom_left = [11, 0]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.421]
+mass = 90000
+layer = "Structural"
+prototype = 13
+grid_id = 404
+classification = "Structure"
+
+[values.421.region]
+bottom_left = [2, 4]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.422]
+mass = 90000
+layer = "Structural"
+prototype = 13
+grid_id = 404
+classification = "Structure"
+
+[values.422.region]
+bottom_left = [8, 4]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.423]
+mass = 320000
+layer = "Internal"
+prototype = 6
+grid_id = 404
+classification = "Computer"
+
+[values.423.region]
+bottom_left = [8, 8]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.424]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 404
+classification = "Cargo"
+
+[values.424.region]
+bottom_left = [4, 0]
+rotation = "North"
+part_local_dims = [2, 4]
+
+[values.425]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 404
+classification = "Cargo"
+
+[values.425.region]
+bottom_left = [8, 0]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.426]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 404
+classification = "Structure"
+
+[values.426.region]
+bottom_left = [10, 2]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.427]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 404
+classification = "Thruster"
+
+[values.427.region]
+bottom_left = [2, 1]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.428]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 404
+classification = "Thruster"
+
+[values.428.region]
+bottom_left = [12, 1]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.429]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 404
+classification = "Structure"
+
+[values.429.region]
+bottom_left = [5, 0]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.430]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 404
+classification = "Structure"
+
+[values.430.region]
+bottom_left = [7, 0]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.431]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 404
+classification = "Structure"
+
+[values.431.region]
+bottom_left = [7, 8]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.432]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 404
+classification = "Structure"
+
+[values.432.region]
+bottom_left = [12, 6]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.433]
+mass = 500000
+layer = "Internal"
+prototype = 11
+grid_id = 404
+classification = "Cargo"
+
+[values.433.region]
+bottom_left = [4, 2]
+rotation = "North"
+part_local_dims = [6, 4]
+
+[values.434]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 404
+classification = "Structure"
+
+[values.434.region]
+bottom_left = [2, 6]
+rotation = "West"
+part_local_dims = [8, 2]
+
+[values.435]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 404
+classification = "Structure"
+
+[values.435.region]
+bottom_left = [2, 2]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.448]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 447
+classification = "Cargo"
+
+[values.448.region]
+bottom_left = [64, 18]
+rotation = "East"
+part_local_dims = [2, 4]
+
+[values.449]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.449.region]
+bottom_left = [40, 4]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.450]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.450.region]
+bottom_left = [42, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.451]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 447
+classification = "Cargo"
+
+[values.451.region]
+bottom_left = [38, 15]
+rotation = "South"
+part_local_dims = [2, 4]
+
+[values.452]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.452.region]
+bottom_left = [48, 11]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.453]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.453.region]
+bottom_left = [40, 15]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.454]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 447
+classification = "Cargo"
+
+[values.454.region]
+bottom_left = [14, 15]
+rotation = "South"
+part_local_dims = [2, 4]
+
+[values.455]
+mass = 40000
+layer = "Internal"
+prototype = 10
+grid_id = 447
+classification = "DockingPort"
+
+[values.455.region]
+bottom_left = [50, 31]
+rotation = "North"
+part_local_dims = [1, 4]
+
+[values.456]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 447
+classification = "Structure"
+
+[values.456.region]
+bottom_left = [10, 4]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.457]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.457.region]
+bottom_left = [12, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.458]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.458.region]
+bottom_left = [74, 15]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.459]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.459.region]
+bottom_left = [50, 3]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.460]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.460.region]
+bottom_left = [62, 26]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.461]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.461.region]
+bottom_left = [44, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.462]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.462.region]
+bottom_left = [50, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.463]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.463.region]
+bottom_left = [48, 15]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.464]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 447
+classification = "Structure"
+
+[values.464.region]
+bottom_left = [50, 29]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.465]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 447
+classification = "Structure"
+
+[values.465.region]
+bottom_left = [6, 22]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.466]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 447
+classification = "Cargo"
+
+[values.466.region]
+bottom_left = [6, 12]
+rotation = "East"
+part_local_dims = [2, 4]
+
+[values.467]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.467.region]
+bottom_left = [10, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.468]
+mass = 40000
+layer = "Internal"
+prototype = 10
+grid_id = 447
+classification = "DockingPort"
+
+[values.468.region]
+bottom_left = [24, 31]
+rotation = "North"
+part_local_dims = [1, 4]
+
+[values.469]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.469.region]
+bottom_left = [89, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.470]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.470.region]
+bottom_left = [8, 26]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.471]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 447
+classification = "Structure"
+
+[values.471.region]
+bottom_left = [24, 1]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.472]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.472.region]
+bottom_left = [54, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.473]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.473.region]
+bottom_left = [28, 21]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.474]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.474.region]
+bottom_left = [94, 25]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.475]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.475.region]
+bottom_left = [10, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.476]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.476.region]
+bottom_left = [15, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.477]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.477.region]
+bottom_left = [66, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.478]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.478.region]
+bottom_left = [6, 7]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.479]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.479.region]
+bottom_left = [6, 24]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.480]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 447
+classification = "Structure"
+
+[values.480.region]
+bottom_left = [52, 29]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.481]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 447
+classification = "Cargo"
+
+[values.481.region]
+bottom_left = [6, 16]
+rotation = "East"
+part_local_dims = [2, 4]
+
+[values.482]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 447
+classification = "Cargo"
+
+[values.482.region]
+bottom_left = [64, 10]
+rotation = "East"
+part_local_dims = [2, 4]
+
+[values.483]
+mass = 24000000
+layer = "Internal"
+prototype = 5
+grid_id = 447
+classification = "Cargo"
+
+[values.483.region]
+bottom_left = [14, 17]
+rotation = "East"
+part_local_dims = [24, 10]
+
+[values.484]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.484.region]
+bottom_left = [94, 8]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.485]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.485.region]
+bottom_left = [36, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.486]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.486.region]
+bottom_left = [36, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.487]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.487.region]
+bottom_left = [64, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.488]
+mass = 40000
+layer = "Internal"
+prototype = 10
+grid_id = 447
+classification = "DockingPort"
+
+[values.488.region]
+bottom_left = [24, 0]
+rotation = "South"
+part_local_dims = [1, 4]
+
+[values.489]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.489.region]
+bottom_left = [90, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.490]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.490.region]
+bottom_left = [8, 4]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.491]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 447
+classification = "Structure"
+
+[values.491.region]
+bottom_left = [92, 16]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.492]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.492.region]
+bottom_left = [26, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.493]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.493.region]
+bottom_left = [12, 4]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.494]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.494.region]
+bottom_left = [12, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.495]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.495.region]
+bottom_left = [48, 19]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.496]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.496.region]
+bottom_left = [66, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.497]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.497.region]
+bottom_left = [92, 4]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.498]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.498.region]
+bottom_left = [92, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.499]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 447
+classification = "Cargo"
+
+[values.499.region]
+bottom_left = [30, 15]
+rotation = "South"
+part_local_dims = [2, 4]
+
+[values.500]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.500.region]
+bottom_left = [30, 15]
+rotation = "West"
+part_local_dims = [8, 2]
+
+[values.501]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.501.region]
+bottom_left = [6, 24]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.502]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.502.region]
+bottom_left = [8, 26]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.503]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.503.region]
+bottom_left = [54, 21]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.504]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.504.region]
+bottom_left = [4, 8]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.505]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.505.region]
+bottom_left = [7, 25]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.506]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.506.region]
+bottom_left = [11, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.507]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.507.region]
+bottom_left = [36, 26]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.508]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.508.region]
+bottom_left = [10, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.509]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.509.region]
+bottom_left = [78, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.510]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 447
+classification = "Structure"
+
+[values.510.region]
+bottom_left = [50, 1]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.511]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.511.region]
+bottom_left = [91, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.512]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.512.region]
+bottom_left = [94, 24]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.513]
+mass = 40000
+layer = "Internal"
+prototype = 10
+grid_id = 447
+classification = "DockingPort"
+
+[values.513.region]
+bottom_left = [94, 10]
+rotation = "East"
+part_local_dims = [1, 4]
+
+[values.514]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.514.region]
+bottom_left = [13, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.515]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.515.region]
+bottom_left = [38, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.516]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.516.region]
+bottom_left = [64, 20]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.517]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.517.region]
+bottom_left = [74, 19]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.518]
+mass = 24000000
+layer = "Internal"
+prototype = 5
+grid_id = 447
+classification = "Cargo"
+
+[values.518.region]
+bottom_left = [66, 17]
+rotation = "East"
+part_local_dims = [24, 10]
+
+[values.519]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.519.region]
+bottom_left = [4, 20]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.520]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.520.region]
+bottom_left = [88, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.521]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.521.region]
+bottom_left = [4, 22]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.522]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.522.region]
+bottom_left = [6, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.523]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.523.region]
+bottom_left = [22, 15]
+rotation = "West"
+part_local_dims = [8, 2]
+
+[values.524]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.524.region]
+bottom_left = [34, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.525]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.525.region]
+bottom_left = [22, 21]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.526]
+mass = 320000
+layer = "Internal"
+prototype = 6
+grid_id = 447
+classification = "Computer"
+
+[values.526.region]
+bottom_left = [90, 24]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.527]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.527.region]
+bottom_left = [5, 23]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.528]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 447
+classification = "Cargo"
+
+[values.528.region]
+bottom_left = [38, 10]
+rotation = "East"
+part_local_dims = [2, 4]
+
+[values.529]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.529.region]
+bottom_left = [9, 26]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.530]
+mass = 165000
+layer = "Structural"
+prototype = 15
+grid_id = 447
+classification = "Structure"
+
+[values.530.region]
+bottom_left = [8, 6]
+rotation = "East"
+part_local_dims = [4, 4]
+
+[values.531]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.531.region]
+bottom_left = [16, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.532]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.532.region]
+bottom_left = [40, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.533]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.533.region]
+bottom_left = [74, 11]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.534]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.534.region]
+bottom_left = [37, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.535]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.535.region]
+bottom_left = [66, 26]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.536]
+mass = 40000
+layer = "Internal"
+prototype = 10
+grid_id = 447
+classification = "DockingPort"
+
+[values.536.region]
+bottom_left = [50, 0]
+rotation = "South"
+part_local_dims = [1, 4]
+
+[values.537]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.537.region]
+bottom_left = [22, 11]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.538]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.538.region]
+bottom_left = [62, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.539]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.539.region]
+bottom_left = [36, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.540]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.540.region]
+bottom_left = [66, 15]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.541]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 447
+classification = "Cargo"
+
+[values.541.region]
+bottom_left = [6, 8]
+rotation = "East"
+part_local_dims = [2, 4]
+
+[values.542]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.542.region]
+bottom_left = [82, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.543]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.543.region]
+bottom_left = [41, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.544]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.544.region]
+bottom_left = [74, 17]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.545]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.545.region]
+bottom_left = [89, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.546]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.546.region]
+bottom_left = [26, 3]
+rotation = "North"
+part_local_dims = [8, 2]
+
+[values.547]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.547.region]
+bottom_left = [64, 4]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.548]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 447
+classification = "Structure"
+
+[values.548.region]
+bottom_left = [92, 14]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.549]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.549.region]
+bottom_left = [32, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.550]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.550.region]
+bottom_left = [50, 21]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.551]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.551.region]
+bottom_left = [88, 26]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.552]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.552.region]
+bottom_left = [37, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.553]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.553.region]
+bottom_left = [48, 13]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.554]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.554.region]
+bottom_left = [68, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.555]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.555.region]
+bottom_left = [24, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.556]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.556.region]
+bottom_left = [39, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.557]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.557.region]
+bottom_left = [22, 13]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.558]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.558.region]
+bottom_left = [26, 21]
+rotation = "North"
+part_local_dims = [8, 2]
+
+[values.559]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.559.region]
+bottom_left = [24, 21]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.560]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.560.region]
+bottom_left = [14, 26]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.561]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 447
+classification = "Cargo"
+
+[values.561.region]
+bottom_left = [18, 15]
+rotation = "South"
+part_local_dims = [2, 4]
+
+[values.562]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.562.region]
+bottom_left = [5, 8]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.563]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.563.region]
+bottom_left = [82, 15]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.564]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.564.region]
+bottom_left = [94, 6]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.565]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.565.region]
+bottom_left = [76, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.566]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.566.region]
+bottom_left = [9, 5]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.567]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.567.region]
+bottom_left = [22, 17]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.568]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.568.region]
+bottom_left = [14, 15]
+rotation = "West"
+part_local_dims = [8, 2]
+
+[values.569]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.569.region]
+bottom_left = [40, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.570]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.570.region]
+bottom_left = [60, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.571]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.571.region]
+bottom_left = [13, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.572]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.572.region]
+bottom_left = [12, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.573]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 447
+classification = "Cargo"
+
+[values.573.region]
+bottom_left = [6, 20]
+rotation = "East"
+part_local_dims = [2, 4]
+
+[values.574]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.574.region]
+bottom_left = [38, 4]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.575]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.575.region]
+bottom_left = [48, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.576]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.576.region]
+bottom_left = [67, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.577]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.577.region]
+bottom_left = [94, 23]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.578]
+mass = 24000000
+layer = "Internal"
+prototype = 5
+grid_id = 447
+classification = "Cargo"
+
+[values.578.region]
+bottom_left = [40, 17]
+rotation = "East"
+part_local_dims = [24, 10]
+
+[values.579]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.579.region]
+bottom_left = [18, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.580]
+mass = 650000
+layer = "Internal"
+prototype = 18
+grid_id = 447
+classification = "Thruster"
+
+[values.580.region]
+bottom_left = [0, 16]
+rotation = "East"
+part_local_dims = [6, 3]
+
+[values.581]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.581.region]
+bottom_left = [86, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.582]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.582.region]
+bottom_left = [92, 26]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.583]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.583.region]
+bottom_left = [22, 19]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.584]
+mass = 24000000
+layer = "Internal"
+prototype = 5
+grid_id = 447
+classification = "Cargo"
+
+[values.584.region]
+bottom_left = [40, 5]
+rotation = "West"
+part_local_dims = [24, 10]
+
+[values.585]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.585.region]
+bottom_left = [38, 20]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.586]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.586.region]
+bottom_left = [65, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.587]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.587.region]
+bottom_left = [28, 9]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.588]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.588.region]
+bottom_left = [14, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.589]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.589.region]
+bottom_left = [8, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.590]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 447
+classification = "Cargo"
+
+[values.590.region]
+bottom_left = [8, 10]
+rotation = "South"
+part_local_dims = [2, 4]
+
+[values.591]
+mass = 165000
+layer = "Structural"
+prototype = 15
+grid_id = 447
+classification = "Structure"
+
+[values.591.region]
+bottom_left = [8, 22]
+rotation = "East"
+part_local_dims = [4, 4]
+
+[values.592]
+mass = 165000
+layer = "Structural"
+prototype = 15
+grid_id = 447
+classification = "Structure"
+
+[values.592.region]
+bottom_left = [4, 16]
+rotation = "South"
+part_local_dims = [4, 4]
+
+[values.593]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.593.region]
+bottom_left = [11, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.594]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.594.region]
+bottom_left = [90, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.595]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.595.region]
+bottom_left = [56, 15]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.596]
+mass = 650000
+layer = "Internal"
+prototype = 30
+grid_id = 447
+classification = "Cargo"
+
+[values.596.region]
+bottom_left = [8, 16]
+rotation = "South"
+part_local_dims = [4, 4]
+
+[values.597]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.597.region]
+bottom_left = [14, 4]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.598]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.598.region]
+bottom_left = [12, 20]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.599]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.599.region]
+bottom_left = [84, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.600]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.600.region]
+bottom_left = [52, 3]
+rotation = "North"
+part_local_dims = [8, 2]
+
+[values.601]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.601.region]
+bottom_left = [40, 26]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.602]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.602.region]
+bottom_left = [22, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.603]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.603.region]
+bottom_left = [58, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.604]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.604.region]
+bottom_left = [38, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.605]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.605.region]
+bottom_left = [63, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.606]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.606.region]
+bottom_left = [39, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.607]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.607.region]
+bottom_left = [67, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.608]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.608.region]
+bottom_left = [46, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.609]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.609.region]
+bottom_left = [92, 18]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.610]
+mass = 24000000
+layer = "Internal"
+prototype = 5
+grid_id = 447
+classification = "Cargo"
+
+[values.610.region]
+bottom_left = [14, 5]
+rotation = "West"
+part_local_dims = [24, 10]
+
+[values.611]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.611.region]
+bottom_left = [28, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.612]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.612.region]
+bottom_left = [80, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.613]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.613.region]
+bottom_left = [20, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.614]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.614.region]
+bottom_left = [36, 4]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.615]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.615.region]
+bottom_left = [52, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.616]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.616.region]
+bottom_left = [62, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.617]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.617.region]
+bottom_left = [14, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.618]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.618.region]
+bottom_left = [52, 21]
+rotation = "North"
+part_local_dims = [8, 2]
+
+[values.619]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.619.region]
+bottom_left = [66, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.620]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.620.region]
+bottom_left = [6, 6]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.621]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.621.region]
+bottom_left = [54, 9]
+rotation = "South"
+part_local_dims = [2, 2]
+
+[values.622]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.622.region]
+bottom_left = [48, 9]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.623]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.623.region]
+bottom_left = [30, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.624]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.624.region]
+bottom_left = [15, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.625]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.625.region]
+bottom_left = [91, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.626]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.626.region]
+bottom_left = [90, 20]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.627]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.627.region]
+bottom_left = [63, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.628]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.628.region]
+bottom_left = [88, 4]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.629]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.629.region]
+bottom_left = [74, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.630]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.630.region]
+bottom_left = [70, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.631]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.631.region]
+bottom_left = [12, 12]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.632]
+mass = 165000
+layer = "Structural"
+prototype = 15
+grid_id = 447
+classification = "Structure"
+
+[values.632.region]
+bottom_left = [4, 12]
+rotation = "South"
+part_local_dims = [4, 4]
+
+[values.633]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.633.region]
+bottom_left = [38, 12]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.634]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.634.region]
+bottom_left = [38, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.635]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.635.region]
+bottom_left = [56, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.636]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.636.region]
+bottom_left = [74, 13]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.637]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.637.region]
+bottom_left = [90, 12]
+rotation = "North"
+part_local_dims = [8, 2]
+
+[values.638]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.638.region]
+bottom_left = [22, 9]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.639]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.639.region]
+bottom_left = [14, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.640]
+mass = 650000
+layer = "Internal"
+prototype = 30
+grid_id = 447
+classification = "Cargo"
+
+[values.640.region]
+bottom_left = [8, 12]
+rotation = "South"
+part_local_dims = [4, 4]
+
+[values.641]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.641.region]
+bottom_left = [41, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.642]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 447
+classification = "Cargo"
+
+[values.642.region]
+bottom_left = [34, 15]
+rotation = "South"
+part_local_dims = [2, 4]
+
+[values.643]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.643.region]
+bottom_left = [62, 4]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.644]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.644.region]
+bottom_left = [64, 12]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.645]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.645.region]
+bottom_left = [90, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.646]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 447
+classification = "Structure"
+
+[values.646.region]
+bottom_left = [10, 26]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.647]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.647.region]
+bottom_left = [94, 7]
+rotation = "West"
+part_local_dims = [1, 1]
+
+[values.648]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.648.region]
+bottom_left = [62, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.649]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.649.region]
+bottom_left = [4, 10]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.650]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 447
+classification = "Cargo"
+
+[values.650.region]
+bottom_left = [42, 15]
+rotation = "South"
+part_local_dims = [2, 4]
+
+[values.651]
+mass = 650000
+layer = "Internal"
+prototype = 18
+grid_id = 447
+classification = "Thruster"
+
+[values.651.region]
+bottom_left = [0, 19]
+rotation = "East"
+part_local_dims = [6, 3]
+
+[values.652]
+mass = 40000
+layer = "Internal"
+prototype = 10
+grid_id = 447
+classification = "DockingPort"
+
+[values.652.region]
+bottom_left = [94, 18]
+rotation = "East"
+part_local_dims = [1, 4]
+
+[values.653]
+mass = 650000
+layer = "Internal"
+prototype = 30
+grid_id = 447
+classification = "Cargo"
+
+[values.653.region]
+bottom_left = [8, 22]
+rotation = "East"
+part_local_dims = [4, 4]
+
+[values.654]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.654.region]
+bottom_left = [48, 21]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.655]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 447
+classification = "Cargo"
+
+[values.655.region]
+bottom_left = [38, 18]
+rotation = "East"
+part_local_dims = [2, 4]
+
+[values.656]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.656.region]
+bottom_left = [90, 4]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.657]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.657.region]
+bottom_left = [7, 6]
+rotation = "East"
+part_local_dims = [1, 1]
+
+[values.658]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 447
+classification = "Structure"
+
+[values.658.region]
+bottom_left = [26, 29]
+rotation = "North"
+part_local_dims = [2, 2]
+
+[values.659]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.659.region]
+bottom_left = [48, 17]
+rotation = "East"
+part_local_dims = [8, 2]
+
+[values.660]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 447
+classification = "Cargo"
+
+[values.660.region]
+bottom_left = [26, 15]
+rotation = "South"
+part_local_dims = [2, 4]
+
+[values.661]
+mass = 24000000
+layer = "Internal"
+prototype = 5
+grid_id = 447
+classification = "Cargo"
+
+[values.661.region]
+bottom_left = [66, 5]
+rotation = "West"
+part_local_dims = [24, 10]
+
+[values.662]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.662.region]
+bottom_left = [72, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.663]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.663.region]
+bottom_left = [24, 3]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.664]
+mass = 165000
+layer = "Structural"
+prototype = 15
+grid_id = 447
+classification = "Structure"
+
+[values.664.region]
+bottom_left = [8, 12]
+rotation = "South"
+part_local_dims = [4, 4]
+
+[values.665]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 447
+classification = "Structure"
+
+[values.665.region]
+bottom_left = [24, 29]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.666]
+mass = 37000
+layer = "Structural"
+prototype = 0
+grid_id = 447
+classification = "Structure"
+
+[values.666.region]
+bottom_left = [66, 4]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.667]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.667.region]
+bottom_left = [40, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.668]
+mass = 650000
+layer = "Internal"
+prototype = 18
+grid_id = 447
+classification = "Thruster"
+
+[values.668.region]
+bottom_left = [0, 13]
+rotation = "East"
+part_local_dims = [6, 3]
+
+[values.669]
+mass = 305000
+layer = "Structural"
+prototype = 16
+grid_id = 447
+classification = "Structure"
+
+[values.669.region]
+bottom_left = [92, 6]
+rotation = "South"
+part_local_dims = [8, 2]
+
+[values.670]
+mass = 650000
+layer = "Internal"
+prototype = 30
+grid_id = 447
+classification = "Cargo"
+
+[values.670.region]
+bottom_left = [8, 6]
+rotation = "East"
+part_local_dims = [4, 4]
+
+[values.671]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.671.region]
+bottom_left = [88, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.672]
+mass = 650000
+layer = "Internal"
+prototype = 18
+grid_id = 447
+classification = "Thruster"
+
+[values.672.region]
+bottom_left = [0, 10]
+rotation = "East"
+part_local_dims = [6, 3]
+
+[values.673]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 447
+classification = "Cargo"
+
+[values.673.region]
+bottom_left = [8, 20]
+rotation = "South"
+part_local_dims = [2, 4]
+
+[values.674]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.674.region]
+bottom_left = [8, 5]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.675]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 447
+classification = "Structure"
+
+[values.675.region]
+bottom_left = [52, 1]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.676]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.676.region]
+bottom_left = [65, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.677]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.677.region]
+bottom_left = [4, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.678]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 447
+classification = "Structure"
+
+[values.678.region]
+bottom_left = [26, 1]
+rotation = "West"
+part_local_dims = [2, 2]
+
+[values.679]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.679.region]
+bottom_left = [88, 28]
+rotation = "South"
+part_local_dims = [1, 1]
+
+[values.680]
+mass = 85000
+layer = "Structural"
+prototype = 14
+grid_id = 447
+classification = "Structure"
+
+[values.680.region]
+bottom_left = [6, 8]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.681]
+mass = 18000
+layer = "Exterior"
+prototype = 20
+grid_id = 447
+classification = "Decoration"
+
+[values.681.region]
+bottom_left = [64, 15]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.682]
+mass = 400000
+layer = "Internal"
+prototype = 29
+grid_id = 447
+classification = "Cargo"
+
+[values.682.region]
+bottom_left = [22, 15]
+rotation = "South"
+part_local_dims = [2, 4]
+
+[values.683]
+mass = 25000
+layer = "Internal"
+prototype = 22
+grid_id = 447
+classification = "Thruster"
+
+[values.683.region]
+bottom_left = [64, 3]
+rotation = "North"
+part_local_dims = [1, 1]
+
+[values.684]
+mass = 165000
+layer = "Structural"
+prototype = 15
+grid_id = 447
+classification = "Structure"
+
+[values.684.region]
+bottom_left = [8, 16]
+rotation = "South"
+part_local_dims = [4, 4]
+
+[values.685]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 447
+classification = "Cargo"
+
+[values.685.region]
+bottom_left = [12, 26]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.686]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 447
+classification = "Cargo"
+
+[values.686.region]
+bottom_left = [12, 4]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.687]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 447
+classification = "Cargo"
+
+[values.687.region]
+bottom_left = [38, 4]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.688]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 447
+classification = "Cargo"
+
+[values.688.region]
+bottom_left = [38, 26]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.689]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 447
+classification = "Cargo"
+
+[values.689.region]
+bottom_left = [64, 26]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.690]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 447
+classification = "Cargo"
+
+[values.690.region]
+bottom_left = [64, 4]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.691]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 447
+classification = "Cargo"
+
+[values.691.region]
+bottom_left = [90, 4]
+rotation = "East"
+part_local_dims = [2, 2]
+
+[values.692]
+mass = 230000
+layer = "Internal"
+prototype = 28
+grid_id = 447
+classification = "Cargo"
+
+[values.692.region]
+bottom_left = [90, 26]
+rotation = "East"
+part_local_dims = [2, 2]

@@ -1608,14 +1608,6 @@ pub fn draw_terminal<T: std::fmt::Debug>(
         return;
     };
 
-    d.draw_rectangle(
-        0,
-        0,
-        d.get_render_width(),
-        d.get_render_height(),
-        Color::new(0, 0, 0, 230),
-    );
-
     let chars = cmd.display_text();
 
     let fg: String = chars

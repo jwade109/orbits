@@ -1,0 +1,767 @@
+[values.50]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 65
+
+[values.54]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 65
+
+[values.56]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 65
+
+[values.60]
+is_on = false
+is_rcs = false
+thrust = 400000.0
+last_controlled_by = 65
+
+[values.63]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 65
+
+[values.64]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 65
+
+[values.68]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 65
+
+[values.74]
+is_on = false
+is_rcs = false
+thrust = 400000.0
+last_controlled_by = 65
+
+[values.88]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 65
+
+[values.92]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 65
+
+[values.94]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 65
+
+[values.99]
+is_on = false
+is_rcs = false
+thrust = 320000.0
+last_controlled_by = 65
+
+[values.102]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 65
+
+[values.103]
+is_on = false
+is_rcs = false
+thrust = 400000.0
+last_controlled_by = 65
+
+[values.110]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 65
+
+[values.116]
+is_on = false
+is_rcs = false
+thrust = 320000.0
+last_controlled_by = 65
+
+[values.118]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 65
+
+[values.136]
+is_on = false
+is_rcs = false
+thrust = 400000.0
+last_controlled_by = 65
+
+[values.185]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 200
+
+[values.189]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 200
+
+[values.191]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 200
+
+[values.195]
+is_on = false
+is_rcs = false
+thrust = 400000.0
+last_controlled_by = 200
+
+[values.198]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 200
+
+[values.199]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 200
+
+[values.203]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 200
+
+[values.209]
+is_on = false
+is_rcs = false
+thrust = 400000.0
+last_controlled_by = 200
+
+[values.222]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 200
+
+[values.226]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 200
+
+[values.228]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 200
+
+[values.233]
+is_on = false
+is_rcs = false
+thrust = 320000.0
+last_controlled_by = 200
+
+[values.236]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 200
+
+[values.237]
+is_on = false
+is_rcs = false
+thrust = 400000.0
+last_controlled_by = 200
+
+[values.243]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 200
+
+[values.249]
+is_on = false
+is_rcs = false
+thrust = 320000.0
+last_controlled_by = 200
+
+[values.251]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 200
+
+[values.269]
+is_on = false
+is_rcs = false
+thrust = 400000.0
+last_controlled_by = 200
+
+[values.321]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 338
+
+[values.323]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 338
+
+[values.329]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 338
+
+[values.331]
+is_on = false
+is_rcs = false
+thrust = 320000.0
+last_controlled_by = 338
+
+[values.333]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 338
+
+[values.334]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 338
+
+[values.335]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 338
+
+[values.342]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 338
+
+[values.343]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 338
+
+[values.370]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 364
+
+[values.371]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 364
+
+[values.373]
+is_on = false
+is_rcs = false
+thrust = 320000.0
+last_controlled_by = 364
+
+[values.374]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 364
+
+[values.378]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 364
+
+[values.381]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 364
+
+[values.383]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 364
+
+[values.387]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 364
+
+[values.390]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 364
+
+[values.391]
+is_on = false
+is_rcs = false
+thrust = 320000.0
+last_controlled_by = 364
+
+[values.406]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 423
+
+[values.408]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 423
+
+[values.414]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 423
+
+[values.416]
+is_on = false
+is_rcs = false
+thrust = 320000.0
+last_controlled_by = 423
+
+[values.418]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 423
+
+[values.419]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 423
+
+[values.420]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 423
+
+[values.427]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 423
+
+[values.428]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 423
+
+[values.457]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.469]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.470]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.474]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.475]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.476]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.477]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.478]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.479]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.484]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.486]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.487]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.489]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.505]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.506]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.508]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.511]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.512]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.514]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.515]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.520]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.527]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.529]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.532]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.534]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.538]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.539]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.543]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.545]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.552]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.556]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.562]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.564]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.566]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.571]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.572]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.576]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.577]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.580]
+is_on = false
+is_rcs = false
+thrust = 400000.0
+last_controlled_by = 526
+
+[values.586]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.593]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.594]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.605]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.606]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.607]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.617]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.619]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.624]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.625]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.627]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.634]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.639]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.641]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.647]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.648]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.651]
+is_on = false
+is_rcs = false
+thrust = 400000.0
+last_controlled_by = 526
+
+[values.657]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.667]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.668]
+is_on = false
+is_rcs = false
+thrust = 400000.0
+last_controlled_by = 526
+
+[values.672]
+is_on = false
+is_rcs = false
+thrust = 400000.0
+last_controlled_by = 526
+
+[values.674]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.676]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.679]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526
+
+[values.683]
+is_on = false
+is_rcs = true
+thrust = 4000.0
+last_controlled_by = 526

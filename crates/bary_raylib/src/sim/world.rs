@@ -85,6 +85,10 @@ impl World {
     pub fn apply(&mut self, delta: WorldDelta) -> BaryResult<()> {
         info!("Applying delta {:?} at tick {}", delta, self.ticks);
         match delta {
+            WorldDelta::ClearAll => {
+                *self = World::empty();
+                Ok(())
+            }
             WorldDelta::Ping(pos) => {
                 ping(self, pos);
                 Ok(())

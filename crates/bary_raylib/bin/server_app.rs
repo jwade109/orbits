@@ -1,4 +1,4 @@
-use bary_core::prelude::distance_str_v;
+use bary_core::prelude::{Components, distance_str_v};
 use bary_ipc::*;
 use bary_raylib::assets::Assets;
 use bary_raylib::persistence::{list_saves_in_dir, load_world, save_world};
@@ -11,10 +11,11 @@ use bary_terminal::Terminal;
 use clap::Parser;
 use log::{info, warn};
 use raylib::prelude::*;
+use serde::Serialize;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub struct ServerApp {
     saves_dir: PathBuf,
@@ -328,6 +329,7 @@ impl DedicatedServerApp {
 
         let mut cmds = server_console_commands();
         cmds.extend(world_delta_commands());
+        cmds.extend(blob_info_commands());
 
         Self {
             app,
@@ -373,7 +375,55 @@ impl DedicatedServerApp {
             TermCmd::ListBlueprints => {
                 self.list_blueprints();
             }
+            TermCmd::BlobInfoBlueprints => {
+                Self::list_blob_info(&mut self.terminal, &self.server.world.blueprints);
+            }
+            TermCmd::BlobInfoGrids => {
+                Self::list_blob_info(&mut self.terminal, &self.server.world.grids);
+            }
+            TermCmd::BlobInfoProtos => {
+                Self::list_blob_info(&mut self.terminal, &self.server.world.prototypes);
+            }
+            TermCmd::BlobInfoParts => {
+                Self::list_blob_info(&mut self.terminal, &self.server.world.parts);
+            }
+            TermCmd::BlobInfoThrusters => {
+                Self::list_blob_info(&mut self.terminal, &self.server.world.thrusters);
+            }
+            TermCmd::BlobInfoComputers => {
+                Self::list_blob_info(&mut self.terminal, &self.server.world.computers);
+            }
+            TermCmd::BlobInfoChunks => {
+                Self::list_blob_info(&mut self.terminal, &self.server.world.terrain_chunks);
+            }
+            TermCmd::BlobInfoTiles => {
+                Self::list_blob_info(&mut self.terminal, &self.server.world.terrain_tiles);
+            }
+            TermCmd::BlobInfoInventories => {
+                Self::list_blob_info(&mut self.terminal, &self.server.world.inventories);
+            }
+            TermCmd::BlobInfoMachines => {
+                Self::list_blob_info(&mut self.terminal, &self.server.world.machines);
+            }
             _ => self.terminal.log_warn(format!("Unsupported: {:?}", cmd)),
+        }
+    }
+
+    fn list_blob_info<T: Serialize>(term: &mut Terminal<TermCmd>, entities: &Components<T>) {
+        let start = Instant::now();
+        let bin = bincode::serialize(entities);
+        let delta = Instant::now() - start;
+        match bin {
+            Ok(bin) => {
+                let md5 = md5::compute(&bin);
+                term.log_info(format!("Len:   {} entities", entities.len()));
+                term.log_info(format!("Bytes: {}", bin.len()));
+                term.log_info(format!("MD5:   {:?}", md5));
+                term.log_info(format!("Dur:   {} us", delta.as_micros()));
+            }
+            Err(e) => {
+                term.log_error(format!("Failed to serialize: {:?}", e));
+            }
         }
     }
 
@@ -505,14 +555,23 @@ impl Application for DedicatedServerApp {
 
     fn draw(&mut self) {
         self.app.handle.draw(&self.app.thread, |mut d| {
-            d.clear_background(Color::new(140, 140, 30, 255));
-            d.draw_rectangle(
-                3,
-                3,
-                d.get_render_width() - 6,
-                d.get_render_height() - 6,
-                Color::ORANGE,
-            );
+            d.clear_background(Color::new(20, 20, 20, 255));
+
+            for grid in self.server.world.grids.values() {
+                let pos = grid.particle_location.translation;
+                let x = pos.x as i32 + d.get_render_width() / 2;
+                let y = pos.y as i32 + d.get_render_height() / 2;
+                let size = 12;
+                d.draw_circle(x, y, 3.0, Color::WHITE);
+                d.draw_text(
+                    &grid.name.to_uppercase(),
+                    x + 8,
+                    y - size / 2,
+                    size,
+                    Color::WHITE,
+                );
+            }
+
             draw_terminal(&mut d, &self.terminal, &self.assets);
 
             let lines = vec![
@@ -524,7 +583,11 @@ impl Application for DedicatedServerApp {
                 format!("BPs:       {}", self.server.world.blueprints.len()),
                 format!("Thrusters: {}", self.server.world.thrusters.len()),
                 format!("Invs:      {}", self.server.world.inventories.len()),
+                format!("Machines:  {}", self.server.world.machines.len()),
                 format!("Asteroids: {}", self.server.world.asteroids.len()),
+                format!("Chunks:    {}", self.server.world.terrain_chunks.len()),
+                format!("Tiles:     {}", self.server.world.terrain_tiles.len()),
+                format!("GAUs:      {}", self.server.world.grid_acceleration_updates),
                 format!("Clients:   {}", self.server.get_statistics().clients.len()),
             ];
 

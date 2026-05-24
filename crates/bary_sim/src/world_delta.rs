@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum WorldDelta {
+    ClearAll,
     Ping(Vec2),
     SpawnShipAt(String, Isometry2d),
     FastForwardTo(u64),

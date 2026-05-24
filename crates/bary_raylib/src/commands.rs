@@ -38,6 +38,25 @@ pub fn cmd_clear(_args: &ArgsMap) -> Result<TermCmd, ParseError> {
     Ok(TermCmd::Clear)
 }
 
+pub fn blob_info_commands() -> Vec<Command<TermCmd>> {
+    vec![
+        Command::new("blob.blueprints", vec![], |_| {
+            Ok(TermCmd::BlobInfoBlueprints)
+        }),
+        Command::new("blob.grids", vec![], |_| Ok(TermCmd::BlobInfoGrids)),
+        Command::new("blob.protos", vec![], |_| Ok(TermCmd::BlobInfoProtos)),
+        Command::new("blob.parts", vec![], |_| Ok(TermCmd::BlobInfoParts)),
+        Command::new("blob.thrusters", vec![], |_| Ok(TermCmd::BlobInfoThrusters)),
+        Command::new("blob.cpus", vec![], |_| Ok(TermCmd::BlobInfoComputers)),
+        Command::new("blob.chunks", vec![], |_| Ok(TermCmd::BlobInfoChunks)),
+        Command::new("blob.tiles", vec![], |_| Ok(TermCmd::BlobInfoTiles)),
+        Command::new("blob.inventories", vec![], |_| {
+            Ok(TermCmd::BlobInfoInventories)
+        }),
+        Command::new("blob.machines", vec![], |_| Ok(TermCmd::BlobInfoMachines)),
+    ]
+}
+
 pub fn server_console_commands() -> Vec<Command<TermCmd>> {
     vec![
         Command::new("echo", vec![], |_| Ok(TermCmd::EchoSaveInfo)),
@@ -78,6 +97,9 @@ pub fn world_delta_commands() -> Vec<Command<TermCmd>> {
             Ok(TermCmd::World(WorldDelta::DespawnGrid(grid_id)))
         }),
         Command::new("sim.ping", vec![], |_| Ok(TermCmd::Ping)),
+        Command::new("sim.clear", vec![], |_| {
+            Ok(TermCmd::World(WorldDelta::ClearAll))
+        }),
         Command::new("sim.waypoint", vec!["grid_id", "x", "y"], |args| {
             let grid_id = Ent(parse_arg(args, "grid_id")?);
             let x = parse_arg(args, "x")?;

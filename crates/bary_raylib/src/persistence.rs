@@ -37,6 +37,15 @@ pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> Bary
     //     }
     // }
 
+    let s = bincode::serialize(&world.spawner).map_err(|_| BaryError::BincodeError)?;
+    std::fs::write(dir.join("spawner.bin"), s)?;
+
+    let s = bincode::serialize(&world.blueprints).map_err(|_| BaryError::BincodeError)?;
+    std::fs::write(dir.join("blueprints.bin"), s)?;
+
+    let s = bincode::serialize(&world.prototypes).map_err(|_| BaryError::BincodeError)?;
+    std::fs::write(dir.join("prototypes.bin"), s)?;
+
     let s = toml::to_string(&world.grids)?;
     std::fs::write(grids_path, s)?;
 
@@ -52,20 +61,17 @@ pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> Bary
     let s = toml::to_string(&world.lights)?;
     std::fs::write(lights_path, s)?;
 
-    let s = toml::to_string(&world.prototypes)?;
-    std::fs::write(prototypes_path, s)?;
+    let s = bincode::serialize(&world.inventories).map_err(|_| BaryError::BincodeError)?;
+    std::fs::write(dir.join("inventories.bin"), s)?;
 
-    let s = toml::to_string(&world.inventories)?;
-    std::fs::write(inventories_path, s)?;
+    let s = bincode::serialize(&world.machines).map_err(|_| BaryError::BincodeError)?;
+    std::fs::write(dir.join("machines.bin"), s)?;
 
-    let s = toml::to_string(&world.machines)?;
-    std::fs::write(machines_path, s)?;
+    let s = bincode::serialize(&world.terrain_chunks).map_err(|_| BaryError::BincodeError)?;
+    std::fs::write(dir.join("terrain_chunks.bin"), s)?;
 
-    // let s = toml::to_string(&world.terrain_chunks)?;
-    // std::fs::write(dir.join("terrain_chunks.toml"), s)?;
-
-    let s = toml::to_string(&world.terrain_tiles)?;
-    std::fs::write(dir.join("terrain_tiles.toml"), s)?;
+    let s = bincode::serialize(&world.terrain_tiles).map_err(|_| BaryError::BincodeError)?;
+    std::fs::write(dir.join("terrain_tiles.bin"), s)?;
 
     Ok(())
 }
@@ -74,7 +80,6 @@ pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
     let dir = dir.as_ref();
     info!("Loading world from {}", dir.display());
 
-    let grids_path = dir.join("grids.toml");
     let parts_path = dir.join("parts.toml");
     let thrusters_path = dir.join("thrusters.toml");
     let computers_path = dir.join("computers.toml");
@@ -82,7 +87,22 @@ pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
 
     let mut world = World::empty();
 
-    let s = std::fs::read_to_string(grids_path)?;
+    let s = std::fs::read(dir.join("spawner.bin"))?;
+    world.spawner = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
+
+    let s = std::fs::read(dir.join("blueprints.bin"))?;
+    world.blueprints = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
+
+    let s = std::fs::read(dir.join("prototypes.bin"))?;
+    world.prototypes = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
+
+    let s = std::fs::read(dir.join("inventories.bin"))?;
+    world.inventories = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
+
+    let s = std::fs::read(dir.join("machines.bin"))?;
+    world.machines = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
+
+    let s = std::fs::read_to_string(dir.join("grids.toml"))?;
     world.grids = toml::from_str(&s)?;
 
     let s = std::fs::read_to_string(parts_path)?;
@@ -97,11 +117,11 @@ pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
     let s = std::fs::read_to_string(computers_path)?;
     world.computers = toml::from_str(&s)?;
 
-    // let s = std::fs::read_to_string(dir.join("terrain_chunks.toml"))?;
-    // world.terrain_chunks = toml::from_str(&s)?;
+    let s = std::fs::read(dir.join("terrain_chunks.bin"))?;
+    world.terrain_chunks = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
 
-    let s = std::fs::read_to_string(dir.join("terrain_tiles.toml"))?;
-    world.terrain_tiles = toml::from_str(&s)?;
+    let s = std::fs::read(dir.join("terrain_tiles.bin"))?;
+    world.terrain_tiles = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
 
     Ok(world)
 }

@@ -26,6 +26,7 @@ pub enum BaryError {
     SerdeYaml(String),
     TomlSer(toml::ser::Error),
     TomlDe(toml::de::Error),
+    BincodeError,
 }
 
 impl std::error::Error for BaryError {}
