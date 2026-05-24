@@ -25,14 +25,8 @@ pub enum TermCmd {
     SaveWorldToDisk(String, bool),
     ListSaves,
     ListBlueprints,
-    BlobInfoBlueprints,
-    BlobInfoGrids,
-    BlobInfoProtos,
-    BlobInfoParts,
-    BlobInfoThrusters,
-    BlobInfoComputers,
-    BlobInfoChunks,
-    BlobInfoTiles,
-    BlobInfoInventories,
-    BlobInfoMachines,
+    // emit blob info to the terminal
+    PrintBlobInfo(TableIdent),
+    // client blob requests
+    ClientReqBlob(TableIdent),
 }

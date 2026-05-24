@@ -8,5 +8,6 @@ mod plants;
 mod quantities;
 mod result;
 mod rigid_body;
+mod table_ident;
 
 pub mod prelude;

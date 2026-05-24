@@ -38,22 +38,73 @@ pub fn cmd_clear(_args: &ArgsMap) -> Result<TermCmd, ParseError> {
     Ok(TermCmd::Clear)
 }
 
+pub fn client_request_blob_commands() -> Vec<Command<TermCmd>> {
+    vec![
+        Command::new("client.req.blob.blueprints", vec![], |_| {
+            Ok(TermCmd::ClientReqBlob(TableIdent::Blueprints))
+        }),
+        Command::new("client.req.blob.grids", vec![], |_| {
+            Ok(TermCmd::ClientReqBlob(TableIdent::Grids))
+        }),
+        Command::new("client.req.blob.protos", vec![], |_| {
+            Ok(TermCmd::ClientReqBlob(TableIdent::Protos))
+        }),
+        Command::new("client.req.blob.parts", vec![], |_| {
+            Ok(TermCmd::ClientReqBlob(TableIdent::Parts))
+        }),
+        Command::new("client.req.blob.thrusters", vec![], |_| {
+            Ok(TermCmd::ClientReqBlob(TableIdent::Thrusters))
+        }),
+        Command::new("client.req.blob.cpus", vec![], |_| {
+            Ok(TermCmd::ClientReqBlob(TableIdent::Computers))
+        }),
+        Command::new("client.req.blob.chunks", vec![], |_| {
+            Ok(TermCmd::ClientReqBlob(TableIdent::Chunks))
+        }),
+        Command::new("client.req.blob.tiles", vec![], |_| {
+            Ok(TermCmd::ClientReqBlob(TableIdent::Tiles))
+        }),
+        Command::new("client.req.blob.inventories", vec![], |_| {
+            Ok(TermCmd::ClientReqBlob(TableIdent::Inventories))
+        }),
+        Command::new("client.req.blob.machines", vec![], |_| {
+            Ok(TermCmd::ClientReqBlob(TableIdent::Machines))
+        }),
+    ]
+}
+
 pub fn blob_info_commands() -> Vec<Command<TermCmd>> {
     vec![
         Command::new("blob.blueprints", vec![], |_| {
-            Ok(TermCmd::BlobInfoBlueprints)
+            Ok(TermCmd::PrintBlobInfo(TableIdent::Blueprints))
         }),
-        Command::new("blob.grids", vec![], |_| Ok(TermCmd::BlobInfoGrids)),
-        Command::new("blob.protos", vec![], |_| Ok(TermCmd::BlobInfoProtos)),
-        Command::new("blob.parts", vec![], |_| Ok(TermCmd::BlobInfoParts)),
-        Command::new("blob.thrusters", vec![], |_| Ok(TermCmd::BlobInfoThrusters)),
-        Command::new("blob.cpus", vec![], |_| Ok(TermCmd::BlobInfoComputers)),
-        Command::new("blob.chunks", vec![], |_| Ok(TermCmd::BlobInfoChunks)),
-        Command::new("blob.tiles", vec![], |_| Ok(TermCmd::BlobInfoTiles)),
+        Command::new("blob.grids", vec![], |_| {
+            Ok(TermCmd::PrintBlobInfo(TableIdent::Grids))
+        }),
+        Command::new("blob.protos", vec![], |_| {
+            Ok(TermCmd::PrintBlobInfo(TableIdent::Protos))
+        }),
+        Command::new("blob.parts", vec![], |_| {
+            Ok(TermCmd::PrintBlobInfo(TableIdent::Parts))
+        }),
+        Command::new("blob.thrusters", vec![], |_| {
+            Ok(TermCmd::PrintBlobInfo(TableIdent::Thrusters))
+        }),
+        Command::new("blob.cpus", vec![], |_| {
+            Ok(TermCmd::PrintBlobInfo(TableIdent::Computers))
+        }),
+        Command::new("blob.chunks", vec![], |_| {
+            Ok(TermCmd::PrintBlobInfo(TableIdent::Chunks))
+        }),
+        Command::new("blob.tiles", vec![], |_| {
+            Ok(TermCmd::PrintBlobInfo(TableIdent::Tiles))
+        }),
         Command::new("blob.inventories", vec![], |_| {
-            Ok(TermCmd::BlobInfoInventories)
+            Ok(TermCmd::PrintBlobInfo(TableIdent::Inventories))
         }),
-        Command::new("blob.machines", vec![], |_| Ok(TermCmd::BlobInfoMachines)),
+        Command::new("blob.machines", vec![], |_| {
+            Ok(TermCmd::PrintBlobInfo(TableIdent::Machines))
+        }),
     ]
 }
 

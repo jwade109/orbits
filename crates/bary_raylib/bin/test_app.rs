@@ -16,11 +16,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     let mut app = utils::BasicApp::new("Test app", TraceLogLevel::LOG_INFO);
-    let mut terminal = Terminal::with_commands(all_commands());
     let mut client = Client::with_str_addr(&args.server_addr)?;
     let mut server_stats = ServerStatistics::default();
     let mut grids = BTreeMap::new();
     let mut assets = assets::Assets::default();
+
+    let mut cmds = all_commands();
+    cmds.extend(client_request_blob_commands());
+
+    let mut terminal = Terminal::with_commands(cmds);
 
     assets::load_assets(&mut assets, &mut app.handle, &app.thread);
 
@@ -57,8 +61,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut should_exit = false;
 
         for t in app.input.events() {
-            if let Some(action) = terminal.on_event(t) {
-                match action {
+            if let Some(cmd) = terminal.on_event(t) {
+                match cmd {
                     TermCmd::Say(s) => {
                         client.send_command(MessageKind::Text(s));
                     }
@@ -104,7 +108,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     TermCmd::SetWaypoint(id, iso) => {
                         client.send_command(MessageKind::SetWaypoint(id, iso));
                     }
-                    _ => (),
+                    TermCmd::ClientReqBlob(table) => {
+                        client.send_command(MessageKind::ClientBlobRequest(table));
+                    }
+                    _ => terminal.log_error(format!("Unsupported: {:?}", cmd)),
                 }
             }
         }

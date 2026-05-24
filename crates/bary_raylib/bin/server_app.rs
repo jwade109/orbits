@@ -1,4 +1,4 @@
-use bary_core::prelude::{Components, distance_str_v};
+use bary_core::prelude::{Components, TableIdent, distance_str_v};
 use bary_ipc::*;
 use bary_raylib::assets::Assets;
 use bary_raylib::persistence::{list_saves_in_dir, load_world, save_world};
@@ -23,7 +23,8 @@ pub struct ServerApp {
     world: World,
     server: Arc<RwLock<Server>>,
     incoming_transactions: MessageQueue<Message>,
-    outgoing_transactions: MessageQueue<Message>,
+    broadcast: MessageQueue<Message>,
+    outgoing: MessageQueue<(ClientId, Message)>,
     _server_thread: JoinHandle<()>,
     world_timer: WallTimer,
     sync_timer: WallTimer,
@@ -35,7 +36,8 @@ impl ServerApp {
         let save_name = save_name.into();
 
         let incoming_transactions = new_message_queue();
-        let outgoing_transactions = new_message_queue();
+        let broadcast = new_message_queue();
+        let outgoing = new_message_queue();
 
         let server = Arc::new(RwLock::new(Server::new(port)));
 
@@ -58,9 +60,10 @@ impl ServerApp {
             world,
             server: server.clone(),
             incoming_transactions: incoming_transactions.clone(),
-            outgoing_transactions: outgoing_transactions.clone(),
+            broadcast: broadcast.clone(),
+            outgoing: outgoing.clone(),
             _server_thread: std::thread::spawn(|| {
-                server_thread(server, incoming_transactions, outgoing_transactions)
+                server_thread(server, incoming_transactions, broadcast, outgoing)
             }),
             world_timer: WallTimer::with_dur(Duration::from_millis(20)),
             sync_timer: WallTimer::with_dur(Duration::from_millis(250)),
@@ -105,31 +108,31 @@ impl ServerApp {
     }
 
     fn send_tlm_current_tick(&mut self) {
-        self.outgoing_transactions
+        self.broadcast
             .push(MessageKind::CurrentTick(self.world.ticks).with_source(MessageSource::Server));
     }
 
     fn send_tlm_grid_pos(&mut self) {
         for grid in self.world.grids.values() {
             let pos = grid.particle_location;
-            self.outgoing_transactions.push(
+            self.broadcast.push(
                 MessageKind::GridPos(grid.name.clone(), pos).with_source(MessageSource::Server),
             );
         }
     }
 
     fn send_tlm_ack(&mut self) {
-        self.outgoing_transactions
+        self.broadcast
             .push(MessageKind::Ack.with_source(MessageSource::Server));
     }
 
     fn send_tlm_server_info(&mut self) {
-        self.outgoing_transactions.push(Message::new(
+        self.broadcast.push(Message::new(
             MessageSource::Server,
             MessageLevel::Telemetry,
             MessageKind::ServerStatistics(self.get_statistics()),
         ));
-        self.outgoing_transactions
+        self.broadcast
             .push(MessageKind::Text("Hello there!".to_string()).with_source(MessageSource::Server));
     }
 
@@ -140,6 +143,11 @@ impl ServerApp {
         if msg.level != MessageLevel::Command {
             return;
         }
+
+        let MessageSource::Client(client_id) = msg.source else {
+            warn!("Got a message with unexpected source: {:?}", msg.source);
+            return;
+        };
 
         match msg.kind {
             MessageKind::Ping => {
@@ -172,13 +180,16 @@ impl ServerApp {
             MessageKind::RequestServerStatistics => {
                 self.on_accept_req_server_info();
             }
+            MessageKind::ClientBlobRequest(table) => {
+                self.on_accept_client_blob_request(client_id, table);
+            }
             _ => self.on_unsupported_message(),
         }
     }
 
     fn on_unsupported_message(&mut self) {
         warn!("Unsupported message type!");
-        self.outgoing_transactions.push(Message::new(
+        self.broadcast.push(Message::new(
             MessageSource::Server,
             MessageLevel::Response,
             MessageKind::Unsupported,
@@ -186,7 +197,7 @@ impl ServerApp {
     }
 
     fn on_accept_ping(&mut self) {
-        self.outgoing_transactions.push(Message::new(
+        self.broadcast.push(Message::new(
             MessageSource::Server,
             MessageLevel::Response,
             MessageKind::Pong,
@@ -194,7 +205,7 @@ impl ServerApp {
     }
 
     fn on_accept_text(&mut self, s: String) {
-        self.outgoing_transactions.push(Message::new(
+        self.broadcast.push(Message::new(
             MessageSource::Server,
             MessageLevel::Response,
             MessageKind::Text(format!("Here king, you dropped this: \"{s:}\"")),
@@ -203,7 +214,7 @@ impl ServerApp {
 
     fn on_accept_set_sim_speed(&mut self, speed: u32) {
         self.world.tick_rate = speed;
-        self.outgoing_transactions.push(Message::new(
+        self.broadcast.push(Message::new(
             MessageSource::Server,
             MessageLevel::Response,
             MessageKind::Ack,
@@ -212,13 +223,13 @@ impl ServerApp {
 
     fn on_accept_find_grid_by_name(&mut self, name: String) {
         if let Some(id) = get_grid_by_name(&self.world.grids, &name) {
-            self.outgoing_transactions.push(Message::new(
+            self.broadcast.push(Message::new(
                 MessageSource::Server,
                 MessageLevel::Response,
                 MessageKind::Entity(id),
             ));
         } else {
-            self.outgoing_transactions.push(Message::new(
+            self.broadcast.push(Message::new(
                 MessageSource::Server,
                 MessageLevel::Response,
                 MessageKind::Text("No grid with that name.".into()),
@@ -228,7 +239,7 @@ impl ServerApp {
 
     fn on_accept_list_grids(&mut self) {
         for (id, grid) in self.world.grids.iter() {
-            self.outgoing_transactions.push(Message::new(
+            self.broadcast.push(Message::new(
                 MessageSource::Server,
                 MessageLevel::Response,
                 MessageKind::GridInfo(*id, grid.name.clone(), grid.particle_location),
@@ -238,7 +249,7 @@ impl ServerApp {
 
     fn on_accept_list_prototypes(&mut self) {
         for (id, proto) in self.world.prototypes.iter() {
-            self.outgoing_transactions.push(Message::new(
+            self.broadcast.push(Message::new(
                 MessageSource::Server,
                 MessageLevel::Response,
                 MessageKind::Proto(*id, proto.clone()),
@@ -248,7 +259,7 @@ impl ServerApp {
 
     fn on_accept_list_parts(&mut self) {
         for (id, part) in self.world.parts.iter() {
-            self.outgoing_transactions.push(Message::new(
+            self.broadcast.push(Message::new(
                 MessageSource::Server,
                 MessageLevel::Response,
                 MessageKind::Part(*id, *part),
@@ -258,7 +269,7 @@ impl ServerApp {
 
     fn on_accept_list_thrusters(&mut self) {
         for (id, thr) in self.world.thrusters.iter() {
-            self.outgoing_transactions.push(Message::new(
+            self.broadcast.push(Message::new(
                 MessageSource::Server,
                 MessageLevel::Response,
                 MessageKind::Thruster(*id, thr.clone()),
@@ -268,7 +279,7 @@ impl ServerApp {
 
     fn on_accept_list_computers(&mut self) {
         for (id, cpu) in self.world.computers.iter() {
-            self.outgoing_transactions.push(Message::new(
+            self.broadcast.push(Message::new(
                 MessageSource::Server,
                 MessageLevel::Response,
                 MessageKind::Computer(*id, cpu.clone()),
@@ -277,18 +288,78 @@ impl ServerApp {
     }
 
     fn on_accept_req_server_info(&mut self) {
-        self.outgoing_transactions.push(Message::new(
+        self.broadcast.push(Message::new(
             MessageSource::Server,
             MessageLevel::Response,
             MessageKind::ServerStatistics(self.get_statistics()),
         ));
+    }
+
+    fn send_blob_data<T: Serialize>(
+        out: &MessageQueue<Message>,
+        table: TableIdent,
+        entities: &Components<T>,
+    ) {
+        if let Ok(bytes) = bincode::serialize(&entities) {
+            let blob = Blob::new(bytes, table);
+            out.push(Message::new(
+                MessageSource::Server,
+                MessageLevel::Response,
+                MessageKind::BlobResponse(blob),
+            ));
+        } else {
+            out.push(Message::new(
+                MessageSource::Server,
+                MessageLevel::Response,
+                MessageKind::Text(format!("Failed to serialize table: {:?}", table)),
+            ));
+        }
+    }
+
+    fn serialize_table<T: Serialize>(entities: &Components<T>) -> Option<Vec<u8>> {
+        bincode::serialize(&entities).ok()
+    }
+
+    fn get_blob(&self, table: TableIdent) -> Option<Blob> {
+        let data = match table {
+            TableIdent::Blueprints => Self::serialize_table(&self.world.blueprints),
+            TableIdent::Grids => Self::serialize_table(&self.world.grids),
+            TableIdent::Protos => Self::serialize_table(&self.world.prototypes),
+            TableIdent::Parts => Self::serialize_table(&self.world.parts),
+            TableIdent::Thrusters => Self::serialize_table(&self.world.thrusters),
+            TableIdent::Computers => Self::serialize_table(&self.world.computers),
+            TableIdent::Chunks => Self::serialize_table(&self.world.terrain_chunks),
+            TableIdent::Tiles => Self::serialize_table(&self.world.terrain_tiles),
+            TableIdent::Inventories => Self::serialize_table(&self.world.inventories),
+            TableIdent::Machines => Self::serialize_table(&self.world.machines),
+        };
+        data.map(|data| Blob::new(data, table))
+    }
+
+    fn on_accept_client_blob_request(&mut self, client: ClientId, table: TableIdent) {
+        if let Some(blob) = self.get_blob(table) {
+            let msg = Message::new(
+                MessageSource::Server,
+                MessageLevel::Response,
+                MessageKind::BlobResponse(blob),
+            );
+            self.outgoing.push((client, msg));
+        } else {
+            let msg = Message::new(
+                MessageSource::Server,
+                MessageLevel::Response,
+                MessageKind::Text(format!("Failed to serialize table: {:?}", table)),
+            );
+            self.outgoing.push((client, msg));
+        }
     }
 }
 
 fn server_thread(
     server: Arc<RwLock<Server>>,
     incoming_queue: MessageQueue<Message>,
-    outgoing_queue: MessageQueue<Message>,
+    broadcast: MessageQueue<Message>,
+    outgoing: MessageQueue<(ClientId, Message)>,
 ) {
     let mut update_timer = WallTimer::with_dur(Duration::from_millis(50));
     let mut echo_timer = WallTimer::with_dur(Duration::from_millis(3000));
@@ -305,8 +376,12 @@ fn server_thread(
                 info!("{} users connected", server.renet().clients_id().len());
             }
 
-            while let Some(sm) = outgoing_queue.pop() {
+            while let Some(sm) = broadcast.pop() {
                 server.broadcast(sm);
+            }
+
+            while let Some((id, msg)) = outgoing.pop() {
+                server.send(id, msg);
             }
         }
     }
@@ -375,34 +450,34 @@ impl DedicatedServerApp {
             TermCmd::ListBlueprints => {
                 self.list_blueprints();
             }
-            TermCmd::BlobInfoBlueprints => {
+            TermCmd::PrintBlobInfo(TableIdent::Blueprints) => {
                 Self::list_blob_info(&mut self.terminal, &self.server.world.blueprints);
             }
-            TermCmd::BlobInfoGrids => {
+            TermCmd::PrintBlobInfo(TableIdent::Grids) => {
                 Self::list_blob_info(&mut self.terminal, &self.server.world.grids);
             }
-            TermCmd::BlobInfoProtos => {
+            TermCmd::PrintBlobInfo(TableIdent::Protos) => {
                 Self::list_blob_info(&mut self.terminal, &self.server.world.prototypes);
             }
-            TermCmd::BlobInfoParts => {
+            TermCmd::PrintBlobInfo(TableIdent::Parts) => {
                 Self::list_blob_info(&mut self.terminal, &self.server.world.parts);
             }
-            TermCmd::BlobInfoThrusters => {
+            TermCmd::PrintBlobInfo(TableIdent::Thrusters) => {
                 Self::list_blob_info(&mut self.terminal, &self.server.world.thrusters);
             }
-            TermCmd::BlobInfoComputers => {
+            TermCmd::PrintBlobInfo(TableIdent::Computers) => {
                 Self::list_blob_info(&mut self.terminal, &self.server.world.computers);
             }
-            TermCmd::BlobInfoChunks => {
+            TermCmd::PrintBlobInfo(TableIdent::Chunks) => {
                 Self::list_blob_info(&mut self.terminal, &self.server.world.terrain_chunks);
             }
-            TermCmd::BlobInfoTiles => {
+            TermCmd::PrintBlobInfo(TableIdent::Tiles) => {
                 Self::list_blob_info(&mut self.terminal, &self.server.world.terrain_tiles);
             }
-            TermCmd::BlobInfoInventories => {
+            TermCmd::PrintBlobInfo(TableIdent::Inventories) => {
                 Self::list_blob_info(&mut self.terminal, &self.server.world.inventories);
             }
-            TermCmd::BlobInfoMachines => {
+            TermCmd::PrintBlobInfo(TableIdent::Machines) => {
                 Self::list_blob_info(&mut self.terminal, &self.server.world.machines);
             }
             _ => self.terminal.log_warn(format!("Unsupported: {:?}", cmd)),

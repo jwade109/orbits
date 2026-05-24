@@ -1,4 +1,4 @@
-use bary_core::prelude::{Ent, Isometry2d};
+use bary_core::prelude::{Ent, Isometry2d, TableIdent};
 use bary_parts::PartPrototype;
 use bary_sim::{Computer, Part, Thruster};
 use crossbeam_queue::SegQueue;
@@ -7,6 +7,8 @@ use std::{
     sync::Arc,
     time::{Duration, SystemTime},
 };
+
+use crate::Blob;
 
 pub type MessageQueue<T> = Arc<SegQueue<T>>;
 
@@ -113,7 +115,9 @@ pub enum MessageKind {
     Pong,
     Ping,
     CurrentTick(u64),
-    Introduction { username: String },
+    Introduction {
+        username: String,
+    },
     Text(String),
     SetSimSpeed(u32),
     GridPos(String, Isometry2d),
@@ -136,6 +140,9 @@ pub enum MessageKind {
     RequestServerStatistics,
     SetWaypoint(Ent, Isometry2d),
     CameraPosition(Isometry2d),
+    /// request from the client for table blobs
+    ClientBlobRequest(TableIdent),
+    BlobResponse(Blob),
 }
 
 impl MessageKind {
