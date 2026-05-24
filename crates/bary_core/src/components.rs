@@ -1,4 +1,7 @@
-use crate::{entity::Ent, result::{BaryError, BaryResult}};
+use crate::{
+    entity::Ent,
+    result::{BaryError, BaryResult},
+};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -60,6 +63,10 @@ impl<E> Components<E> {
 
     pub fn len(&self) -> usize {
         self.values.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty()
     }
 
     pub fn has_entity(&self, id: Ent) -> bool {

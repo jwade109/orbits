@@ -18,6 +18,7 @@ pub enum BaryError {
     ZeroPipeExtent,
     SameInvSlot(Ent, usize),
     NoPartWithName(String),
+    NoProtoWithName(String),
     NoChunk,
     NoTile,
     TileAlreadyExists,

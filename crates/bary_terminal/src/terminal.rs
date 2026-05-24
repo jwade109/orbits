@@ -251,14 +251,17 @@ impl<T: std::fmt::Debug> Terminal<T> {
             return None;
         }
 
-        self.command_history.push_front(self.contents.clone());
+        if self.command_history.front() != Some(&self.contents) {
+            self.command_history.push_front(self.contents.clone());
+        }
+
         self.history_index = None;
 
         self.push_log("bsh > ".to_string() + &self.contents, LogLevel::Command);
 
         let mut ret = None;
 
-        match self.find_best_command() {
+        match self.find_best_command(true) {
             Ok(cmd) => match cmd.parse(&self.get_args()) {
                 Ok(action) => {
                     ret = Some(action);
@@ -287,9 +290,48 @@ impl<T: std::fmt::Debug> Terminal<T> {
     }
 
     pub fn on_tab_complete(&mut self) {
-        if let Ok(cmd) = self.find_best_command() {
-            self.contents = cmd.entrypoint.clone() + " ";
+        let tokens = shellwords::split(&self.contents).unwrap_or_default();
+        let command = tokens.first().cloned().unwrap_or_default();
+        if command.is_empty() {
+            return;
         }
+
+        let possible_commands: Vec<_> = self
+            .commands
+            .iter()
+            .filter(|c| c.entrypoint.starts_with(&command))
+            .map(|c| c.entrypoint.clone())
+            .collect();
+
+        if possible_commands.is_empty() {
+            return;
+        }
+
+        if possible_commands.len() == 1 {
+            self.contents = possible_commands[0].clone();
+            return;
+        }
+
+        let longest_common_prefix = |a: &str, b: &str| -> usize {
+            let mut len = 0;
+            for (a, b) in a.chars().zip(b.chars()) {
+                if a != b {
+                    break;
+                } else {
+                    len += 1;
+                }
+            }
+            len
+        };
+
+        let mut len = longest_common_prefix(&possible_commands[0], &possible_commands[1]);
+
+        for cmds in possible_commands.windows(2) {
+            let l = longest_common_prefix(&cmds[0], &cmds[1]);
+            len = len.min(l);
+        }
+
+        self.contents = possible_commands[0][..len].to_string();
     }
 
     pub fn focus(&mut self) {
@@ -306,7 +348,7 @@ impl<T: std::fmt::Debug> Terminal<T> {
         self.is_active = false;
     }
 
-    fn find_best_command(&self) -> Result<&Command<T>, String> {
+    fn find_best_command(&self, exact_match: bool) -> Result<&Command<T>, String> {
         if self.contents.is_empty() {
             return Err("".to_string());
         }
@@ -316,7 +358,9 @@ impl<T: std::fmt::Debug> Terminal<T> {
             };
             // TODO(feature) edit distance?
             for cmd in &self.commands {
-                if cmd.entrypoint.starts_with(&ep) {
+                if (!exact_match && cmd.entrypoint.starts_with(&ep))
+                    || (exact_match && cmd.entrypoint == ep)
+                {
                     return Ok(cmd);
                 }
             }
@@ -341,18 +385,22 @@ impl<T: std::fmt::Debug> Terminal<T> {
     }
 
     pub fn update_suggest_text(&mut self) {
+        let tokens = shellwords::split(&self.contents).unwrap_or_default();
+        let command = tokens.first().cloned().unwrap_or_default();
+
         // find commands that can start with current text
         let cmds: Vec<String> = self
             .commands
             .iter()
-            .filter(|c| c.entrypoint.starts_with(&self.contents))
+            .filter(|c| c.entrypoint.starts_with(&command))
             .map(|c| c.entrypoint.clone())
             .collect();
 
+        let only_one_command = cmds.len() == 1;
         let cmds = cmds.join(" ");
 
-        if let Ok(cmd) = self.find_best_command()
-            && cmds.len() == 1
+        if let Ok(cmd) = self.find_best_command(false)
+            && only_one_command
         {
             self.suggest_text = cmd.to_suggestion();
         } else {
@@ -395,7 +443,7 @@ impl<T: std::fmt::Debug> Terminal<T> {
         let mut ret = Vec::new();
         let args = self.get_args();
         if !args.is_empty()
-            && let Ok(cmd) = self.find_best_command()
+            && let Ok(cmd) = self.find_best_command(false)
         {
             for c in cmd.entrypoint.chars() {
                 ret.push((c, true));

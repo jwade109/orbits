@@ -1,9 +1,11 @@
+use bary_core::prelude::distance_str_v;
 use bary_ipc::*;
 use bary_raylib::assets::Assets;
 use bary_raylib::persistence::{list_saves_in_dir, load_world, save_world};
 use bary_raylib::render::draw_terminal;
 use bary_raylib::sim::World;
 use bary_raylib::utils::{Application, BasicApp, WallTimer};
+use bary_raylib::world_builder::WorldBuilder;
 use bary_raylib::*;
 use bary_terminal::Terminal;
 use clap::Parser;
@@ -36,10 +38,23 @@ impl ServerApp {
 
         let server = Arc::new(RwLock::new(Server::new(port)));
 
+        let world = WorldBuilder::new()
+            .assets()
+            .blueprint(("pollux", 0))
+            .blueprint(("pollux", 2))
+            .blueprint("foundation")
+            .blueprint("bellerophon")
+            .blueprint("remora")
+            .blueprint("spacestation")
+            .blueprint("icecream")
+            .blueprint("lander")
+            .blueprint("manta")
+            .build();
+
         Self {
             saves_dir,
             save_name: Some(save_name),
-            world: World::empty(),
+            world,
             server: server.clone(),
             incoming_transactions: incoming_transactions.clone(),
             outgoing_transactions: outgoing_transactions.clone(),
@@ -142,7 +157,7 @@ impl ServerApp {
                 self.on_accept_list_grids();
             }
             MessageKind::ListProtos => {
-                self.on_accept_list_protos();
+                self.on_accept_list_prototypes();
             }
             MessageKind::ListParts => {
                 self.on_accept_list_parts();
@@ -220,7 +235,7 @@ impl ServerApp {
         }
     }
 
-    fn on_accept_list_protos(&mut self) {
+    fn on_accept_list_prototypes(&mut self) {
         for (id, proto) in self.world.prototypes.iter() {
             self.outgoing_transactions.push(Message::new(
                 MessageSource::Server,
@@ -311,9 +326,12 @@ impl DedicatedServerApp {
 
         assets::load_assets(&mut assets, &mut app.handle, &app.thread);
 
+        let mut cmds = server_console_commands();
+        cmds.extend(world_delta_commands());
+
         Self {
             app,
-            terminal: Terminal::with_commands(server_console_commands()),
+            terminal: Terminal::with_commands(cmds),
             server: ServerApp::new(saves_dir, save_name, port),
             assets,
         }
@@ -324,8 +342,8 @@ impl DedicatedServerApp {
             TermCmd::Say(_) => self.terminal.log_info("Woooo!".to_string()),
             TermCmd::Clear => self.terminal.clear(),
             TermCmd::Exit => self.app.exit(),
-            TermCmd::EchoSave => {
-                self.list_saves();
+            TermCmd::EchoSaveInfo => {
+                self.echo_save_info();
             }
             TermCmd::LoadSave(name) => {
                 self.load_save_file(name);
@@ -336,10 +354,68 @@ impl DedicatedServerApp {
             TermCmd::ListSaves => {
                 self.list_saves();
             }
+            TermCmd::ListGrids => {
+                self.list_grids();
+            }
+            TermCmd::ListParts => {
+                self.list_parts();
+            }
+            TermCmd::ListProtos => {
+                self.list_prototypes();
+            }
             TermCmd::SetSimSpeed(speed) => {
                 self.server.world.tick_rate = speed;
             }
+            TermCmd::World(delta) => match self.server.world.apply(delta) {
+                Ok(()) => self.terminal.log_info("OK"),
+                Err(e) => self.terminal.log_error(format!("FAILED: {:?}", e)),
+            },
+            TermCmd::ListBlueprints => {
+                self.list_blueprints();
+            }
             _ => self.terminal.log_warn(format!("Unsupported: {:?}", cmd)),
+        }
+    }
+
+    fn list_prototypes(&mut self) {
+        if self.server.world.prototypes.is_empty() {
+            self.terminal.log_info("(no prototypes)");
+        }
+        for (id, proto) in self.server.world.prototypes.iter() {
+            let s = format!(
+                "{} {} {:?} {}",
+                id,
+                proto.name,
+                proto.classification(),
+                proto.mass,
+            );
+            self.terminal.log_info(s);
+        }
+    }
+
+    fn list_grids(&mut self) {
+        if self.server.world.grids.is_empty() {
+            self.terminal.log_info("(no grids)");
+        }
+        for (id, grid) in self.server.world.grids.iter() {
+            let s = format!(
+                "{} {}, {:?} {}",
+                id,
+                grid.name,
+                grid.blueprint,
+                distance_str_v(grid.particle_location.translation.into()),
+            );
+            self.terminal.log_info(s);
+        }
+    }
+
+    fn list_parts(&mut self) {
+        if self.server.world.parts.is_empty() {
+            self.terminal.log_info("(no parts)");
+        }
+        for (id, part) in self.server.world.parts.iter() {
+            let s = format!("{} {:?}", id, part);
+            self.terminal.log_info(s);
         }
     }
 
@@ -348,6 +424,31 @@ impl DedicatedServerApp {
         for s in saves {
             self.terminal.log_info(format!("{}", s.display()));
         }
+    }
+
+    fn list_blueprints(&mut self) {
+        if self.server.world.blueprints.is_empty() {
+            self.terminal.log_info("(no blueprints)");
+        }
+        for (id, bp) in self.server.world.blueprints.iter() {
+            let s = format!(
+                "{} {} v{} {} parts",
+                id,
+                bp.id.0,
+                bp.id.1,
+                bp.blueprint.part_count()
+            );
+            self.terminal.log_info(s);
+        }
+    }
+
+    fn echo_save_info(&mut self) {
+        self.terminal.log_info(format!(
+            "Saves found in {}",
+            self.server.saves_dir.display()
+        ));
+        self.terminal
+            .log_info(format!("Save name is {:?}", self.server.save_name));
     }
 
     fn load_save_file(&mut self, name: String) {

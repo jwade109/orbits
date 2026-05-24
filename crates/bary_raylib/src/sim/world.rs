@@ -82,16 +82,17 @@ impl World {
         }
     }
 
-    pub fn apply(&mut self, delta: WorldDelta) {
+    pub fn apply(&mut self, delta: WorldDelta) -> BaryResult<()> {
         info!("Applying delta {:?} at tick {}", delta, self.ticks);
         match delta {
             WorldDelta::Ping(pos) => {
                 ping(self, pos);
+                Ok(())
             }
             WorldDelta::SpawnShipAt(bp_name, iso) => {
-                if let Ok(grid_id) = spawn_grid_with_random_name(self, bp_name) {
-                    _ = set_grid_pose(self, grid_id, iso);
-                }
+                let grid_id = spawn_grid_with_random_name(self, bp_name)?;
+                set_grid_pose(self, grid_id, iso)?;
+                Ok(())
             }
             WorldDelta::FastForwardTo(tick) => {
                 if self.ticks < tick {
@@ -104,10 +105,12 @@ impl World {
                     let delta = self.ticks - tick;
                     warn!("Already ahead of fast forward directive by {} ticks", delta);
                 }
+                Ok(())
             }
             WorldDelta::SetWaypoint { grid_id, waypoint } => {
                 _ = set_primary_computer_waypoint(grid_id, waypoint, self);
                 _ = set_primary_computer_state(grid_id, true, self);
+                Ok(())
             }
             WorldDelta::SetWaypointByName { name, waypoint } => {
                 if let Some(grid_id) = get_grid_by_name(&self.grids, &name) {
@@ -117,9 +120,11 @@ impl World {
                 } else {
                     warn!("Failed to find grid with name {name}");
                 }
+                Ok(())
             }
             WorldDelta::DespawnGrid(grid_id) => {
                 _ = despawn_grid(self, grid_id);
+                Ok(())
             }
             WorldDelta::InsertPart {
                 grid_id,
@@ -128,8 +133,9 @@ impl World {
                 rotation,
                 layer,
             } => {
-                let proto_id = some_or_return!(get_proto_by_name(&self.prototypes, &name));
-                let proto = ok_or_return!(self.prototypes.try_get(proto_id));
+                let proto_id = get_proto_by_name(&self.prototypes, &name)
+                    .ok_or(BaryError::NoProtoWithName(name.clone()))?;
+                let proto = self.prototypes.try_get(proto_id)?;
                 let region = GridRegion::new(coord, rotation, proto.dims);
 
                 let instance = PartInstance {
@@ -138,39 +144,49 @@ impl World {
                     region,
                 };
                 _ = insert_part(grid_id, self, &instance, true);
+                Ok(())
             }
             WorldDelta::SetSpeed(speed) => {
                 self.tick_rate = speed;
+                Ok(())
             }
             WorldDelta::SetSourceItem {
                 grid_id,
                 coord,
                 item,
             } => {
-                let grid = ok_or_return!(self.grids.try_get(grid_id));
+                let grid = self.grids.try_get(grid_id)?;
                 let occ = grid.get_parts_at(coord).cloned().unwrap_or_default();
-                let part_id = some_or_return!(occ.at_layer(PartLayer::Plumbing));
-                let part = ok_or_return!(self.debug_portals.try_get_mut(part_id));
+                let part_id = occ
+                    .at_layer(PartLayer::Plumbing)
+                    .ok_or(BaryError::NoPartsInLayer(PartLayer::Plumbing))?;
+                let part = self.debug_portals.try_get_mut(part_id)?;
                 if let PortalState::Source(old_item) = &mut part.state {
                     *old_item = Some(item);
                 }
+                Ok(())
             }
             WorldDelta::InsertPipe { grid_id, src, dst } => {
                 _ = insert_pipe(grid_id, src, dst, self);
+                Ok(())
             }
             WorldDelta::SetRecipe {
                 grid_id,
                 coord,
                 recipe,
             } => {
-                let grid = ok_or_return!(self.grids.try_get(grid_id));
+                let grid = self.grids.try_get(grid_id)?;
                 let occ = grid.get_parts_at(coord).cloned().unwrap_or_default();
-                let part_id = some_or_return!(occ.at_layer(PartLayer::Internal));
-                let machine = ok_or_return!(self.machines.try_get_mut(part_id));
+                let part_id = occ
+                    .at_layer(PartLayer::Internal)
+                    .ok_or(BaryError::NoPartsInLayer(PartLayer::Internal))?;
+                let machine = self.machines.try_get_mut(part_id)?;
                 machine.set_recipe(recipe);
+                Ok(())
             }
             WorldDelta::SpawnAsteroid { iso, radius, seed } => {
                 spawn_random_asteroid(self, iso, radius, seed);
+                Ok(())
             }
         }
     }

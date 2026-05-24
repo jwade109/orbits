@@ -20,8 +20,9 @@ pub enum TermCmd {
     ServerConnect,
     RequestServerStatistics,
     SetWaypoint(Ent, Isometry2d),
-    EchoSave,
+    EchoSaveInfo,
     LoadSave(String),
     SaveWorldToDisk(String, bool),
     ListSaves,
+    ListBlueprints,
 }

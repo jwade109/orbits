@@ -1586,12 +1586,12 @@ fn draw_asteroids(
 
 fn severity_to_color(s: LogLevel) -> Color {
     match s {
-        LogLevel::Debug => Color::GRAY.alpha(0.3),
+        LogLevel::Debug => Color::GRAY.alpha(0.5),
         LogLevel::Warning => Color::YELLOW,
         LogLevel::Error => Color::RED,
-        LogLevel::Info => Color::WHITE,
+        LogLevel::Info => Color::GRAY,
         LogLevel::Terminal => Color::ORANGE,
-        LogLevel::Command => Color::GRAY,
+        LogLevel::Command => Color::WHITE,
     }
 }
 

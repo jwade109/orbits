@@ -20,6 +20,13 @@ impl Isometry2d {
         }
     }
 
+    pub fn from_xya(x: f32, y: f32, a: f32) -> Self {
+        Self {
+            translation: Vec2::new(x, y),
+            rotation: a,
+        }
+    }
+
     pub fn from_pos(pos: Vec2) -> Self {
         Self {
             translation: pos,
