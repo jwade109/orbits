@@ -22,6 +22,7 @@ pub struct ClientStatistics {
 #[derive(Debug)]
 pub struct ClientNode {
     id: ClientId,
+    errors: usize,
     server_addr: SocketAddr,
     client: RenetClient,
     transport: NetcodeClientTransport,
@@ -56,6 +57,7 @@ impl ClientNode {
 
         Self {
             id: ClientId(client_id),
+            errors: 0,
             server_addr,
             client,
             transport,
@@ -77,6 +79,18 @@ impl ClientNode {
 
     pub fn id(&self) -> ClientId {
         self.id
+    }
+
+    pub fn errors(&self) -> usize {
+        self.errors
+    }
+
+    pub fn rx_count(&self) -> usize {
+        self.rx_count
+    }
+
+    pub fn tx_count(&self) -> usize {
+        self.tx_count
     }
 
     pub fn reconnect(&mut self) {
@@ -102,6 +116,7 @@ impl ClientNode {
 
         *self = Self {
             id: self.id,
+            errors: self.errors,
             server_addr: self.server_addr,
             client,
             transport,
@@ -139,6 +154,7 @@ impl ClientNode {
         self.client.update(duration);
 
         if self.transport.update(duration, &mut self.client).is_err() {
+            self.errors += 1;
             return Vec::new();
         }
 
@@ -150,8 +166,8 @@ impl ClientNode {
             messages.push(msg);
         }
 
-        if let Err(e) = self.transport.send_packets(&mut self.client) {
-            error!("Send packets failed: {e:?}");
+        if let Err(_) = self.transport.send_packets(&mut self.client) {
+            self.errors += 1;
         }
 
         messages

@@ -33,4 +33,6 @@ pub enum TermCmd {
     PrintBlobInfo(TableIdent),
     /// client blob requests
     ClientReqBlob(TableIdent),
+    /// client requests all table blobs
+    ClientReqAllBlobs,
 }

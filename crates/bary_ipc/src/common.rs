@@ -23,7 +23,7 @@ pub enum MessageLevel {
     Response,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ClientId(pub u64);
 
 impl std::fmt::Display for ClientId {
@@ -144,7 +144,12 @@ pub enum MessageKind {
     CameraPosition(Isometry2d),
     /// request from the client for table blobs
     ClientBlobRequest(TableIdent),
+    /// client requests all blobs
+    ClientBlobRequestAll,
+    /// server response containing a single blob
     BlobResponse(Blob),
+    /// server response containing multiple blobs
+    MultiBlobResponse(Vec<Blob>),
 }
 
 impl MessageKind {

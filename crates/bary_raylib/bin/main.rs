@@ -20,24 +20,7 @@ use bary_terminal::Terminal;
 use clap::Parser;
 use log::*;
 use raylib::prelude::*;
-
-fn network_thread(incoming: MessageQueue<Message>, outgoing: MessageQueue<Message>) {
-    let mut client = ClientNode::new(127, 0, 0, 1, 5000);
-    let dur = Duration::from_millis(50);
-
-    loop {
-        let msgs = client.update();
-        for msg in msgs {
-            incoming.push(msg);
-        }
-
-        while let Some(out) = outgoing.pop() {
-            client.send_message(out);
-        }
-
-        std::thread::sleep(dur);
-    }
-}
+use serde::Deserialize;
 
 pub struct App {
     client: ClientSpecificInfo,
@@ -46,7 +29,6 @@ pub struct App {
     debug: DebugInfo,
 
     incoming_network_queue: MessageQueue<Message>,
-    outgoing_network_queue: MessageQueue<Message>,
 
     _input_thread: JoinHandle<()>,
     input_queue: MessageQueue<rdev::Event>,
@@ -68,8 +50,6 @@ impl App {
         log_level: log::LevelFilter,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let incoming_network_queue = new_message_queue();
-
-        let outgoing_network_queue = new_message_queue();
 
         let input_queue = new_message_queue();
         let thread_copy = input_queue.clone();
@@ -116,7 +96,6 @@ impl App {
             runner: WorldRunner::new(),
             debug: DebugInfo::default(),
             incoming_network_queue,
-            outgoing_network_queue,
             _input_thread,
             input_queue,
             terminal: Terminal::with_commands(cmds),
@@ -176,6 +155,52 @@ impl App {
                 debug!("{msg:?}");
             }
         }
+
+        match (msg.level, msg.kind) {
+            (MessageLevel::Response, MessageKind::BlobResponse(blob)) => {
+                self.on_rcv_blob(blob);
+            }
+            (MessageLevel::Response, MessageKind::MultiBlobResponse(blobs)) => {
+                for blob in blobs {
+                    self.on_rcv_blob(blob);
+                }
+            }
+            _ => (),
+        }
+    }
+
+    fn unpack_blob<'a, T: Deserialize<'a>>(entities: &mut Components<T>, bytes: &'a [u8]) -> bool {
+        if let Ok(e) = bincode::deserialize(bytes) {
+            *entities = e;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn on_rcv_blob(&mut self, blob: Blob) {
+        info!("Got blob: {blob}");
+        let table = blob.table();
+        let success = match table {
+            TableIdent::Blueprints => Self::unpack_blob(&mut self.world.blueprints, blob.data()),
+            TableIdent::Grids => Self::unpack_blob(&mut self.world.grids, blob.data()),
+            TableIdent::Protos => Self::unpack_blob(&mut self.world.prototypes, blob.data()),
+            TableIdent::Parts => Self::unpack_blob(&mut self.world.parts, blob.data()),
+            TableIdent::Thrusters => Self::unpack_blob(&mut self.world.thrusters, blob.data()),
+            TableIdent::Computers => Self::unpack_blob(&mut self.world.computers, blob.data()),
+            TableIdent::Chunks => Self::unpack_blob(&mut self.world.terrain_chunks, blob.data()),
+            TableIdent::Tiles => Self::unpack_blob(&mut self.world.terrain_tiles, blob.data()),
+            TableIdent::Inventories => Self::unpack_blob(&mut self.world.inventories, blob.data()),
+            TableIdent::Machines => Self::unpack_blob(&mut self.world.machines, blob.data()),
+        };
+
+        if success {
+            self.terminal
+                .log_info(format!("Unpacked blob data for table {table}"));
+        } else {
+            self.terminal
+                .log_error(format!("Failed to unpack blob for table {table}"));
+        }
     }
 
     fn exit(&mut self) {
@@ -232,20 +257,27 @@ impl App {
                 self.node
                     .send_command(MessageKind::ClientBlobRequest(table));
             }
+            TermCmd::ClientReqAllBlobs => {
+                self.node.send_command(MessageKind::ClientBlobRequestAll);
+            }
             _ => self.terminal.log_error(format!("Unsupported: {:?}", cmd)),
         }
     }
 }
 
-fn draw_debug_info(app: &App, assets: &Assets, timers: &DebugTimers, d: &mut RaylibDrawHandle) {
-    let world = &app.world;
-    let client = &app.client;
-
+fn draw_debug_info(
+    world: &World,
+    client: &ClientSpecificInfo,
+    assets: &Assets,
+    timers: &DebugTimers,
+    node: &ClientNode,
+    d: &mut RaylibDrawHandle,
+) {
     let size = size_in_bytes(world);
-    let mut s = String::new();
+    let mut s = "Barycenter Client".to_string();
 
-    let consist = is_world_consistent(world);
-    s += &format!("\nOK: {consist:?}");
+    // let consist = is_world_consistent(world);
+    // s += &format!("\nOK: {:?}", consist.is_ok());
 
     let fmt_time = |d: std::time::Duration, t: std::time::Duration| {
         let p = d.as_secs_f64() / t.as_secs_f64();
@@ -266,11 +298,33 @@ fn draw_debug_info(app: &App, assets: &Assets, timers: &DebugTimers, d: &mut Ray
         apparent_datetime(world).format("%b %d %Y %I:%M:%S %p"),
     );
 
-    s += &format!("\nC {} {} fps", client.ticks, d.get_fps());
-    s += &format!("\nMemory: {:0.3} kb", size as f64 / 1000.0);
-    s += &format!("\nZoom: {:0.3}", client.camera.zoom);
-    s += &format!("\nUpdates: {}", world.grid_acceleration_updates);
-    s += &format!("\nPipes: {}", world.pipes.len());
+    s += &format!("\nFPS:       {}", d.get_fps());
+    s += &format!("\nMemory:    {:0.3} KB", size as f64 / 1000.0);
+    s += &format!("\nZoom:      {:0.3}", client.camera.zoom);
+
+    s += "\n";
+
+    s += &format!("\nConnected: {}", node.is_connected());
+    s += &format!("\nRX:        {}", node.rx_count());
+    s += &format!("\nTX:        {}", node.tx_count());
+    s += &format!("\nErrors:    {}", node.errors());
+
+    s += "\n";
+
+    s += &format!("\nTicks:     {}", world.ticks);
+    s += &format!("\nGrids:     {}", world.grids.len());
+    s += &format!("\nParts:     {}", world.parts.len());
+    s += &format!("\nProtos:    {}", world.prototypes.len());
+    s += &format!("\nBPs:       {}", world.blueprints.len());
+    s += &format!("\nThrusters: {}", world.thrusters.len());
+    s += &format!("\nInvs:      {}", world.inventories.len());
+    s += &format!("\nMachines:  {}", world.machines.len());
+    s += &format!("\nAsteroids: {}", world.asteroids.len());
+    s += &format!("\nChunks:    {}", world.terrain_chunks.len());
+    s += &format!("\nTiles:     {}", world.terrain_tiles.len());
+    s += &format!("\nGAUs:      {}", world.grid_acceleration_updates);
+
+    s += "\n";
 
     if let Some(free) = client.viewport.free() {
         s += &format!("\nTerrain: {:?}", free.hovered_chunk);
@@ -285,29 +339,14 @@ fn draw_debug_info(app: &App, assets: &Assets, timers: &DebugTimers, d: &mut Ray
         s += &format!("\n{}\n{}", timer.0, time);
     }
 
-    // s += &format!("\nMOUSE {:?}", client.mouse_screen_position);
-    // s += &format!("\nHOVER {:?}", client.selection_info.hovered);
-    // s += &format!("\nSLCT {:?}", client.selection_info.selected);
-    // s += &format!("\nPRT {:?}", &world.particles.len());
-    // s += &format!("\nBP {:?}", &world.blueprints);
-    // s += &format!("\nPROTO {:?}", &world.prototypes);
-    // s += &format!("\nPART {:?}", &world.parts);
-    // s += &format!("\nGRID {:?}", &world.grids);
-    // s += &format!("\nTHR {:?}", &world.thrusters);
-    // s += &format!("\nCPU {:?}", &world.computers);
-    // s += &format!("\nLIT {:?}", &world.lights);
-    // s += &format!("\nE {:?}", &world.spawner);
-
-    if let Some(font) = &assets.lato_regular {
-        d.draw_text_ex(
-            &font,
-            &s,
-            Vector2::new(12.0, 12.0),
-            16.0,
-            0.0,
-            Color::WHITE.alpha(0.4),
-        );
-    }
+    d.draw_text_ex(
+        assets.consolas.as_ref().unwrap(),
+        &s,
+        Vector2::new(10.0, 10.0),
+        16.0,
+        0.0,
+        Color::ORANGE,
+    );
 }
 
 fn handle_sounds<'a>(
@@ -474,8 +513,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 draw_mouse_screen_position(&mut d, main_app.app.client.mouse_screen_position);
 
-                // TODO bring this back
-                // draw_debug_info(&main_app.app, &main_app.app.assets, &timers, &mut d);
+                draw_debug_info(
+                    &main_app.app.world,
+                    &main_app.app.client,
+                    &main_app.app.assets,
+                    &timers,
+                    &main_app.app.node,
+                    &mut d,
+                );
             });
 
         handle_sounds(sounds, &audio, &mut active_sounds);

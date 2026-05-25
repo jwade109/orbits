@@ -2,13 +2,20 @@ use crate::{ClientId, Message, MessageKind, MessageSource};
 use log::{debug, info};
 use renet::*;
 use renet_netcode::*;
+use std::collections::HashMap;
 use std::net::*;
 use std::time::{Instant, SystemTime};
+
+pub struct ClientInfo {
+    pub rx_count: usize,
+    pub tx_count: usize,
+}
 
 pub struct ServerNode {
     renet: RenetServer,
     transport: NetcodeServerTransport,
     last_updated: Instant,
+    client_info: HashMap<ClientId, ClientInfo>,
 }
 
 impl ServerNode {
@@ -40,11 +47,16 @@ impl ServerNode {
             renet,
             transport,
             last_updated: Instant::now(),
+            client_info: HashMap::new(),
         }
     }
 
     pub fn renet(&self) -> &RenetServer {
         &self.renet
+    }
+
+    pub fn client_info(&self) -> impl Iterator<Item = (&ClientId, &ClientInfo)> {
+        self.client_info.iter()
     }
 
     pub fn broadcast_telemetry(&mut self, kind: MessageKind) {
@@ -81,12 +93,24 @@ impl ServerNode {
         let message = bincode::serialize(&msg).unwrap();
         self.renet
             .broadcast_message(DefaultChannel::ReliableOrdered, message);
+
+        for info in self.client_info.values_mut() {
+            info.tx_count += 1;
+        }
     }
 
     pub fn send(&mut self, id: ClientId, msg: Message) {
         let message = bincode::serialize(&msg).unwrap();
         self.renet
             .send_message(id.0, DefaultChannel::ReliableOrdered, message);
+
+        self.client_info
+            .entry(id)
+            .and_modify(|c| c.tx_count += 1)
+            .or_insert(ClientInfo {
+                rx_count: 0,
+                tx_count: 1,
+            });
     }
 
     #[must_use]
@@ -108,6 +132,7 @@ impl ServerNode {
                     reason: _,
                 } => {
                     info!("Client disconnected: {}", client_id);
+                    self.client_info.remove(&ClientId(client_id));
                 }
             }
         }
@@ -119,6 +144,13 @@ impl ServerNode {
             {
                 if let Ok(message) = bincode::deserialize::<Message>(&message) {
                     debug!("Received message from client {}: {:?}", client_id, message);
+                    self.client_info
+                        .entry(ClientId(client_id))
+                        .and_modify(|c| c.rx_count += 1)
+                        .or_insert(ClientInfo {
+                            rx_count: 1,
+                            tx_count: 0,
+                        });
                     messages.push(message);
                 }
             }
@@ -136,7 +168,7 @@ impl ServerNode {
 mod tests {
     use bary_core::prelude::TableIdent;
 
-use super::super::*;
+    use super::super::*;
     use std::time::Duration;
 
     #[test]
@@ -192,7 +224,10 @@ use super::super::*;
 
         server.broadcast_response(MessageKind::Ack);
         server.broadcast_telemetry(MessageKind::PrintEntityInfo(TableIdent::Grids));
-        server.send_command(client.id(), MessageKind::PrintEntityInfo(TableIdent::Computers));
+        server.send_command(
+            client.id(),
+            MessageKind::PrintEntityInfo(TableIdent::Computers),
+        );
 
         _ = server.update();
 

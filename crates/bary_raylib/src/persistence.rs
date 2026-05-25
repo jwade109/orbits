@@ -18,14 +18,10 @@ pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> Bary
 
     info!("Saving world to {}", dir.display());
     let blueprints_dir = dir.join("blueprints");
-    let grids_path = dir.join("grids.toml");
     let parts_path = dir.join("parts.toml");
     let thrusters_path = dir.join("thrusters.toml");
     let computers_path = dir.join("computers.toml");
     let lights_path = dir.join("lights.toml");
-    let prototypes_path = dir.join("prototypes.toml");
-    let inventories_path = dir.join("inventories.toml");
-    let machines_path = dir.join("machines.toml");
 
     std::fs::create_dir(&blueprints_dir)?;
 
@@ -46,8 +42,8 @@ pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> Bary
     let s = bincode::serialize(&world.prototypes).map_err(|_| BaryError::BincodeError)?;
     std::fs::write(dir.join("prototypes.bin"), s)?;
 
-    let s = toml::to_string(&world.grids)?;
-    std::fs::write(grids_path, s)?;
+    let s = bincode::serialize(&world.grids).map_err(|_| BaryError::BincodeError)?;
+    std::fs::write(dir.join("grids.bin"), s)?;
 
     let s = toml::to_string(&world.parts)?;
     std::fs::write(parts_path, s)?;
@@ -102,8 +98,8 @@ pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
     let s = std::fs::read(dir.join("machines.bin"))?;
     world.machines = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
 
-    let s = std::fs::read_to_string(dir.join("grids.toml"))?;
-    world.grids = toml::from_str(&s)?;
+    let s = std::fs::read(dir.join("grids.bin"))?;
+    world.grids = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
 
     let s = std::fs::read_to_string(parts_path)?;
     world.parts = toml::from_str(&s)?;

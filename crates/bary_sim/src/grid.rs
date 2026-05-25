@@ -23,7 +23,6 @@ pub struct VehicleGrid {
     pub bounds: (IVec2, IVec2),
 
     // TODO this is not tested in any way.
-    #[serde(skip)]
     pub occupancy: BTreeMap<(i32, i32), PartOccupancy>,
 }
 

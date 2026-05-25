@@ -1,6 +1,7 @@
+use enum_iterator::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq, Eq, Sequence)]
 pub enum TableIdent {
     Blueprints,
     Grids,
@@ -12,6 +13,12 @@ pub enum TableIdent {
     Tiles,
     Inventories,
     Machines,
+}
+
+impl TableIdent {
+    pub fn all() -> impl Iterator<Item = Self> {
+        all::<Self>()
+    }
 }
 
 impl std::fmt::Display for TableIdent {

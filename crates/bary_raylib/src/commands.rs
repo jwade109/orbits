@@ -70,6 +70,9 @@ pub fn client_request_blob_commands() -> Vec<Command<TermCmd>> {
         Command::new("client.req.blob.machines", vec![], |_| {
             Ok(TermCmd::ClientReqBlob(TableIdent::Machines))
         }),
+        Command::new("client.req.blob.all", vec![], |_| {
+            Ok(TermCmd::ClientReqAllBlobs)
+        }),
     ]
 }
 

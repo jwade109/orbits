@@ -1,4 +1,5 @@
-use bary_core::prelude::{Components, TableIdent, distance_str_v};
+use bary_core::prelude::BaryError;
+use bary_core::prelude::{BaryResult, Components, TableIdent, distance_str_v};
 use bary_ipc::*;
 use bary_raylib::assets::Assets;
 use bary_raylib::persistence::{list_saves_in_dir, load_world, save_world};
@@ -13,7 +14,7 @@ use log::{debug, info, warn};
 use raylib::prelude::*;
 use serde::Serialize;
 use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, RwLockReadGuard};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
@@ -34,7 +35,11 @@ pub struct ServerApp {
 }
 
 impl ServerApp {
-    pub fn new(saves_dir: impl Into<PathBuf>, save_name: impl Into<String>, port: u16) -> Self {
+    pub fn new(
+        saves_dir: impl Into<PathBuf>,
+        save_name: impl Into<String>,
+        port: u16,
+    ) -> BaryResult<Self> {
         let saves_dir = saves_dir.into();
         let save_name = save_name.into();
 
@@ -43,19 +48,6 @@ impl ServerApp {
         let outgoing = new_message_queue();
 
         let node = Arc::new(RwLock::new(ServerNode::new(port)));
-
-        let world = WorldBuilder::new()
-            .assets()
-            .blueprint(("pollux", 0))
-            .blueprint(("pollux", 2))
-            .blueprint("foundation")
-            .blueprint("bellerophon")
-            .blueprint("remora")
-            .blueprint("spacestation")
-            .blueprint("icecream")
-            .blueprint("lander")
-            .blueprint("manta")
-            .build();
 
         let mut cmds = server_console_commands();
         cmds.extend(world_delta_commands());
@@ -68,7 +60,11 @@ impl ServerApp {
 
         assets::load_assets(&mut assets, &mut app.handle, &app.thread);
 
-        Self {
+        let path = saves_dir.join(&save_name);
+
+        let world = load_world(path)?;
+
+        Ok(Self {
             app,
             terminal,
             assets,
@@ -84,7 +80,7 @@ impl ServerApp {
             }),
             world_timer: WallTimer::with_dur(Duration::from_millis(20)),
             sync_timer: WallTimer::with_dur(Duration::from_millis(250)),
-        }
+        })
     }
 
     pub fn get_statistics(&self) -> ServerStatistics {
@@ -99,6 +95,10 @@ impl ServerApp {
         } else {
             ServerStatistics::default()
         }
+    }
+
+    pub fn node(&self) -> Option<RwLockReadGuard<'_, bary_ipc::ServerNode>> {
+        self.node.read().ok()
     }
 
     #[must_use]
@@ -199,6 +199,9 @@ impl ServerApp {
             }
             MessageKind::ClientBlobRequest(table) => {
                 self.on_accept_client_blob_request(client_id, table);
+            }
+            MessageKind::ClientBlobRequestAll => {
+                self.on_accept_client_blob_request_all(client_id);
             }
             _ => self.on_unsupported_message(),
         }
@@ -348,6 +351,34 @@ impl ServerApp {
                 MessageKind::Text(format!("Failed to serialize table: {:?}", table)),
             );
             self.outgoing.push((client, msg));
+        }
+    }
+
+    fn on_accept_client_blob_request_all(&mut self, client: ClientId) {
+        let blobs: Result<Vec<Blob>, BaryError> = TableIdent::all()
+            .map(|table| {
+                self.get_blob(table)
+                    .ok_or(BaryError::FailedToSerialize(table))
+            })
+            .collect();
+
+        match blobs {
+            Ok(blobs) => {
+                let msg = Message::new(
+                    MessageSource::Server,
+                    MessageLevel::Response,
+                    MessageKind::MultiBlobResponse(blobs),
+                );
+                self.outgoing.push((client, msg));
+            }
+            Err(err) => {
+                let msg = Message::new(
+                    MessageSource::Server,
+                    MessageLevel::Response,
+                    MessageKind::Text(format!("Failed to serialize table: {:?}", err)),
+                );
+                self.outgoing.push((client, msg));
+            }
         }
     }
 
@@ -545,7 +576,6 @@ fn server_thread(
     outgoing: MessageQueue<(ClientId, Message)>,
 ) {
     let mut update_timer = WallTimer::with_dur(Duration::from_millis(50));
-    let mut echo_timer = WallTimer::with_dur(Duration::from_millis(3000));
 
     loop {
         if let Ok(mut server) = server.write() {
@@ -553,10 +583,6 @@ fn server_thread(
                 for msg in server.update() {
                     incoming_queue.push(msg);
                 }
-            }
-
-            if echo_timer.tick() {
-                info!("{} users connected", server.renet().clients_id().len());
             }
 
             while let Some(sm) = broadcast.pop() {
@@ -597,6 +623,16 @@ impl Application for ServerApp {
     fn draw(&mut self) {
         let n_clients = self.get_statistics().clients.len();
 
+        let mut client_info_lines = Vec::new();
+        if let Some(node) = self.node() {
+            for (id, info) in node.client_info() {
+                client_info_lines.push(format!(
+                    "  {}: TX {} RX {}",
+                    id.0, info.tx_count, info.rx_count
+                ));
+            }
+        }
+
         self.app.handle.draw(&self.app.thread, |mut d| {
             d.clear_background(Color::new(20, 20, 20, 255));
 
@@ -617,7 +653,7 @@ impl Application for ServerApp {
 
             draw_terminal(&mut d, &self.terminal, &self.assets);
 
-            let lines = vec![
+            let mut lines = vec![
                 "Server Application".to_string(),
                 format!("Ticks:     {}", self.world.ticks),
                 format!("Grids:     {}", self.world.grids.len()),
@@ -633,6 +669,8 @@ impl Application for ServerApp {
                 format!("GAUs:      {}", self.world.grid_acceleration_updates),
                 format!("Clients:   {}", n_clients),
             ];
+
+            lines.extend(client_info_lines.clone());
 
             let text = lines.join("\n");
 
@@ -661,10 +699,12 @@ pub struct Args {
     save_name: String,
 }
 
-fn main() {
+fn main() -> BaryResult<()> {
     let args = Args::parse();
 
     info!("Starting dedicated server...");
 
-    ServerApp::new(&args.saves_dir, &args.save_name, args.server_port).spin_forever();
+    ServerApp::new(&args.saves_dir, &args.save_name, args.server_port)?.spin_forever();
+
+    Ok(())
 }

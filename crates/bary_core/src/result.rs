@@ -27,6 +27,7 @@ pub enum BaryError {
     TomlSer(toml::ser::Error),
     TomlDe(toml::de::Error),
     BincodeError,
+    FailedToSerialize(TableIdent),
 }
 
 impl std::error::Error for BaryError {}
