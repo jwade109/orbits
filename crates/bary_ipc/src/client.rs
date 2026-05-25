@@ -20,7 +20,7 @@ pub struct ClientStatistics {
 }
 
 #[derive(Debug)]
-pub struct Client {
+pub struct ClientNode {
     id: ClientId,
     server_addr: SocketAddr,
     client: RenetClient,
@@ -30,7 +30,7 @@ pub struct Client {
     tx_count: usize,
 }
 
-impl Client {
+impl ClientNode {
     pub fn localhost(server_port: u16) -> Self {
         Self::new(127, 0, 0, 1, server_port)
     }

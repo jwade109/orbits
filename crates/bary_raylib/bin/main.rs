@@ -149,7 +149,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut app = new_app(false);
 
-    let mut client = Client::with_str_addr(&args.server_addr)?;
+    let mut client = ClientNode::with_str_addr(&args.server_addr)?;
 
     let mut assets = Assets::default();
 

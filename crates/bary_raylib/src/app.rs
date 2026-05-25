@@ -1,9 +1,6 @@
 use crate::sim::*;
 use crate::sounds::SoundEffects;
-use crate::world_builder::WorldBuilder;
 use crate::*;
-use bary_core::prelude::*;
-use bary_factory::*;
 use bary_ipc::*;
 use bary_sim::*;
 use bary_terminal::Terminal;
@@ -11,7 +8,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 fn network_thread(incoming: MessageQueue<Message>, outgoing: MessageQueue<Message>) {
-    let mut client = Client::new(127, 0, 0, 1, 5000);
+    let mut client = ClientNode::new(127, 0, 0, 1, 5000);
     let dur = Duration::from_millis(50);
 
     loop {

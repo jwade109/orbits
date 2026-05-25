@@ -21,7 +21,7 @@ pub struct ServerApp {
     saves_dir: PathBuf,
     save_name: Option<String>,
     world: World,
-    server: Arc<RwLock<Server>>,
+    server: Arc<RwLock<ServerNode>>,
     incoming_transactions: MessageQueue<Message>,
     broadcast: MessageQueue<Message>,
     outgoing: MessageQueue<(ClientId, Message)>,
@@ -39,7 +39,7 @@ impl ServerApp {
         let broadcast = new_message_queue();
         let outgoing = new_message_queue();
 
-        let server = Arc::new(RwLock::new(Server::new(port)));
+        let server = Arc::new(RwLock::new(ServerNode::new(port)));
 
         let world = WorldBuilder::new()
             .assets()
@@ -356,7 +356,7 @@ impl ServerApp {
 }
 
 fn server_thread(
-    server: Arc<RwLock<Server>>,
+    server: Arc<RwLock<ServerNode>>,
     incoming_queue: MessageQueue<Message>,
     broadcast: MessageQueue<Message>,
     outgoing: MessageQueue<(ClientId, Message)>,

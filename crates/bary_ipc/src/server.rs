@@ -5,13 +5,13 @@ use renet_netcode::*;
 use std::net::*;
 use std::time::{Instant, SystemTime};
 
-pub struct Server {
+pub struct ServerNode {
     renet: RenetServer,
     transport: NetcodeServerTransport,
     last_updated: Instant,
 }
 
-impl Server {
+impl ServerNode {
     pub fn new(host_port: u16) -> Self {
         let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), host_port);
         let socket: UdpSocket = UdpSocket::bind(addr).unwrap();
@@ -139,9 +139,9 @@ mod tests {
 
     #[test]
     fn server_send_to() {
-        let mut server = Server::new(5000);
-        let mut c1 = Client::localhost(5000);
-        let mut c2 = Client::localhost(5000);
+        let mut server = ServerNode::new(5000);
+        let mut c1 = ClientNode::localhost(5000);
+        let mut c2 = ClientNode::localhost(5000);
 
         let dur = Duration::from_millis(10);
 
@@ -174,8 +174,8 @@ mod tests {
 
     #[test]
     fn multiple_messages() {
-        let mut server = Server::new(8000);
-        let mut client = Client::localhost(8000);
+        let mut server = ServerNode::new(8000);
+        let mut client = ClientNode::localhost(8000);
 
         let dur = Duration::from_millis(10);
 
@@ -209,8 +209,8 @@ mod tests {
 
     #[test]
     fn test_connection() {
-        let mut server = Server::new(7000);
-        let mut client = Client::localhost(7000);
+        let mut server = ServerNode::new(7000);
+        let mut client = ClientNode::localhost(7000);
 
         let dur = Duration::from_millis(10);
 

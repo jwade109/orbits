@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     let mut app = utils::BasicApp::new("Test app", TraceLogLevel::LOG_INFO);
-    let mut client = Client::with_str_addr(&args.server_addr)?;
+    let mut client = ClientNode::with_str_addr(&args.server_addr)?;
     let mut server_stats = ServerStatistics::default();
     let mut grids = BTreeMap::new();
     let mut assets = assets::Assets::default();
