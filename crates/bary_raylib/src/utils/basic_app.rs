@@ -42,7 +42,7 @@ impl BasicApp {
             .build();
 
         simple_logger::SimpleLogger::new()
-            .with_level(log::LevelFilter::Debug)
+            .with_level(log::LevelFilter::Info)
             .env()
             .init()
             .unwrap();

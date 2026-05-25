@@ -1,4 +1,4 @@
-use crate::app::App;
+use crate::TermCmd;
 use crate::assets::Assets;
 use crate::camera::to_raylib_camera;
 use crate::render::*;
@@ -12,6 +12,7 @@ use bary_factory::*;
 use bary_input::*;
 use bary_parts::*;
 use bary_sim::*;
+use bary_terminal::Terminal;
 use early_returns::*;
 use enum_iterator::Sequence;
 use log::*;
@@ -694,21 +695,23 @@ fn draw_grid_far_indicators(
 
 pub fn lame_old_imgui_entrypoint(
     d: &mut RaylibDrawHandle,
-    app: &mut App,
+    client: &mut ClientSpecificInfo,
+    world: &mut World,
+    terminal: &Terminal<TermCmd>,
     sounds: &mut SoundEffects,
     assets: &Assets,
 ) {
-    let raylib_camera = to_raylib_camera(&app.client.camera, app.client.screen_dims);
+    let raylib_camera = to_raylib_camera(&client.camera, client.screen_dims);
 
-    draw_grid_far_indicators(&app.world.grids, d, &app.client, &raylib_camera, assets);
+    draw_grid_far_indicators(&world.grids, d, &client, &raylib_camera, assets);
 
-    imgui_editor_layer_indicator(d, &mut app.client, sounds);
-    imgui_all_parts_in_layer(d, &mut app.client, &mut app.world, sounds);
+    imgui_editor_layer_indicator(d, client, sounds);
+    imgui_all_parts_in_layer(d, client, world, sounds);
 
-    imgui_selected_grid_primary_computer_info(d, &mut app.world, &mut app.client, assets);
-    imgui_hovered_part_info(d, &mut app.world, &mut app.client, assets);
+    imgui_selected_grid_primary_computer_info(d, world, client, assets);
+    imgui_hovered_part_info(d, world, client, assets);
 
-    draw_terminal(d, &app.terminal, &assets);
+    draw_terminal(d, &terminal, &assets);
 }
 
 fn selected_part_gui(gui: &mut ImGui, client: &ClientSpecificInfo, world: &mut World) {

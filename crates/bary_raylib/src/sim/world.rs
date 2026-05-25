@@ -82,6 +82,7 @@ impl World {
         }
     }
 
+    #[must_use]
     pub fn apply(&mut self, delta: WorldDelta) -> BaryResult<()> {
         info!("Applying delta {:?} at tick {}", delta, self.ticks);
         match delta {

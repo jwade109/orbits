@@ -11,22 +11,26 @@ pub enum TermCmd {
     Clear,
     SetSimSpeed(u32),
     FindGridByName(String),
-    ListGrids,
-    ListProtos,
-    ListParts,
-    ListThrusters,
-    ListComputers,
+
+    /// print info about a particular entity table to the terminal
+    PrintEntityInfo(TableIdent),
+
+    /// print blueprint info to the terminal
+
     ServerDisconnect,
     ServerConnect,
     RequestServerStatistics,
-    SetWaypoint(Ent, Isometry2d),
-    EchoSaveInfo,
-    LoadSave(String),
+
+    /// print save info to the terminal
+    PrintSaveInfo,
+    /// save the current world to disk with the given name
     SaveWorldToDisk(String, bool),
+    /// list available savefiles which can be Loaded
     ListSaves,
-    ListBlueprints,
-    // emit blob info to the terminal
+    /// load the save with the given name
+    LoadSave(String),
+    /// print blob info to the terminal
     PrintBlobInfo(TableIdent),
-    // client blob requests
+    /// client blob requests
     ClientReqBlob(TableIdent),
 }

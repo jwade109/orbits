@@ -9,7 +9,7 @@ use bary_raylib::world_builder::WorldBuilder;
 use bary_raylib::*;
 use bary_terminal::Terminal;
 use clap::Parser;
-use log::{info, warn};
+use log::{debug, info, warn};
 use raylib::prelude::*;
 use serde::Serialize;
 use std::path::PathBuf;
@@ -154,7 +154,7 @@ impl ServerApp {
     }
 
     fn on_accept_message(&mut self, msg: Message) {
-        warn!("Got a command: {:?}", msg);
+        debug!("Got a command: {:?}", msg);
         self.send_tlm_ack();
 
         if msg.level != MessageLevel::Command {
@@ -179,19 +179,19 @@ impl ServerApp {
             MessageKind::FindGridByName(name) => {
                 self.on_accept_find_grid_by_name(name);
             }
-            MessageKind::ListGrids => {
+            MessageKind::PrintEntityInfo(TableIdent::Grids) => {
                 self.on_accept_list_grids();
             }
-            MessageKind::ListProtos => {
+            MessageKind::PrintEntityInfo(TableIdent::Protos) => {
                 self.on_accept_list_prototypes();
             }
-            MessageKind::ListParts => {
+            MessageKind::PrintEntityInfo(TableIdent::Parts) => {
                 self.on_accept_list_parts();
             }
-            MessageKind::ListThrusters => {
+            MessageKind::PrintEntityInfo(TableIdent::Thrusters) => {
                 self.on_accept_list_thrusters();
             }
-            MessageKind::ListComputers => {
+            MessageKind::PrintEntityInfo(TableIdent::Computers) => {
                 self.on_accept_list_computers();
             }
             MessageKind::RequestServerStatistics => {
@@ -312,27 +312,6 @@ impl ServerApp {
         ));
     }
 
-    fn send_blob_data<T: Serialize>(
-        out: &MessageQueue<Message>,
-        table: TableIdent,
-        entities: &Components<T>,
-    ) {
-        if let Ok(bytes) = bincode::serialize(&entities) {
-            let blob = Blob::new(bytes, table);
-            out.push(Message::new(
-                MessageSource::Server,
-                MessageLevel::Response,
-                MessageKind::BlobResponse(blob),
-            ));
-        } else {
-            out.push(Message::new(
-                MessageSource::Server,
-                MessageLevel::Response,
-                MessageKind::Text(format!("Failed to serialize table: {:?}", table)),
-            ));
-        }
-    }
-
     fn serialize_table<T: Serialize>(entities: &Components<T>) -> Option<Vec<u8>> {
         bincode::serialize(&entities).ok()
     }
@@ -354,6 +333,7 @@ impl ServerApp {
     }
 
     fn on_accept_client_blob_request(&mut self, client: ClientId, table: TableIdent) {
+        info!("Responding to blob request for {table} from {client}");
         if let Some(blob) = self.get_blob(table) {
             let msg = Message::new(
                 MessageSource::Server,
@@ -376,7 +356,7 @@ impl ServerApp {
             TermCmd::Say(_) => self.terminal.log_info("Woooo!".to_string()),
             TermCmd::Clear => self.terminal.clear(),
             TermCmd::Exit => self.app.exit(),
-            TermCmd::EchoSaveInfo => {
+            TermCmd::PrintSaveInfo => {
                 self.echo_save_info();
             }
             TermCmd::LoadSave(name) => {
@@ -388,13 +368,13 @@ impl ServerApp {
             TermCmd::ListSaves => {
                 self.list_saves();
             }
-            TermCmd::ListGrids => {
+            TermCmd::PrintEntityInfo(TableIdent::Grids) => {
                 self.list_grids();
             }
-            TermCmd::ListParts => {
+            TermCmd::PrintEntityInfo(TableIdent::Parts) => {
                 self.list_parts();
             }
-            TermCmd::ListProtos => {
+            TermCmd::PrintEntityInfo(TableIdent::Protos) => {
                 self.list_prototypes();
             }
             TermCmd::SetSimSpeed(speed) => {
@@ -404,7 +384,7 @@ impl ServerApp {
                 Ok(()) => self.terminal.log_info("OK"),
                 Err(e) => self.terminal.log_error(format!("FAILED: {:?}", e)),
             },
-            TermCmd::ListBlueprints => {
+            TermCmd::PrintEntityInfo(TableIdent::Blueprints) => {
                 self.list_blueprints();
             }
             TermCmd::PrintBlobInfo(TableIdent::Blueprints) => {

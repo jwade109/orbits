@@ -134,7 +134,9 @@ impl ServerNode {
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
+    use bary_core::prelude::TableIdent;
+
+use super::super::*;
     use std::time::Duration;
 
     #[test]
@@ -189,8 +191,8 @@ mod tests {
         assert!(client.is_connected());
 
         server.broadcast_response(MessageKind::Ack);
-        server.broadcast_telemetry(MessageKind::ListGrids);
-        server.send_command(client.id(), MessageKind::ListComputers);
+        server.broadcast_telemetry(MessageKind::PrintEntityInfo(TableIdent::Grids));
+        server.send_command(client.id(), MessageKind::PrintEntityInfo(TableIdent::Computers));
 
         _ = server.update();
 

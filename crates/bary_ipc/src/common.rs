@@ -26,6 +26,12 @@ pub enum MessageLevel {
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ClientId(pub u64);
 
+impl std::fmt::Display for ClientId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ClientId({})", self.0)
+    }
+}
+
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MessageSource {
     Server,
@@ -127,11 +133,7 @@ pub enum MessageKind {
     FindGridByName(String),
     Entity(Ent),
     ServerStatistics(ServerStatistics),
-    ListGrids,
-    ListProtos,
-    ListParts,
-    ListThrusters,
-    ListComputers,
+    PrintEntityInfo(TableIdent),
     GridInfo(Ent, String, Isometry2d),
     Proto(Ent, PartPrototype),
     Part(Ent, Part),

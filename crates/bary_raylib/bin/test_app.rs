@@ -1,3 +1,4 @@
+use bary_core::prelude::TableIdent;
 use bary_ipc::*;
 use bary_raylib::{render::draw_terminal, *};
 use bary_terminal::*;
@@ -81,20 +82,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     TermCmd::Exit => {
                         should_exit = true;
                     }
-                    TermCmd::ListGrids => {
-                        client.send_command(MessageKind::ListGrids);
-                    }
-                    TermCmd::ListProtos => {
-                        client.send_command(MessageKind::ListProtos);
-                    }
-                    TermCmd::ListParts => {
-                        client.send_command(MessageKind::ListParts);
-                    }
-                    TermCmd::ListThrusters => {
-                        client.send_command(MessageKind::ListThrusters);
-                    }
-                    TermCmd::ListComputers => {
-                        client.send_command(MessageKind::ListComputers);
+                    TermCmd::PrintEntityInfo(table) => {
+                        client.send_command(MessageKind::PrintEntityInfo(table));
                     }
                     TermCmd::ServerConnect => {
                         client.reconnect();
@@ -104,9 +93,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                     TermCmd::RequestServerStatistics => {
                         client.send_command(MessageKind::RequestServerStatistics);
-                    }
-                    TermCmd::SetWaypoint(id, iso) => {
-                        client.send_command(MessageKind::SetWaypoint(id, iso));
                     }
                     TermCmd::ClientReqBlob(table) => {
                         client.send_command(MessageKind::ClientBlobRequest(table));

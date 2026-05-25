@@ -15,9 +15,8 @@ if __name__ == '__main__':
     pool = multiprocessing.Pool(3, init_worker)
     try:
         pool.map(work, [
-            "./target/release/server_app.exe",
-            "./target/release/main.exe",
-            "./target/release/main.exe",
+            "./target/release/server_app.exe 5000 saves/ scenario_a",
+            "./target/release/main.exe 127.0.0.1:5000",
         ])
     except KeyboardInterrupt:
         print("Caught KeyboardInterrupt, terminating workers")

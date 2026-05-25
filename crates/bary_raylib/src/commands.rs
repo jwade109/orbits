@@ -110,7 +110,7 @@ pub fn blob_info_commands() -> Vec<Command<TermCmd>> {
 
 pub fn server_console_commands() -> Vec<Command<TermCmd>> {
     vec![
-        Command::new("echo", vec![], |_| Ok(TermCmd::EchoSaveInfo)),
+        Command::new("echo", vec![], |_| Ok(TermCmd::PrintSaveInfo)),
         Command::new("load", vec!["path"], |args| {
             let save = parse_arg(args, "path")?;
             Ok(TermCmd::LoadSave(save))
@@ -123,12 +123,12 @@ pub fn server_console_commands() -> Vec<Command<TermCmd>> {
         Command::new("clear", vec![], cmd_clear),
         Command::new("speed", vec!["speed"], cmd_set_speed),
         Command::new("ls.saves", vec![], |_| Ok(TermCmd::ListSaves)),
-        Command::new("ls.blueprints", vec![], |_| Ok(TermCmd::ListBlueprints)),
-        Command::new("ls.grids", vec![], |_| Ok(TermCmd::ListGrids)),
-        Command::new("ls.protos", vec![], |_| Ok(TermCmd::ListProtos)),
-        Command::new("ls.parts", vec![], |_| Ok(TermCmd::ListParts)),
-        Command::new("ls.thrusters", vec![], |_| Ok(TermCmd::ListThrusters)),
-        Command::new("ls.cpus", vec![], |_| Ok(TermCmd::ListComputers)),
+        Command::new("ls.blueprints", vec![], |_| Ok(TermCmd::PrintEntityInfo(TableIdent::Blueprints))),
+        Command::new("ls.grids", vec![], |_| Ok(TermCmd::PrintEntityInfo(TableIdent::Grids))),
+        Command::new("ls.protos", vec![], |_| Ok(TermCmd::PrintEntityInfo(TableIdent::Protos))),
+        Command::new("ls.parts", vec![], |_| Ok(TermCmd::PrintEntityInfo(TableIdent::Parts))),
+        Command::new("ls.thrusters", vec![], |_| Ok(TermCmd::PrintEntityInfo(TableIdent::Thrusters))),
+        Command::new("ls.cpus", vec![], |_| Ok(TermCmd::PrintEntityInfo(TableIdent::Computers))),
     ]
 }
 
@@ -171,11 +171,11 @@ pub fn all_commands() -> Vec<Command<TermCmd>> {
         Command::new("exit", vec![], cmd_exit),
         Command::new("say", vec!["msg"], cmd_say),
         Command::new("clear", vec![], cmd_clear),
-        Command::new("ls.grids", vec![], |_| Ok(TermCmd::ListGrids)),
-        Command::new("ls.protos", vec![], |_| Ok(TermCmd::ListProtos)),
-        Command::new("ls.parts", vec![], |_| Ok(TermCmd::ListParts)),
-        Command::new("ls.thrusters", vec![], |_| Ok(TermCmd::ListThrusters)),
-        Command::new("ls.cpus", vec![], |_| Ok(TermCmd::ListComputers)),
+        Command::new("ls.grids", vec![], |_| Ok(TermCmd::PrintEntityInfo(TableIdent::Grids))),
+        Command::new("ls.protos", vec![], |_| Ok(TermCmd::PrintEntityInfo(TableIdent::Protos))),
+        Command::new("ls.parts", vec![], |_| Ok(TermCmd::PrintEntityInfo(TableIdent::Parts))),
+        Command::new("ls.thrusters", vec![], |_| Ok(TermCmd::PrintEntityInfo(TableIdent::Thrusters))),
+        Command::new("ls.cpus", vec![], |_| Ok(TermCmd::PrintEntityInfo(TableIdent::Computers))),
         Command::new("server.disconnect", vec![], |_| {
             Ok(TermCmd::ServerDisconnect)
         }),

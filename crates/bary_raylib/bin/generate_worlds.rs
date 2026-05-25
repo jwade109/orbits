@@ -1,6 +1,6 @@
 use bary_core::prelude::*;
 use bary_factory::*;
-use bary_raylib::{persistence::save_world, world_builder::WorldBuilder, *};
+use bary_raylib::{persistence::save_world, world_builder::WorldBuilder};
 use bary_sim::*;
 
 fn main() -> BaryResult<()> {
