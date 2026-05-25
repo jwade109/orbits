@@ -31,14 +31,13 @@ pub struct App {
     pub runner: WorldRunner,
     pub debug: DebugInfo,
 
-    pub _network_thread: JoinHandle<()>,
     pub incoming_network_queue: MessageQueue<Message>,
     pub outgoing_network_queue: MessageQueue<Message>,
 
     pub _input_thread: JoinHandle<()>,
     pub input_queue: MessageQueue<rdev::Event>,
 
-    pub cmd: Terminal<TermCmd>,
+    pub terminal: Terminal<TermCmd>,
 }
 
 impl App {
@@ -49,9 +48,9 @@ impl App {
         actions: &mut Vec<TermCmd>,
         on_gui: bool,
     ) {
-        self.cmd.on_event(&e);
+        self.terminal.on_event(&e);
 
-        if !self.cmd.is_focused() {
+        if !self.terminal.is_focused() {
             process_event(
                 &mut self.world,
                 &mut self.client,
@@ -71,12 +70,6 @@ pub fn new_app(multiplayer: bool) -> App {
     let outgoing_network_queue = new_message_queue();
     let outgoing_network_queue_copy = outgoing_network_queue.clone();
 
-    let _network_thread = std::thread::spawn(move || {
-        if multiplayer {
-            network_thread(incoming_network_queue_copy, outgoing_network_queue_copy);
-        }
-    });
-
     let input_queue = new_message_queue();
     let thread_copy = input_queue.clone();
     let _input_thread = std::thread::spawn(|| {
@@ -92,11 +85,10 @@ pub fn new_app(multiplayer: bool) -> App {
         client: ClientSpecificInfo::new(),
         runner: WorldRunner::new(),
         debug: DebugInfo::default(),
-        _network_thread,
         incoming_network_queue,
         outgoing_network_queue,
         _input_thread,
         input_queue,
-        cmd: Terminal::with_commands(all_commands()),
+        terminal: Terminal::with_commands(all_commands()),
     }
 }

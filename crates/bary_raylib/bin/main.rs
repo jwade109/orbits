@@ -9,6 +9,7 @@ use bary_raylib::render::*;
 use bary_raylib::sim::*;
 use bary_raylib::sounds::SoundEffects;
 use bary_raylib::tests::is_world_consistent;
+use bary_raylib::utils::BasicApp;
 use bary_raylib::utils::WallTimer;
 use bary_raylib::utils::raylib_to_glam;
 use clap::Parser;
@@ -119,100 +120,136 @@ fn handle_sounds<'a>(
 /// Run the test client app
 #[derive(Parser, Debug, Default, Clone)]
 #[command(version, about, long_about = None)]
-pub struct Args {
+struct Args {
     server_addr: String,
+}
+
+struct MainApp {
+    handle: RaylibHandle,
+    thread: RaylibThread,
+    assets: Assets,
+    node: ClientNode,
+    wall_timer: WallTimer,
+    app: App,
+}
+
+impl MainApp {
+    fn new(server_addr: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        simple_logger::SimpleLogger::new()
+            .with_level(log::LevelFilter::Debug)
+            .env()
+            .init()
+            .unwrap();
+
+        let (mut handle, thread) = raylib::init()
+            .size(1080, 700)
+            .title("Barycenter")
+            .log_level(TraceLogLevel::LOG_WARNING)
+            .msaa_4x()
+            .resizable()
+            .build();
+
+        handle.set_target_fps(120);
+        handle.maximize_window();
+        handle.set_exit_key(None);
+        handle.hide_cursor();
+
+        let mut assets = Assets::default();
+        load_assets(&mut assets, &mut handle, &thread);
+
+        let node = ClientNode::with_str_addr(server_addr)?;
+
+        let wall_timer = WallTimer::with_dur(Duration::from_millis(500));
+
+        let app = new_app(false);
+
+        Ok(Self {
+            handle,
+            thread,
+            assets,
+            node,
+            wall_timer,
+            app,
+        })
+    }
+
+    fn update(&mut self) {
+        for msg in self.node.update() {
+            self.app.terminal.log_debug(format!("{:?}", msg));
+        }
+
+        while let Some(e) = self.app.input_queue.pop() {
+            let focused = self.handle.is_window_focused();
+            self.app.client.input.process_rdev_event(&e, focused);
+        }
+
+        if self.wall_timer.tick() {
+            self.node.send_telemetry(MessageKind::Ping)
+        }
+
+        // GET SOME BASIC INPUT INFORMATION FROM RAYLIB
+
+        self.app.client.mouse_screen_position = self
+            .handle
+            .is_cursor_on_screen()
+            .then(|| raylib_to_glam(self.handle.get_mouse_position()));
+        self.app.client.screen_dims = Vec2::new(
+            self.handle.get_screen_width() as f32,
+            self.handle.get_screen_height() as f32,
+        );
+
+        // GET COMMANDS FROM THE MULTIPLAYER SERVER
+
+        while let Some(n) = self.app.incoming_network_queue.pop() {
+            info!("Got message: {n:?}")
+        }
+    }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    simple_logger::SimpleLogger::new()
-        .with_level(log::LevelFilter::Debug)
-        .env()
-        .init()
-        .unwrap();
+    let mut main_app = MainApp::new(&args.server_addr)?;
 
-    let (mut rl, thread) = raylib::init()
-        .size(1080, 700)
-        .title("Barycenter")
-        .log_level(TraceLogLevel::LOG_WARNING)
-        .msaa_4x()
-        .resizable()
-        .build();
-
-    rl.set_target_fps(120);
-    rl.maximize_window();
-    rl.set_exit_key(None);
-    rl.hide_cursor();
-
-    let audio = raylib::audio::RaylibAudio::init_audio_device().unwrap();
-
-    let mut app = new_app(false);
-
-    let mut client = ClientNode::with_str_addr(&args.server_addr)?;
-
-    let mut assets = Assets::default();
-
-    let mut wall_timer = WallTimer::with_dur(Duration::from_millis(500));
-
-    load_assets(&mut assets, &mut rl, &thread);
-
+    let audio = raylib::audio::RaylibAudio::init_audio_device()?;
     let mut active_sounds = Vec::new();
 
-    while !rl.window_should_close() {
+    while !main_app.handle.window_should_close() {
         // HANDLE INPUTS FROM RDEV LISTENER THREAD
 
-        for msg in client.update() {
-            app.cmd.log_debug(format!("{:?}", msg));
-        }
-
-        let mut rdev_events = Vec::new();
-        while let Some(e) = app.input_queue.pop() {
-            let focused = rl.is_window_focused();
-            app.client.input.process_rdev_event(&e, focused);
-            rdev_events.push(e);
-        }
-
-        if wall_timer.tick() {
-            client.send_telemetry(MessageKind::CameraPosition(app.client.camera.isometry))
-        }
-
-        // GET SOME BASIC INPUT INFORMATION FROM RAYLIB
-
-        app.client.mouse_screen_position = rl
-            .is_cursor_on_screen()
-            .then(|| raylib_to_glam(rl.get_mouse_position()));
-        app.client.screen_dims =
-            Vec2::new(rl.get_screen_width() as f32, rl.get_screen_height() as f32);
-
-        // GET COMMANDS FROM THE MULTIPLAYER SERVER
-
-        while let Some(n) = app.incoming_network_queue.pop() {
-            info!("Got message: {n:?}")
-        }
+        main_app.update();
 
         // RUN PRE-PHYSICS, PHYSICS, AND POST-PHYSICS UPDATES
 
         let mut sounds = SoundEffects::new();
         let mut actions = Vec::new();
 
-        let mut timers =
-            app.runner
-                .update(&mut app.world, &mut app.client, &mut sounds, &mut actions);
+        let mut timers = main_app.app.runner.update(
+            &mut main_app.app.world,
+            &mut main_app.app.client,
+            &mut sounds,
+            &mut actions,
+        );
 
         // CONSTRUCT IMMEDIATE-MODE GUI
 
         let gui = {
             let _timer = timers.scope("imgui");
 
-            imgui::imgui_pass(&mut app.client, &mut app.world, &mut sounds)
+            imgui::imgui_pass(
+                &mut main_app.app.client,
+                &mut main_app.app.world,
+                &mut sounds,
+            )
         };
 
         // HANDLE RDEV EVENTS (DEPRECATED - USE INPUTSTATE)
 
-        let events: Vec<_> = app.client.input.events().cloned().collect();
+        let events: Vec<_> = main_app.app.client.input.events().cloned().collect();
         for e in events {
-            app.process_event(e.clone(), &mut sounds, &mut actions, gui.is_hovering_gui());
+            main_app
+                .app
+                .process_event(e.clone(), &mut sounds, &mut actions, gui.is_hovering_gui());
         }
 
         // EMIT ACTIONS TO OTHER MULTIPLAYER CLIENTS
@@ -223,27 +260,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // AND DRAW IT ALL
 
-        rl.draw(&thread, |mut d: RaylibDrawHandle<'_>| {
-            d.clear_background(Color::BLACK);
+        main_app
+            .handle
+            .draw(&main_app.thread, |mut d: RaylibDrawHandle<'_>| {
+                d.clear_background(Color::BLACK);
 
-            draw_world(&app.world, &app.client, &assets, &gui, &mut d);
+                draw_world(
+                    &main_app.app.world,
+                    &main_app.app.client,
+                    &main_app.assets,
+                    &gui,
+                    &mut d,
+                );
 
-            imgui::lame_old_imgui_entrypoint(&mut d, &mut app, &mut sounds, &assets);
+                imgui::lame_old_imgui_entrypoint(
+                    &mut d,
+                    &mut main_app.app,
+                    &mut sounds,
+                    &main_app.assets,
+                );
 
-            draw_mouse_screen_position(&mut d, app.client.mouse_screen_position);
+                draw_mouse_screen_position(&mut d, main_app.app.client.mouse_screen_position);
 
-            draw_debug_info(&app, &assets, &timers, &mut d);
-        });
+                draw_debug_info(&main_app.app, &main_app.assets, &timers, &mut d);
+            });
 
         handle_sounds(sounds, &audio, &mut active_sounds);
 
-        if app.client.input.just_pressed(rdev::Key::KeyC)
-            && app.client.input.is_key_pressed(rdev::Key::ControlLeft)
+        if main_app.app.client.input.just_pressed(rdev::Key::KeyC)
+            && main_app
+                .app
+                .client
+                .input
+                .is_key_pressed(rdev::Key::ControlLeft)
         {
             break;
         }
 
-        app.client.input.on_frame_boundary();
+        main_app.app.client.input.on_frame_boundary();
     }
 
     info!("Done.");

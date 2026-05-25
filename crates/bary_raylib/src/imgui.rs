@@ -708,7 +708,7 @@ pub fn lame_old_imgui_entrypoint(
     imgui_selected_grid_primary_computer_info(d, &mut app.world, &mut app.client, assets);
     imgui_hovered_part_info(d, &mut app.world, &mut app.client, assets);
 
-    draw_terminal(d, &app.cmd, &assets);
+    draw_terminal(d, &app.terminal, &assets);
 }
 
 fn selected_part_gui(gui: &mut ImGui, client: &ClientSpecificInfo, world: &mut World) {
