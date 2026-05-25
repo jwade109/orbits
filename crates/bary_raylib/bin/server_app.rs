@@ -18,10 +18,13 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 pub struct ServerApp {
+    app: BasicApp,
+    terminal: Terminal<TermCmd>,
+    assets: Assets,
     saves_dir: PathBuf,
     save_name: Option<String>,
     world: World,
-    server: Arc<RwLock<ServerNode>>,
+    node: Arc<RwLock<ServerNode>>,
     incoming_transactions: MessageQueue<Message>,
     broadcast: MessageQueue<Message>,
     outgoing: MessageQueue<(ClientId, Message)>,
@@ -39,7 +42,7 @@ impl ServerApp {
         let broadcast = new_message_queue();
         let outgoing = new_message_queue();
 
-        let server = Arc::new(RwLock::new(ServerNode::new(port)));
+        let node = Arc::new(RwLock::new(ServerNode::new(port)));
 
         let world = WorldBuilder::new()
             .assets()
@@ -54,16 +57,30 @@ impl ServerApp {
             .blueprint("manta")
             .build();
 
+        let mut cmds = server_console_commands();
+        cmds.extend(world_delta_commands());
+        cmds.extend(blob_info_commands());
+
+        let terminal = Terminal::with_commands(cmds);
+
+        let mut app = BasicApp::new("Barycenter Server", TraceLogLevel::LOG_INFO);
+        let mut assets = Assets::default();
+
+        assets::load_assets(&mut assets, &mut app.handle, &app.thread);
+
         Self {
+            app,
+            terminal,
+            assets,
             saves_dir,
             save_name: Some(save_name),
             world,
-            server: server.clone(),
+            node: node.clone(),
             incoming_transactions: incoming_transactions.clone(),
             broadcast: broadcast.clone(),
             outgoing: outgoing.clone(),
             _server_thread: std::thread::spawn(|| {
-                server_thread(server, incoming_transactions, broadcast, outgoing)
+                server_thread(node, incoming_transactions, broadcast, outgoing)
             }),
             world_timer: WallTimer::with_dur(Duration::from_millis(20)),
             sync_timer: WallTimer::with_dur(Duration::from_millis(250)),
@@ -71,7 +88,7 @@ impl ServerApp {
     }
 
     pub fn get_statistics(&self) -> ServerStatistics {
-        if let Ok(server) = self.server.read() {
+        if let Ok(server) = self.node.read() {
             let mut clients = Vec::new();
             for client in server.renet().clients_id_iter() {
                 if let Ok(info) = server.renet().network_info(client) {
@@ -353,6 +370,192 @@ impl ServerApp {
             self.outgoing.push((client, msg));
         }
     }
+
+    fn on_terminal_command(&mut self, cmd: TermCmd) {
+        match cmd {
+            TermCmd::Say(_) => self.terminal.log_info("Woooo!".to_string()),
+            TermCmd::Clear => self.terminal.clear(),
+            TermCmd::Exit => self.app.exit(),
+            TermCmd::EchoSaveInfo => {
+                self.echo_save_info();
+            }
+            TermCmd::LoadSave(name) => {
+                self.load_save_file(name);
+            }
+            TermCmd::SaveWorldToDisk(path, overwrite) => {
+                self.save_world_to_disk(path, overwrite);
+            }
+            TermCmd::ListSaves => {
+                self.list_saves();
+            }
+            TermCmd::ListGrids => {
+                self.list_grids();
+            }
+            TermCmd::ListParts => {
+                self.list_parts();
+            }
+            TermCmd::ListProtos => {
+                self.list_prototypes();
+            }
+            TermCmd::SetSimSpeed(speed) => {
+                self.world.tick_rate = speed;
+            }
+            TermCmd::World(delta) => match self.world.apply(delta) {
+                Ok(()) => self.terminal.log_info("OK"),
+                Err(e) => self.terminal.log_error(format!("FAILED: {:?}", e)),
+            },
+            TermCmd::ListBlueprints => {
+                self.list_blueprints();
+            }
+            TermCmd::PrintBlobInfo(TableIdent::Blueprints) => {
+                Self::list_blob_info(&mut self.terminal, &self.world.blueprints);
+            }
+            TermCmd::PrintBlobInfo(TableIdent::Grids) => {
+                Self::list_blob_info(&mut self.terminal, &self.world.grids);
+            }
+            TermCmd::PrintBlobInfo(TableIdent::Protos) => {
+                Self::list_blob_info(&mut self.terminal, &self.world.prototypes);
+            }
+            TermCmd::PrintBlobInfo(TableIdent::Parts) => {
+                Self::list_blob_info(&mut self.terminal, &self.world.parts);
+            }
+            TermCmd::PrintBlobInfo(TableIdent::Thrusters) => {
+                Self::list_blob_info(&mut self.terminal, &self.world.thrusters);
+            }
+            TermCmd::PrintBlobInfo(TableIdent::Computers) => {
+                Self::list_blob_info(&mut self.terminal, &self.world.computers);
+            }
+            TermCmd::PrintBlobInfo(TableIdent::Chunks) => {
+                Self::list_blob_info(&mut self.terminal, &self.world.terrain_chunks);
+            }
+            TermCmd::PrintBlobInfo(TableIdent::Tiles) => {
+                Self::list_blob_info(&mut self.terminal, &self.world.terrain_tiles);
+            }
+            TermCmd::PrintBlobInfo(TableIdent::Inventories) => {
+                Self::list_blob_info(&mut self.terminal, &self.world.inventories);
+            }
+            TermCmd::PrintBlobInfo(TableIdent::Machines) => {
+                Self::list_blob_info(&mut self.terminal, &self.world.machines);
+            }
+            _ => self.terminal.log_warn(format!("Unsupported: {:?}", cmd)),
+        }
+    }
+    fn list_blob_info<T: Serialize>(term: &mut Terminal<TermCmd>, entities: &Components<T>) {
+        let start = Instant::now();
+        let bin = bincode::serialize(entities);
+        let delta = Instant::now() - start;
+        match bin {
+            Ok(bin) => {
+                let md5 = md5::compute(&bin);
+                term.log_info(format!("Len:   {} entities", entities.len()));
+                term.log_info(format!("Bytes: {}", bin.len()));
+                term.log_info(format!("MD5:   {:?}", md5));
+                term.log_info(format!("Dur:   {} us", delta.as_micros()));
+            }
+            Err(e) => {
+                term.log_error(format!("Failed to serialize: {:?}", e));
+            }
+        }
+    }
+
+    fn list_prototypes(&mut self) {
+        if self.world.prototypes.is_empty() {
+            self.terminal.log_info("(no prototypes)");
+        }
+        for (id, proto) in self.world.prototypes.iter() {
+            let s = format!(
+                "{} {} {:?} {}",
+                id,
+                proto.name,
+                proto.classification(),
+                proto.mass,
+            );
+            self.terminal.log_info(s);
+        }
+    }
+
+    fn list_grids(&mut self) {
+        if self.world.grids.is_empty() {
+            self.terminal.log_info("(no grids)");
+        }
+        for (id, grid) in self.world.grids.iter() {
+            let s = format!(
+                "{} {}, {:?} {}",
+                id,
+                grid.name,
+                grid.blueprint,
+                distance_str_v(grid.particle_location.translation.into()),
+            );
+            self.terminal.log_info(s);
+        }
+    }
+
+    fn list_parts(&mut self) {
+        if self.world.parts.is_empty() {
+            self.terminal.log_info("(no parts)");
+        }
+        for (id, part) in self.world.parts.iter() {
+            let s = format!("{} {:?}", id, part);
+            self.terminal.log_info(s);
+        }
+    }
+
+    fn list_saves(&mut self) {
+        let saves = list_saves_in_dir(&self.saves_dir);
+        for s in saves {
+            self.terminal.log_info(format!("{}", s.display()));
+        }
+    }
+
+    fn list_blueprints(&mut self) {
+        if self.world.blueprints.is_empty() {
+            self.terminal.log_info("(no blueprints)");
+        }
+        for (id, bp) in self.world.blueprints.iter() {
+            let s = format!(
+                "{} {} v{} {} parts",
+                id,
+                bp.id.0,
+                bp.id.1,
+                bp.blueprint.part_count()
+            );
+            self.terminal.log_info(s);
+        }
+    }
+
+    fn echo_save_info(&mut self) {
+        self.terminal
+            .log_info(format!("Saves found in {}", self.saves_dir.display()));
+        self.terminal
+            .log_info(format!("Save name is {:?}", self.save_name));
+    }
+
+    fn load_save_file(&mut self, name: String) {
+        let path = self.saves_dir.join(&name);
+
+        match load_world(&path) {
+            Ok(world) => {
+                self.world = world;
+                self.terminal.log_info(format!("Loaded save {name}"));
+                self.save_name = Some(name);
+            }
+            Err(e) => {
+                self.terminal
+                    .log_error(format!("Failed to load world: {e:?}",));
+            }
+        }
+    }
+
+    fn save_world_to_disk(&mut self, save_name: String, overwrite: bool) {
+        let path = self.saves_dir.join(save_name);
+        let res = save_world(&path, &self.world, overwrite);
+        if let Err(e) = res {
+            self.terminal.log_error(format!("Failed: {e:?}"));
+        } else {
+            self.terminal
+                .log_info(format!("Saved to {}", path.display()));
+        }
+    }
 }
 
 fn server_thread(
@@ -387,228 +590,11 @@ fn server_thread(
     }
 }
 
-struct DedicatedServerApp {
-    app: BasicApp,
-    terminal: Terminal<TermCmd>,
-    server: ServerApp,
-    assets: Assets,
-}
-
-impl DedicatedServerApp {
-    fn new(saves_dir: &str, save_name: &str, port: u16) -> Self {
-        let mut app = BasicApp::new("Barycenter Server", TraceLogLevel::LOG_INFO);
-
-        let mut assets = Assets::default();
-
-        assets::load_assets(&mut assets, &mut app.handle, &app.thread);
-
-        let mut cmds = server_console_commands();
-        cmds.extend(world_delta_commands());
-        cmds.extend(blob_info_commands());
-
-        Self {
-            app,
-            terminal: Terminal::with_commands(cmds),
-            server: ServerApp::new(saves_dir, save_name, port),
-            assets,
-        }
-    }
-
-    fn on_terminal_command(&mut self, cmd: TermCmd) {
-        match cmd {
-            TermCmd::Say(_) => self.terminal.log_info("Woooo!".to_string()),
-            TermCmd::Clear => self.terminal.clear(),
-            TermCmd::Exit => self.app.exit(),
-            TermCmd::EchoSaveInfo => {
-                self.echo_save_info();
-            }
-            TermCmd::LoadSave(name) => {
-                self.load_save_file(name);
-            }
-            TermCmd::SaveWorldToDisk(path, overwrite) => {
-                self.save_world_to_disk(path, overwrite);
-            }
-            TermCmd::ListSaves => {
-                self.list_saves();
-            }
-            TermCmd::ListGrids => {
-                self.list_grids();
-            }
-            TermCmd::ListParts => {
-                self.list_parts();
-            }
-            TermCmd::ListProtos => {
-                self.list_prototypes();
-            }
-            TermCmd::SetSimSpeed(speed) => {
-                self.server.world.tick_rate = speed;
-            }
-            TermCmd::World(delta) => match self.server.world.apply(delta) {
-                Ok(()) => self.terminal.log_info("OK"),
-                Err(e) => self.terminal.log_error(format!("FAILED: {:?}", e)),
-            },
-            TermCmd::ListBlueprints => {
-                self.list_blueprints();
-            }
-            TermCmd::PrintBlobInfo(TableIdent::Blueprints) => {
-                Self::list_blob_info(&mut self.terminal, &self.server.world.blueprints);
-            }
-            TermCmd::PrintBlobInfo(TableIdent::Grids) => {
-                Self::list_blob_info(&mut self.terminal, &self.server.world.grids);
-            }
-            TermCmd::PrintBlobInfo(TableIdent::Protos) => {
-                Self::list_blob_info(&mut self.terminal, &self.server.world.prototypes);
-            }
-            TermCmd::PrintBlobInfo(TableIdent::Parts) => {
-                Self::list_blob_info(&mut self.terminal, &self.server.world.parts);
-            }
-            TermCmd::PrintBlobInfo(TableIdent::Thrusters) => {
-                Self::list_blob_info(&mut self.terminal, &self.server.world.thrusters);
-            }
-            TermCmd::PrintBlobInfo(TableIdent::Computers) => {
-                Self::list_blob_info(&mut self.terminal, &self.server.world.computers);
-            }
-            TermCmd::PrintBlobInfo(TableIdent::Chunks) => {
-                Self::list_blob_info(&mut self.terminal, &self.server.world.terrain_chunks);
-            }
-            TermCmd::PrintBlobInfo(TableIdent::Tiles) => {
-                Self::list_blob_info(&mut self.terminal, &self.server.world.terrain_tiles);
-            }
-            TermCmd::PrintBlobInfo(TableIdent::Inventories) => {
-                Self::list_blob_info(&mut self.terminal, &self.server.world.inventories);
-            }
-            TermCmd::PrintBlobInfo(TableIdent::Machines) => {
-                Self::list_blob_info(&mut self.terminal, &self.server.world.machines);
-            }
-            _ => self.terminal.log_warn(format!("Unsupported: {:?}", cmd)),
-        }
-    }
-
-    fn list_blob_info<T: Serialize>(term: &mut Terminal<TermCmd>, entities: &Components<T>) {
-        let start = Instant::now();
-        let bin = bincode::serialize(entities);
-        let delta = Instant::now() - start;
-        match bin {
-            Ok(bin) => {
-                let md5 = md5::compute(&bin);
-                term.log_info(format!("Len:   {} entities", entities.len()));
-                term.log_info(format!("Bytes: {}", bin.len()));
-                term.log_info(format!("MD5:   {:?}", md5));
-                term.log_info(format!("Dur:   {} us", delta.as_micros()));
-            }
-            Err(e) => {
-                term.log_error(format!("Failed to serialize: {:?}", e));
-            }
-        }
-    }
-
-    fn list_prototypes(&mut self) {
-        if self.server.world.prototypes.is_empty() {
-            self.terminal.log_info("(no prototypes)");
-        }
-        for (id, proto) in self.server.world.prototypes.iter() {
-            let s = format!(
-                "{} {} {:?} {}",
-                id,
-                proto.name,
-                proto.classification(),
-                proto.mass,
-            );
-            self.terminal.log_info(s);
-        }
-    }
-
-    fn list_grids(&mut self) {
-        if self.server.world.grids.is_empty() {
-            self.terminal.log_info("(no grids)");
-        }
-        for (id, grid) in self.server.world.grids.iter() {
-            let s = format!(
-                "{} {}, {:?} {}",
-                id,
-                grid.name,
-                grid.blueprint,
-                distance_str_v(grid.particle_location.translation.into()),
-            );
-            self.terminal.log_info(s);
-        }
-    }
-
-    fn list_parts(&mut self) {
-        if self.server.world.parts.is_empty() {
-            self.terminal.log_info("(no parts)");
-        }
-        for (id, part) in self.server.world.parts.iter() {
-            let s = format!("{} {:?}", id, part);
-            self.terminal.log_info(s);
-        }
-    }
-
-    fn list_saves(&mut self) {
-        let saves = list_saves_in_dir(&self.server.saves_dir);
-        for s in saves {
-            self.terminal.log_info(format!("{}", s.display()));
-        }
-    }
-
-    fn list_blueprints(&mut self) {
-        if self.server.world.blueprints.is_empty() {
-            self.terminal.log_info("(no blueprints)");
-        }
-        for (id, bp) in self.server.world.blueprints.iter() {
-            let s = format!(
-                "{} {} v{} {} parts",
-                id,
-                bp.id.0,
-                bp.id.1,
-                bp.blueprint.part_count()
-            );
-            self.terminal.log_info(s);
-        }
-    }
-
-    fn echo_save_info(&mut self) {
-        self.terminal.log_info(format!(
-            "Saves found in {}",
-            self.server.saves_dir.display()
-        ));
-        self.terminal
-            .log_info(format!("Save name is {:?}", self.server.save_name));
-    }
-
-    fn load_save_file(&mut self, name: String) {
-        let path = self.server.saves_dir.join(&name);
-
-        match load_world(&path) {
-            Ok(world) => {
-                self.server.world = world;
-                self.terminal.log_info(format!("Loaded save {name}"));
-                self.server.save_name = Some(name);
-            }
-            Err(e) => {
-                self.terminal
-                    .log_error(format!("Failed to load world: {e:?}",));
-            }
-        }
-    }
-
-    fn save_world_to_disk(&mut self, save_name: String, overwrite: bool) {
-        let path = self.server.saves_dir.join(save_name);
-        let res = save_world(&path, &self.server.world, overwrite);
-        if let Err(e) = res {
-            self.terminal.log_error(format!("Failed: {e:?}"));
-        } else {
-            self.terminal
-                .log_info(format!("Saved to {}", path.display()));
-        }
-    }
-}
-
-impl Application for DedicatedServerApp {
+impl Application for ServerApp {
     fn update(&mut self) {
         self.app.frame();
 
-        for msg in self.server.update() {
+        for msg in self.update() {
             let s = format!("{:?}", msg);
             self.terminal.log_debug(s);
         }
@@ -629,10 +615,12 @@ impl Application for DedicatedServerApp {
     }
 
     fn draw(&mut self) {
+        let n_clients = self.get_statistics().clients.len();
+
         self.app.handle.draw(&self.app.thread, |mut d| {
             d.clear_background(Color::new(20, 20, 20, 255));
 
-            for grid in self.server.world.grids.values() {
+            for grid in self.world.grids.values() {
                 let pos = grid.particle_location.translation;
                 let x = pos.x as i32 + d.get_render_width() / 2;
                 let y = pos.y as i32 + d.get_render_height() / 2;
@@ -651,19 +639,19 @@ impl Application for DedicatedServerApp {
 
             let lines = vec![
                 "Server Application".to_string(),
-                format!("Ticks:     {}", self.server.world.ticks),
-                format!("Grids:     {}", self.server.world.grids.len()),
-                format!("Parts:     {}", self.server.world.parts.len()),
-                format!("Protos:    {}", self.server.world.prototypes.len()),
-                format!("BPs:       {}", self.server.world.blueprints.len()),
-                format!("Thrusters: {}", self.server.world.thrusters.len()),
-                format!("Invs:      {}", self.server.world.inventories.len()),
-                format!("Machines:  {}", self.server.world.machines.len()),
-                format!("Asteroids: {}", self.server.world.asteroids.len()),
-                format!("Chunks:    {}", self.server.world.terrain_chunks.len()),
-                format!("Tiles:     {}", self.server.world.terrain_tiles.len()),
-                format!("GAUs:      {}", self.server.world.grid_acceleration_updates),
-                format!("Clients:   {}", self.server.get_statistics().clients.len()),
+                format!("Ticks:     {}", self.world.ticks),
+                format!("Grids:     {}", self.world.grids.len()),
+                format!("Parts:     {}", self.world.parts.len()),
+                format!("Protos:    {}", self.world.prototypes.len()),
+                format!("BPs:       {}", self.world.blueprints.len()),
+                format!("Thrusters: {}", self.world.thrusters.len()),
+                format!("Invs:      {}", self.world.inventories.len()),
+                format!("Machines:  {}", self.world.machines.len()),
+                format!("Asteroids: {}", self.world.asteroids.len()),
+                format!("Chunks:    {}", self.world.terrain_chunks.len()),
+                format!("Tiles:     {}", self.world.terrain_tiles.len()),
+                format!("GAUs:      {}", self.world.grid_acceleration_updates),
+                format!("Clients:   {}", n_clients),
             ];
 
             let text = lines.join("\n");
@@ -698,5 +686,5 @@ fn main() {
 
     info!("Starting dedicated server...");
 
-    DedicatedServerApp::new(&args.saves_dir, &args.save_name, args.server_port).spin_forever();
+    ServerApp::new(&args.saves_dir, &args.save_name, args.server_port).spin_forever();
 }
