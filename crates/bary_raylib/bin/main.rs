@@ -4,7 +4,6 @@ use std::time::Duration;
 use bary_core::prelude::*;
 use bary_ipc::*;
 use bary_raylib::TermCmd;
-use bary_raylib::WorldRunner;
 use bary_raylib::assets::*;
 use bary_raylib::imgui;
 use bary_raylib::render::*;
@@ -15,6 +14,7 @@ use bary_raylib::utils::WallTimer;
 use bary_raylib::utils::raylib_to_glam;
 use bary_raylib::*;
 use bary_sim::DebugInfo;
+use bary_sim::TICKS_PER_SECOND;
 use bary_sim::WorldDelta;
 use bary_terminal::Terminal;
 use clap::Parser;
@@ -25,7 +25,6 @@ use serde::Deserialize;
 pub struct App {
     client: ClientSpecificInfo,
     world: World,
-    runner: WorldRunner,
     debug: DebugInfo,
 
     incoming_network_queue: MessageQueue<Message>,
@@ -42,6 +41,7 @@ pub struct App {
 
     server_ping_timer: WallTimer,
     server_telemetry_timer: WallTimer,
+    physics_timer: WallTimer,
 
     should_exit: bool,
 }
@@ -92,11 +92,11 @@ impl App {
 
         let server_ping_timer = WallTimer::with_dur(Duration::from_millis(1000));
         let server_telemetry_timer = WallTimer::with_dur(Duration::from_millis(1000));
+        let physics_timer = WallTimer::with_dur(Duration::from_millis(1000 / TICKS_PER_SECOND));
 
         Ok(App {
             world,
             client: ClientSpecificInfo::new(),
-            runner: WorldRunner::new(),
             debug: DebugInfo::default(),
             incoming_network_queue,
             _input_thread,
@@ -108,6 +108,7 @@ impl App {
             node,
             server_ping_timer,
             server_telemetry_timer,
+            physics_timer,
             should_exit: false,
         })
     }
@@ -476,11 +477,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut sounds = SoundEffects::new();
         let mut actions = Vec::new();
 
-        let mut timers = main_app.app.runner.update(
+        pre_simulation_update(
             &mut main_app.app.world,
             &mut main_app.app.client,
             &mut sounds,
-            &mut actions,
+        );
+
+        let mut timers = DebugTimers::default();
+
+        if main_app.app.physics_timer.tick() {
+            update_world(&mut main_app.app.world);
+        }
+
+        post_simulation_update(
+            &mut main_app.app.world,
+            &mut main_app.app.client,
+            &mut sounds,
         );
 
         // CONSTRUCT IMMEDIATE-MODE GUI

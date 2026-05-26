@@ -1,71 +1,30 @@
-use crate::sim::*;
-use crate::sounds::SoundEffects;
-use crate::*;
-use std::time::{Duration, Instant};
+// use crate::sounds::SoundEffects;
+// use crate::*;
+// use crate::{sim::*, utils::WallTimer};
+// use std::time::{Duration, Instant};
 
-pub struct WorldRunner {
-    last_update: Instant,
-}
+// pub struct WorldRunner {
+//     wall_timer: WallTimer,
+// }
 
-fn update_headless(world: &mut World, nominal_world_dur: Duration) -> DebugTimers {
-    let start = Instant::now();
-    let max_dur = Duration::from_millis(10);
-    let mut dur = Duration::ZERO;
+// fn frame_update(
+//     world: &mut World,
+//     client: &mut ClientSpecificInfo,
+//     sounds: &mut SoundEffects,
+// ) -> DebugTimers {
+//     pre_simulation_update(world, client, sounds);
+//     let mut timers = DebugTimers::default();
+//     timers += update_world(world);
+//     post_simulation_update(world, client, sounds);
+//     timers
+// }
 
-    let mut timers = DebugTimers::default();
+// impl WorldRunner {
+//     pub const TICK_DURATION: Duration = Duration::from_millis(20);
 
-    while apparent_elapsed_time(world.ticks) < nominal_world_dur && dur < max_dur {
-        timers += update_world(world);
-        dur = Instant::now() - start;
-    }
-
-    timers
-}
-
-fn frame_update(
-    world: &mut World,
-    client: &mut ClientSpecificInfo,
-    nominal_world_dur: Duration,
-    sounds: &mut SoundEffects,
-) -> DebugTimers {
-    pre_simulation_update(world, client, sounds);
-    let mut timers = DebugTimers::default();
-    timers += update_headless(world, nominal_world_dur);
-    post_simulation_update(world, client, sounds);
-    timers
-}
-
-impl WorldRunner {
-    pub const TICK_DURATION: Duration = Duration::from_millis(20);
-
-    pub fn new() -> Self {
-        Self {
-            last_update: Instant::now(),
-        }
-    }
-
-    pub fn update_headless(&mut self, world: &mut World, tick_rate: u32) {
-        let now = Instant::now();
-        let delta = now - self.last_update;
-        let world_time = apparent_elapsed_time(world.ticks);
-        let nominal_world_dur = world_time + delta * tick_rate;
-        self.last_update = now;
-        update_headless(world, nominal_world_dur);
-    }
-
-    pub fn update(
-        &mut self,
-        world: &mut World,
-        client: &mut ClientSpecificInfo,
-        sounds: &mut SoundEffects,
-        _actions: &mut Vec<TermCmd>,
-    ) -> DebugTimers {
-        let now = Instant::now();
-        let delta = now - self.last_update;
-        let world_time = apparent_elapsed_time(world.ticks);
-        let nominal_world_dur = world_time + delta * client.tick_rate;
-        self.last_update = now;
-
-        frame_update(world, client, nominal_world_dur, sounds)
-    }
-}
+//     pub fn new() -> Self {
+//         Self {
+//             wall_timer: WallTimer::with_dur(Self::TICK_DURATION),
+//         }
+//     }
+// }

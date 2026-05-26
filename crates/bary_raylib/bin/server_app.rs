@@ -1,4 +1,4 @@
-use bary_core::prelude::BaryError;
+use bary_core::prelude::{BaryError, Vec2};
 use bary_core::prelude::{BaryResult, Components, TableIdent, distance_str_v};
 use bary_ipc::*;
 use bary_raylib::assets::Assets;
@@ -630,6 +630,14 @@ fn date_line(i: usize, ticks: u64, server_ticks: u64) -> String {
     }
 }
 
+fn draw_ship_label(d: &mut RaylibDrawHandle, font: &Font, p: Vector2, name: &str, color: Color) {
+    let size = 20.0;
+    d.draw_circle_v(p, 3.0, color);
+    let p = p + Vector2::new(8.0, -size / 2.0);
+    let t = name.to_uppercase();
+    d.draw_text_ex(font, &t, p, size, 0.0, color);
+}
+
 impl Application for ServerApp {
     fn update(&mut self) {
         self.app.frame();
@@ -657,6 +665,8 @@ impl Application for ServerApp {
     fn draw(&mut self) {
         let n_clients = self.get_statistics().clients.len();
 
+        let font = self.assets.consolas.as_ref().unwrap();
+
         let mut client_info_lines = Vec::new();
         if let Some(node) = self.node() {
             for (id, info) in node.client_info() {
@@ -671,33 +681,29 @@ impl Application for ServerApp {
             date_lines.push(s);
         }
 
+        let w = self.app.handle.get_render_width();
+        let h = self.app.handle.get_render_height();
+
+        let scale = 4.0;
+
+        let w2s = |p: Vec2| -> Vector2 {
+            let x = p.x * scale + w as f32 / 2.0;
+            let y = p.y * scale + h as f32 / 2.0;
+            Vector2::new(x, y)
+        };
+
         self.app.handle.draw(&self.app.thread, |mut d| {
             d.clear_background(Color::new(20, 20, 20, 255));
 
             for grid in self.world.grids.values() {
-                let pos = grid.particle_location.translation;
-                let x = pos.x as i32 + d.get_render_width() / 2;
-                let y = pos.y as i32 + d.get_render_height() / 2;
-                let size = 12;
-                d.draw_circle(x, y, 3.0, Color::WHITE);
-                d.draw_text(
-                    &grid.name.to_uppercase(),
-                    x + 8,
-                    y - size / 2,
-                    size,
-                    Color::WHITE,
-                );
+                let p = w2s(grid.particle_location.translation);
+                draw_ship_label(&mut d, font, p, &grid.name, Color::WHITE);
             }
 
             for (_id, tlm) in &self.client_telemetry {
                 for (_, name, iso) in &tlm.grid_transforms {
-                    let pos = iso.translation;
-                    let x = pos.x as i32 + d.get_render_width() / 2;
-                    let y = pos.y as i32 + d.get_render_height() / 2;
-                    let size = 12;
-                    let color = Color::RED.alpha(0.4);
-                    d.draw_circle(x, y, 3.0, color);
-                    d.draw_text(&name.to_uppercase(), x + 8, y - size / 2, size, color);
+                    let p = w2s(iso.translation);
+                    draw_ship_label(&mut d, font, p, name, Color::ORANGE.alpha(0.4));
                 }
             }
 

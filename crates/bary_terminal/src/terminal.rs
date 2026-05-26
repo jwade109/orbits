@@ -95,13 +95,7 @@ impl<T: std::fmt::Debug> Terminal<T> {
             is_active: false,
             lines: VecDeque::new(),
             history_index: None,
-            command_history: vec![
-                "thing 1".into(),
-                "thing 2".into(),
-                "thing 3".into(),
-                "thing 4".into(),
-            ]
-            .into(),
+            command_history: vec!["client.req.blob.all".into()].into(),
             suggest_text: String::new(),
             commands: commands.into(),
             log_level: LogLevel::Info,
