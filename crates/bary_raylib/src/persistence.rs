@@ -63,6 +63,9 @@ pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> Bary
     let s = bincode::serialize(&world.machines).map_err(|_| BaryError::BincodeError)?;
     std::fs::write(dir.join("machines.bin"), s)?;
 
+    let s = bincode::serialize(&world.asteroids).map_err(|_| BaryError::BincodeError)?;
+    std::fs::write(dir.join("asteroids.bin"), s)?;
+
     let s = bincode::serialize(&world.terrain_chunks).map_err(|_| BaryError::BincodeError)?;
     std::fs::write(dir.join("terrain_chunks.bin"), s)?;
 
@@ -112,6 +115,9 @@ pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
 
     let s = std::fs::read_to_string(computers_path)?;
     world.computers = toml::from_str(&s)?;
+
+    let s = std::fs::read(dir.join("asteroids.bin"))?;
+    world.asteroids = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
 
     let s = std::fs::read(dir.join("terrain_chunks.bin"))?;
     world.terrain_chunks = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;

@@ -9,6 +9,7 @@ pub enum TableIdent {
     Parts,
     Thrusters,
     Computers,
+    Asteroids,
     Chunks,
     Tiles,
     Inventories,

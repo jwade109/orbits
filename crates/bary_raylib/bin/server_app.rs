@@ -331,6 +331,7 @@ impl ServerApp {
             TableIdent::Tiles => Self::serialize_table(&self.world.terrain_tiles),
             TableIdent::Inventories => Self::serialize_table(&self.world.inventories),
             TableIdent::Machines => Self::serialize_table(&self.world.machines),
+            TableIdent::Asteroids => Self::serialize_table(&self.world.asteroids),
         };
         data.map(|data| Blob::new(data, table))
     }

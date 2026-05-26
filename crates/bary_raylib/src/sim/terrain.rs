@@ -150,7 +150,7 @@ impl ChunkIndex {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TerrainIndex(pub IVec2, pub I8Vec2);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BigRock {
     pub iso: Isometry2d,
     pub ast: Asteroid,

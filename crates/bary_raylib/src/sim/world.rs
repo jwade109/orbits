@@ -43,8 +43,6 @@ pub struct World {
     pub stars: Components<Star>,
     pub pipes: Components<Pipe>,
     pub debug_portals: Components<DebugPortal>,
-
-    #[serde(skip)]
     pub asteroids: Components<BigRock>,
 
     pub terrain_chunks: Components<TerrainChunk>,

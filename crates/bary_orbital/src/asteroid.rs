@@ -3,22 +3,24 @@ use image::RgbaImage;
 use noise::{NoiseFn, Perlin};
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 struct AsteroidShapeParameter {
     amplitude: f32,
     frequency: u32,
     phase: f32,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Asteroid {
     seed: u64,
     base_radius: f32,
     parameters: Vec<AsteroidShapeParameter>,
     deposits: Vec<(Vec2, f32, u8)>,
     craters: Vec<(Vec2, f32)>,
+    #[serde(skip)]
     noise: Perlin,
     deleted_zones: HashSet<Zone>,
     changes: HashSet<Zone>,
@@ -277,7 +279,7 @@ impl Asteroid {
     }
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Zone {
     size: u32,
     index: IVec2,

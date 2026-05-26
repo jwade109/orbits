@@ -1,5 +1,5 @@
 local_server:
-	cargo run --release --bin server_app 5000 $$(pwd)/saves/ dingus
+	cargo run --release --bin server_app 5000 $$(pwd)/saves/ scenario_a
 
 client:
-	cargo run --release --bin test_app 127.0.0.1:5000
+	cargo run --release 127.0.0.1:5000
