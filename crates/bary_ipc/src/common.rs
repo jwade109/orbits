@@ -91,6 +91,12 @@ impl Message {
     }
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct ClientTelemetry {
+    pub ticks: u64,
+    pub grid_transforms: Vec<(Ent, String, Isometry2d)>,
+}
+
 /// clone of [`renet::NetworkInfo`]
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct NetworkInfo {
@@ -150,6 +156,8 @@ pub enum MessageKind {
     BlobResponse(Blob),
     /// server response containing multiple blobs and the current tick
     MultiBlobResponse(u64, Vec<Blob>),
+    /// information sent consistently by each client
+    ClientTelemetry(ClientTelemetry),
 }
 
 impl MessageKind {

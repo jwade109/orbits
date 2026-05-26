@@ -4,7 +4,9 @@ use bary_ipc::*;
 use bary_raylib::assets::Assets;
 use bary_raylib::persistence::{list_saves_in_dir, load_world, save_world};
 use bary_raylib::render::draw_terminal;
-use bary_raylib::sim::World;
+use bary_raylib::sim::{
+    World, apparent_datetime, apparent_elapsed_time, timedelta_from_delta_ticks,
+};
 use bary_raylib::utils::{Application, BasicApp, WallTimer};
 use bary_raylib::*;
 use bary_terminal::Terminal;
@@ -12,6 +14,7 @@ use clap::Parser;
 use log::{debug, info, warn};
 use raylib::prelude::*;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 use std::thread::JoinHandle;
@@ -24,6 +27,7 @@ pub struct ServerApp {
     saves_dir: PathBuf,
     save_name: Option<String>,
     world: World,
+    client_telemetry: HashMap<ClientId, ClientTelemetry>,
     tick_rate: u32,
     node: Arc<RwLock<ServerNode>>,
     incoming_transactions: MessageQueue<Message>,
@@ -71,6 +75,7 @@ impl ServerApp {
             saves_dir,
             save_name: Some(save_name),
             world,
+            client_telemetry: HashMap::new(),
             tick_rate: 1,
             node: node.clone(),
             incoming_transactions: incoming_transactions.clone(),
@@ -154,18 +159,29 @@ impl ServerApp {
             .push(MessageKind::Text("Hello there!".to_string()).with_source(MessageSource::Server));
     }
 
+    fn on_accept_tlm(&mut self, id: ClientId, kind: MessageKind) {
+        match kind {
+            MessageKind::ClientTelemetry(tlm) => {
+                self.on_accept_client_tlm(id, tlm);
+            }
+            _ => (),
+        }
+    }
+
     fn on_accept_message(&mut self, msg: Message) {
         debug!("Got a command: {:?}", msg);
         self.send_tlm_ack();
-
-        if msg.level != MessageLevel::Command {
-            return;
-        }
 
         let MessageSource::Client(client_id) = msg.source else {
             warn!("Got a message with unexpected source: {:?}", msg.source);
             return;
         };
+
+        match msg.level {
+            MessageLevel::Command => (),
+            MessageLevel::Response => todo!(),
+            MessageLevel::Telemetry => return self.on_accept_tlm(client_id, msg.kind),
+        }
 
         match msg.kind {
             MessageKind::Ping => {
@@ -223,6 +239,10 @@ impl ServerApp {
             MessageLevel::Response,
             MessageKind::Pong,
         ));
+    }
+
+    fn on_accept_client_tlm(&mut self, id: ClientId, tlm: ClientTelemetry) {
+        self.client_telemetry.insert(id, tlm);
     }
 
     fn on_accept_text(&mut self, s: String) {
@@ -597,6 +617,19 @@ fn server_thread(
     }
 }
 
+fn date_line(i: usize, ticks: u64, server_ticks: u64) -> String {
+    let t = apparent_datetime(ticks)
+        .format("%b %d %Y %I:%M:%S %p")
+        .to_string();
+    if i > 0 {
+        let dticks = ticks as i64 - server_ticks as i64;
+        let dt = timedelta_from_delta_ticks(dticks).as_seconds_f32();
+        format!("{:2} {} ({:0.2})", i, t, dt)
+    } else {
+        format!("~S {}", t)
+    }
+}
+
 impl Application for ServerApp {
     fn update(&mut self) {
         self.app.frame();
@@ -627,11 +660,15 @@ impl Application for ServerApp {
         let mut client_info_lines = Vec::new();
         if let Some(node) = self.node() {
             for (id, info) in node.client_info() {
-                client_info_lines.push(format!(
-                    "  {}: TX {} RX {}",
-                    id.0, info.tx_count, info.rx_count
-                ));
+                let s = format!("  {}: TX {} RX {}", id.0, info.tx_count, info.rx_count);
+                client_info_lines.push(s);
             }
+        }
+
+        let mut date_lines = vec![date_line(0, self.world.ticks, self.world.ticks)];
+        for (i, tlm) in self.client_telemetry.values().enumerate() {
+            let s = date_line(i + 1, tlm.ticks, self.world.ticks);
+            date_lines.push(s);
         }
 
         self.app.handle.draw(&self.app.thread, |mut d| {
@@ -650,6 +687,18 @@ impl Application for ServerApp {
                     size,
                     Color::WHITE,
                 );
+            }
+
+            for (_id, tlm) in &self.client_telemetry {
+                for (_, name, iso) in &tlm.grid_transforms {
+                    let pos = iso.translation;
+                    let x = pos.x as i32 + d.get_render_width() / 2;
+                    let y = pos.y as i32 + d.get_render_height() / 2;
+                    let size = 12;
+                    let color = Color::RED.alpha(0.4);
+                    d.draw_circle(x, y, 3.0, color);
+                    d.draw_text(&name.to_uppercase(), x + 8, y - size / 2, size, color);
+                }
             }
 
             draw_terminal(&mut d, &self.terminal, &self.assets);
@@ -672,6 +721,8 @@ impl Application for ServerApp {
             ];
 
             lines.extend(client_info_lines.clone());
+            lines.push(String::new());
+            lines.extend(date_lines.clone());
 
             let text = lines.join("\n");
 

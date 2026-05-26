@@ -14,7 +14,7 @@ fn update_headless(world: &mut World, nominal_world_dur: Duration) -> DebugTimer
 
     let mut timers = DebugTimers::default();
 
-    while apparent_elapsed_time(world) < nominal_world_dur && dur < max_dur {
+    while apparent_elapsed_time(world.ticks) < nominal_world_dur && dur < max_dur {
         timers += update_world(world);
         dur = Instant::now() - start;
     }
@@ -47,7 +47,7 @@ impl WorldRunner {
     pub fn update_headless(&mut self, world: &mut World, tick_rate: u32) {
         let now = Instant::now();
         let delta = now - self.last_update;
-        let world_time = apparent_elapsed_time(world);
+        let world_time = apparent_elapsed_time(world.ticks);
         let nominal_world_dur = world_time + delta * tick_rate;
         self.last_update = now;
         update_headless(world, nominal_world_dur);
@@ -62,7 +62,7 @@ impl WorldRunner {
     ) -> DebugTimers {
         let now = Instant::now();
         let delta = now - self.last_update;
-        let world_time = apparent_elapsed_time(world);
+        let world_time = apparent_elapsed_time(world.ticks);
         let nominal_world_dur = world_time + delta * client.tick_rate;
         self.last_update = now;
 

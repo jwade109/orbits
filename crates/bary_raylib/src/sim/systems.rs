@@ -6,17 +6,22 @@ use bary_parts::*;
 use bary_sim::*;
 use chrono::NaiveDate;
 use chrono::NaiveDateTime;
+use chrono::TimeDelta;
 use log::*;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::time::Duration;
 
-pub fn apparent_elapsed_time(world: &World) -> Duration {
-    Duration::from_millis(1000 / TICKS_PER_SECOND * world.ticks)
+pub fn timedelta_from_delta_ticks(ticks: i64) -> TimeDelta {
+    TimeDelta::milliseconds(1000 / TICKS_PER_SECOND as i64 * ticks)
 }
 
-pub fn apparent_datetime(world: &World) -> NaiveDateTime {
-    let dur = apparent_elapsed_time(world);
+pub fn apparent_elapsed_time(ticks: u64) -> Duration {
+    Duration::from_millis(1000 / TICKS_PER_SECOND * ticks)
+}
+
+pub fn apparent_datetime(ticks: u64) -> NaiveDateTime {
+    let dur = apparent_elapsed_time(ticks);
     let epoch = NaiveDate::from_ymd_opt(2310, 7, 8)
         .unwrap()
         .and_hms_opt(3, 0, 0)
@@ -1602,7 +1607,7 @@ mod tests {
                 update_world(&mut world);
             }
 
-            let elapsed = apparent_elapsed_time(&world);
+            let elapsed = apparent_elapsed_time(world.ticks);
             let pose = grid_pose(&world.grids, grid_id).unwrap().to_tuple();
             println!(
                 "{} ({:0.1}): {}, {}, {}",

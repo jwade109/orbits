@@ -39,7 +39,9 @@ pub struct App {
     thread: RaylibThread,
     assets: Assets,
     node: ClientNode,
-    server_ping_wall_timer: WallTimer,
+
+    server_ping_timer: WallTimer,
+    server_telemetry_timer: WallTimer,
 
     should_exit: bool,
 }
@@ -88,7 +90,8 @@ impl App {
 
         let node = ClientNode::with_str_addr(server_addr)?;
 
-        let server_ping_wall_timer = WallTimer::with_dur(Duration::from_millis(500));
+        let server_ping_timer = WallTimer::with_dur(Duration::from_millis(1000));
+        let server_telemetry_timer = WallTimer::with_dur(Duration::from_millis(1000));
 
         Ok(App {
             world,
@@ -103,7 +106,8 @@ impl App {
             thread,
             assets,
             node,
-            server_ping_wall_timer,
+            server_ping_timer,
+            server_telemetry_timer,
             should_exit: false,
         })
     }
@@ -161,6 +165,12 @@ impl App {
                 self.on_rcv_blob(blob);
             }
             (MessageLevel::Response, MessageKind::MultiBlobResponse(ticks, blobs)) => {
+                let delta = ticks as i64 - self.world.ticks as i64;
+                self.terminal.log_warn(format!(
+                    "Delta ticks: {} AKA {:0.3}",
+                    delta,
+                    timedelta_from_delta_ticks(delta).as_seconds_f64()
+                ));
                 self.world.ticks = ticks;
                 for blob in blobs {
                     self.on_rcv_blob(blob);
@@ -261,6 +271,8 @@ impl App {
                     .send_command(MessageKind::ClientBlobRequest(table));
             }
             TermCmd::ClientReqAllBlobs => {
+                self.terminal
+                    .log_warn(format!("Requesting all blobs at tick {}", self.world.ticks));
                 self.node.send_command(MessageKind::ClientBlobRequestAll);
             }
             _ => self.terminal.log_error(format!("Unsupported: {:?}", cmd)),
@@ -297,8 +309,8 @@ fn draw_debug_info(
         timers.ticks,
         client.tick_rate,
         world.ticks,
-        apparent_elapsed_time(world).as_secs_f64(),
-        apparent_datetime(world).format("%b %d %Y %I:%M:%S %p"),
+        apparent_elapsed_time(world.ticks).as_secs_f64(),
+        apparent_datetime(world.ticks).format("%b %d %Y %I:%M:%S %p"),
     );
 
     s += &format!("\nFPS:       {}", d.get_fps());
@@ -408,8 +420,24 @@ impl MainApp {
             self.app.client.input.process_rdev_event(&e, focused);
         }
 
-        if self.app.server_ping_wall_timer.tick() {
+        if self.app.server_ping_timer.tick() {
             self.app.node.send_telemetry(MessageKind::Ping)
+        }
+
+        if self.app.server_telemetry_timer.tick() {
+            let tlm = ClientTelemetry {
+                ticks: self.app.world.ticks,
+                grid_transforms: self
+                    .app
+                    .world
+                    .grids
+                    .iter()
+                    .map(|(id, grid)| (*id, grid.name.clone(), grid.particle_location))
+                    .collect(),
+            };
+            self.app
+                .node
+                .send_telemetry(MessageKind::ClientTelemetry(tlm));
         }
 
         // GET SOME BASIC INPUT INFORMATION FROM RAYLIB

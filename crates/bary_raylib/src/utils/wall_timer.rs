@@ -1,26 +1,30 @@
 use std::time::{Duration, Instant};
 
 pub struct WallTimer {
-    last_updated: Instant,
+    next_firing: Instant,
     duration: Duration,
 }
 
 impl WallTimer {
     pub fn with_dur(duration: Duration) -> Self {
         Self {
-            last_updated: Instant::now(),
+            next_firing: Instant::now(),
             duration,
         }
     }
 
     pub fn tick(&mut self) -> bool {
         let now = Instant::now();
-        let dt = now - self.last_updated;
-        if dt >= self.duration {
-            self.last_updated = now;
-            true
-        } else {
-            false
+        if now < self.next_firing {
+            return false;
         }
+
+        // fire!
+        // TODO(gross) we shouldn't need a while loop here
+        while self.next_firing < now {
+            self.next_firing += self.duration;
+        }
+
+        true
     }
 }
