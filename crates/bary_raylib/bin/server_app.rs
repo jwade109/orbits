@@ -384,6 +384,23 @@ impl ServerApp {
         }
     }
 
+    fn print_blob_info(&mut self, table: TableIdent) {
+        match table {
+            TableIdent::Blueprints => Self::lsblob(&mut self.terminal, &self.world.blueprints),
+            TableIdent::Grids => Self::lsblob(&mut self.terminal, &self.world.grids),
+            TableIdent::Protos => Self::lsblob(&mut self.terminal, &self.world.prototypes),
+            TableIdent::Parts => Self::lsblob(&mut self.terminal, &self.world.parts),
+            TableIdent::Thrusters => Self::lsblob(&mut self.terminal, &self.world.thrusters),
+            TableIdent::Computers => Self::lsblob(&mut self.terminal, &self.world.computers),
+            TableIdent::Asteroids => Self::lsblob(&mut self.terminal, &self.world.asteroids),
+            TableIdent::Chunks => Self::lsblob(&mut self.terminal, &self.world.terrain_chunks),
+            TableIdent::Tiles => Self::lsblob(&mut self.terminal, &self.world.terrain_tiles),
+            TableIdent::Inventories => Self::lsblob(&mut self.terminal, &self.world.inventories),
+            TableIdent::Machines => Self::lsblob(&mut self.terminal, &self.world.machines),
+            TableIdent::Pipes => Self::lsblob(&mut self.terminal, &self.world.pipes),
+        }
+    }
+
     fn on_terminal_command(&mut self, cmd: TermCmd) {
         match cmd {
             TermCmd::Say(_) => self.terminal.log_info("Woooo!".to_string()),
@@ -401,17 +418,11 @@ impl ServerApp {
             TermCmd::ListSaves => {
                 self.list_saves();
             }
-            // TermCmd::PrintEntityInfo(TableIdent::Grids) => {
-            //     self.list_grids();
-            // }
-            // TermCmd::PrintEntityInfo(TableIdent::Parts) => {
-            //     self.list_parts();
-            // }
-            // TermCmd::PrintEntityInfo(TableIdent::Protos) => {
-            //     self.list_prototypes();
-            // }
-            TermCmd::PrintEntityInfo(ident) => {
-                todo!()
+            TermCmd::PrintEntityInfo(table) => {
+                self.print_entity_info(table);
+            }
+            TermCmd::PrintBlobInfo(table) => {
+                self.print_blob_info(table);
             }
             TermCmd::SetSimSpeed(speed) => {
                 self.world.tick_rate = speed;
@@ -420,43 +431,10 @@ impl ServerApp {
                 Ok(()) => self.terminal.log_info("OK"),
                 Err(e) => self.terminal.log_error(format!("FAILED: {:?}", e)),
             },
-            // TermCmd::PrintEntityInfo(TableIdent::Blueprints) => {
-            //     self.list_blueprints();
-            // }
-            TermCmd::PrintBlobInfo(TableIdent::Blueprints) => {
-                Self::list_blob_info(&mut self.terminal, &self.world.blueprints);
-            }
-            TermCmd::PrintBlobInfo(TableIdent::Grids) => {
-                Self::list_blob_info(&mut self.terminal, &self.world.grids);
-            }
-            TermCmd::PrintBlobInfo(TableIdent::Protos) => {
-                Self::list_blob_info(&mut self.terminal, &self.world.prototypes);
-            }
-            TermCmd::PrintBlobInfo(TableIdent::Parts) => {
-                Self::list_blob_info(&mut self.terminal, &self.world.parts);
-            }
-            TermCmd::PrintBlobInfo(TableIdent::Thrusters) => {
-                Self::list_blob_info(&mut self.terminal, &self.world.thrusters);
-            }
-            TermCmd::PrintBlobInfo(TableIdent::Computers) => {
-                Self::list_blob_info(&mut self.terminal, &self.world.computers);
-            }
-            TermCmd::PrintBlobInfo(TableIdent::Chunks) => {
-                Self::list_blob_info(&mut self.terminal, &self.world.terrain_chunks);
-            }
-            TermCmd::PrintBlobInfo(TableIdent::Tiles) => {
-                Self::list_blob_info(&mut self.terminal, &self.world.terrain_tiles);
-            }
-            TermCmd::PrintBlobInfo(TableIdent::Inventories) => {
-                Self::list_blob_info(&mut self.terminal, &self.world.inventories);
-            }
-            TermCmd::PrintBlobInfo(TableIdent::Machines) => {
-                Self::list_blob_info(&mut self.terminal, &self.world.machines);
-            }
             _ => self.terminal.log_warn(format!("Unsupported: {:?}", cmd)),
         }
     }
-    fn list_blob_info<T: Serialize>(term: &mut Terminal<TermCmd>, entities: &Components<T>) {
+    fn lsblob<T: Serialize>(term: &mut Terminal<TermCmd>, entities: &Components<T>) {
         let start = Instant::now();
         let bin = bincode::serialize(entities);
         let delta = Instant::now() - start;
@@ -471,6 +449,23 @@ impl ServerApp {
             Err(e) => {
                 term.log_error(format!("Failed to serialize: {:?}", e));
             }
+        }
+    }
+
+    fn print_entity_info(&mut self, table: TableIdent) {
+        match table {
+            TableIdent::Blueprints => self.list_blueprints(),
+            TableIdent::Grids => self.list_grids(),
+            TableIdent::Protos => self.list_prototypes(),
+            TableIdent::Parts => self.list_parts(),
+            TableIdent::Thrusters => todo!(),
+            TableIdent::Computers => todo!(),
+            TableIdent::Asteroids => todo!(),
+            TableIdent::Chunks => todo!(),
+            TableIdent::Tiles => todo!(),
+            TableIdent::Inventories => todo!(),
+            TableIdent::Machines => todo!(),
+            TableIdent::Pipes => todo!(),
         }
     }
 
