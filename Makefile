@@ -3,3 +3,7 @@ local_server:
 
 client:
 	cargo run --release 127.0.0.1:5000
+
+generate_worlds:
+	cargo run --release --bin generate_worlds
+

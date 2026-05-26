@@ -44,13 +44,12 @@ impl WorldRunner {
         }
     }
 
-    pub fn update_headless(&mut self, world: &mut World) {
+    pub fn update_headless(&mut self, world: &mut World, tick_rate: u32) {
         let now = Instant::now();
         let delta = now - self.last_update;
         let world_time = apparent_elapsed_time(world);
-        let nominal_world_dur = world_time + delta * world.tick_rate;
+        let nominal_world_dur = world_time + delta * tick_rate;
         self.last_update = now;
-        dbg!(delta, world.tick_rate, nominal_world_dur);
         update_headless(world, nominal_world_dur);
     }
 
@@ -64,7 +63,7 @@ impl WorldRunner {
         let now = Instant::now();
         let delta = now - self.last_update;
         let world_time = apparent_elapsed_time(world);
-        let nominal_world_dur = world_time + delta * world.tick_rate;
+        let nominal_world_dur = world_time + delta * client.tick_rate;
         self.last_update = now;
 
         frame_update(world, client, nominal_world_dur, sounds)

@@ -148,8 +148,8 @@ pub enum MessageKind {
     ClientBlobRequestAll,
     /// server response containing a single blob
     BlobResponse(Blob),
-    /// server response containing multiple blobs
-    MultiBlobResponse(Vec<Blob>),
+    /// server response containing multiple blobs and the current tick
+    MultiBlobResponse(u64, Vec<Blob>),
 }
 
 impl MessageKind {

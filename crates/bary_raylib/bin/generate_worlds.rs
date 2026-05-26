@@ -30,7 +30,6 @@ fn main() -> BaryResult<()> {
         .spawn("miner", "", (-9.0, 12.0, -0.3))
         .spawn("remora", "", (-7.0, 23.0, 0.7))
         .spawn("bellerophon", "", (130.0, 50.0, 0.1))
-        .command(WorldDelta::SetSpeed(10))
         .command(WorldDelta::Ping(Vec2::ZERO))
         .command(WorldDelta::Ping(Vec2::splat(10.0)))
         .asteroid((-80.0, 30.0, 0.1), 20.0, 391)

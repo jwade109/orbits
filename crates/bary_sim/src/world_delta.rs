@@ -17,7 +17,6 @@ pub enum WorldDelta {
         waypoint: Isometry2d,
     },
     DespawnGrid(Ent),
-    SetSpeed(u32),
     InsertPart {
         grid_id: Ent,
         name: String,

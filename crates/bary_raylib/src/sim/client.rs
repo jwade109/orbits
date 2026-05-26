@@ -98,6 +98,7 @@ impl Viewport {
 /// clients in multiplayer.
 pub struct ClientSpecificInfo {
     pub ticks: u64,
+    pub tick_rate: u32,
     pub chat: Chat,
     pub camera: Camera,
     pub target_camera: Camera,
@@ -112,6 +113,7 @@ impl ClientSpecificInfo {
     pub fn new() -> Self {
         Self {
             ticks: 0,
+            tick_rate: 1,
             chat: Chat::default(),
             // camera info
             camera: Camera {

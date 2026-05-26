@@ -6,7 +6,6 @@ use bary_raylib::persistence::{list_saves_in_dir, load_world, save_world};
 use bary_raylib::render::draw_terminal;
 use bary_raylib::sim::World;
 use bary_raylib::utils::{Application, BasicApp, WallTimer};
-use bary_raylib::world_builder::WorldBuilder;
 use bary_raylib::*;
 use bary_terminal::Terminal;
 use clap::Parser;
@@ -25,6 +24,7 @@ pub struct ServerApp {
     saves_dir: PathBuf,
     save_name: Option<String>,
     world: World,
+    tick_rate: u32,
     node: Arc<RwLock<ServerNode>>,
     incoming_transactions: MessageQueue<Message>,
     broadcast: MessageQueue<Message>,
@@ -71,6 +71,7 @@ impl ServerApp {
             saves_dir,
             save_name: Some(save_name),
             world,
+            tick_rate: 1,
             node: node.clone(),
             incoming_transactions: incoming_transactions.clone(),
             broadcast: broadcast.clone(),
@@ -110,7 +111,7 @@ impl ServerApp {
         }
 
         if self.world_timer.tick() {
-            for _ in 0..self.world.tick_rate {
+            for _ in 0..self.tick_rate {
                 update_world(&mut self.world);
             }
         }
@@ -233,7 +234,7 @@ impl ServerApp {
     }
 
     fn on_accept_set_sim_speed(&mut self, speed: u32) {
-        self.world.tick_rate = speed;
+        self.tick_rate = speed;
         self.broadcast.push(Message::new(
             MessageSource::Server,
             MessageLevel::Response,
@@ -369,7 +370,7 @@ impl ServerApp {
                 let msg = Message::new(
                     MessageSource::Server,
                     MessageLevel::Response,
-                    MessageKind::MultiBlobResponse(blobs),
+                    MessageKind::MultiBlobResponse(self.world.ticks, blobs),
                 );
                 self.outgoing.push((client, msg));
             }
@@ -425,7 +426,7 @@ impl ServerApp {
                 self.print_blob_info(table);
             }
             TermCmd::SetSimSpeed(speed) => {
-                self.world.tick_rate = speed;
+                self.tick_rate = speed;
             }
             TermCmd::World(delta) => match self.world.apply(delta) {
                 Ok(()) => self.terminal.log_info("OK"),

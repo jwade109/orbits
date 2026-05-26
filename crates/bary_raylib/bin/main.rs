@@ -160,7 +160,8 @@ impl App {
             (MessageLevel::Response, MessageKind::BlobResponse(blob)) => {
                 self.on_rcv_blob(blob);
             }
-            (MessageLevel::Response, MessageKind::MultiBlobResponse(blobs)) => {
+            (MessageLevel::Response, MessageKind::MultiBlobResponse(ticks, blobs)) => {
+                self.world.ticks = ticks;
                 for blob in blobs {
                     self.on_rcv_blob(blob);
                 }
@@ -294,7 +295,7 @@ fn draw_debug_info(
     s += &format!(
         "\nW {}/{} {} {:0.1} {}",
         timers.ticks,
-        world.tick_rate,
+        client.tick_rate,
         world.ticks,
         apparent_elapsed_time(world).as_secs_f64(),
         apparent_datetime(world).format("%b %d %Y %I:%M:%S %p"),

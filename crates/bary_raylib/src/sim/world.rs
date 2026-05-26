@@ -22,7 +22,6 @@ use std::time::Instant;
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct World {
     pub ticks: u64,
-    pub tick_rate: u32,
 
     // debug info
     pub grid_acceleration_updates: u64,
@@ -67,7 +66,6 @@ impl std::fmt::Debug for World {
 impl World {
     pub fn empty() -> Self {
         Self {
-            tick_rate: 2,
             ship_names: vec![
                 "Gary".to_string(),
                 "Sally".to_string(),
@@ -147,10 +145,6 @@ impl World {
                     region,
                 };
                 _ = insert_part(grid_id, self, &instance, true);
-                Ok(())
-            }
-            WorldDelta::SetSpeed(speed) => {
-                self.tick_rate = speed;
                 Ok(())
             }
             WorldDelta::SetSourceItem {

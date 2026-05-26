@@ -802,12 +802,12 @@ fn free_gui(
     }
 
     if layout.button("<<").clicked() {
-        if world.tick_rate > 1 {
-            world.tick_rate -= 1;
+        if client.tick_rate > 1 {
+            client.tick_rate -= 1;
         }
     }
     if layout.button(">>").clicked() {
-        world.tick_rate += 1;
+        client.tick_rate += 1;
     }
 }
 

@@ -33,6 +33,9 @@ pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> Bary
     //     }
     // }
 
+    let s = bincode::serialize(&world.ticks).map_err(|_| BaryError::BincodeError)?;
+    std::fs::write(dir.join("ticks.bin"), s)?;
+
     let s = bincode::serialize(&world.spawner).map_err(|_| BaryError::BincodeError)?;
     std::fs::write(dir.join("spawner.bin"), s)?;
 
@@ -91,6 +94,9 @@ pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
     let lights_path = dir.join("lights.toml");
 
     let mut world = World::empty();
+
+    let s = std::fs::read(dir.join("ticks.bin"))?;
+    world.ticks = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
 
     let s = std::fs::read(dir.join("spawner.bin"))?;
     world.spawner = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
