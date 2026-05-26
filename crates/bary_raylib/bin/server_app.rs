@@ -332,6 +332,7 @@ impl ServerApp {
             TableIdent::Inventories => Self::serialize_table(&self.world.inventories),
             TableIdent::Machines => Self::serialize_table(&self.world.machines),
             TableIdent::Asteroids => Self::serialize_table(&self.world.asteroids),
+            TableIdent::Pipes => Self::serialize_table(&self.world.pipes),
         };
         data.map(|data| Blob::new(data, table))
     }
@@ -400,14 +401,17 @@ impl ServerApp {
             TermCmd::ListSaves => {
                 self.list_saves();
             }
-            TermCmd::PrintEntityInfo(TableIdent::Grids) => {
-                self.list_grids();
-            }
-            TermCmd::PrintEntityInfo(TableIdent::Parts) => {
-                self.list_parts();
-            }
-            TermCmd::PrintEntityInfo(TableIdent::Protos) => {
-                self.list_prototypes();
+            // TermCmd::PrintEntityInfo(TableIdent::Grids) => {
+            //     self.list_grids();
+            // }
+            // TermCmd::PrintEntityInfo(TableIdent::Parts) => {
+            //     self.list_parts();
+            // }
+            // TermCmd::PrintEntityInfo(TableIdent::Protos) => {
+            //     self.list_prototypes();
+            // }
+            TermCmd::PrintEntityInfo(ident) => {
+                todo!()
             }
             TermCmd::SetSimSpeed(speed) => {
                 self.world.tick_rate = speed;
@@ -416,9 +420,9 @@ impl ServerApp {
                 Ok(()) => self.terminal.log_info("OK"),
                 Err(e) => self.terminal.log_error(format!("FAILED: {:?}", e)),
             },
-            TermCmd::PrintEntityInfo(TableIdent::Blueprints) => {
-                self.list_blueprints();
-            }
+            // TermCmd::PrintEntityInfo(TableIdent::Blueprints) => {
+            //     self.list_blueprints();
+            // }
             TermCmd::PrintBlobInfo(TableIdent::Blueprints) => {
                 Self::list_blob_info(&mut self.terminal, &self.world.blueprints);
             }

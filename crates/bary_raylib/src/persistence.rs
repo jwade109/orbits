@@ -63,6 +63,12 @@ pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> Bary
     let s = bincode::serialize(&world.machines).map_err(|_| BaryError::BincodeError)?;
     std::fs::write(dir.join("machines.bin"), s)?;
 
+    let s = bincode::serialize(&world.debug_portals).map_err(|_| BaryError::BincodeError)?;
+    std::fs::write(dir.join("debug_portals.bin"), s)?;
+
+    let s = bincode::serialize(&world.pipes).map_err(|_| BaryError::BincodeError)?;
+    std::fs::write(dir.join("pipes.bin"), s)?;
+
     let s = bincode::serialize(&world.asteroids).map_err(|_| BaryError::BincodeError)?;
     std::fs::write(dir.join("asteroids.bin"), s)?;
 
@@ -100,6 +106,12 @@ pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
 
     let s = std::fs::read(dir.join("machines.bin"))?;
     world.machines = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
+
+    let s = std::fs::read(dir.join("debug_portals.bin"))?;
+    world.debug_portals = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
+
+    let s = std::fs::read(dir.join("pipes.bin"))?;
+    world.pipes = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
 
     let s = std::fs::read(dir.join("grids.bin"))?;
     world.grids = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;

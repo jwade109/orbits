@@ -193,6 +193,7 @@ impl App {
             TableIdent::Inventories => Self::unpack_blob(&mut self.world.inventories, blob.data()),
             TableIdent::Machines => Self::unpack_blob(&mut self.world.machines, blob.data()),
             TableIdent::Asteroids => Self::unpack_blob(&mut self.world.asteroids, blob.data()),
+            TableIdent::Pipes => Self::unpack_blob(&mut self.world.pipes, blob.data()),
         };
 
         if success {

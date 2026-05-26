@@ -19,12 +19,12 @@ pub struct Command<T> {
 
 impl<T> Command<T> {
     pub fn new(
-        entrypoint: &'static str,
+        entrypoint: impl Into<String>,
         params: Vec<&'static str>,
         f: impl Fn(&ArgsMap) -> Result<T, ParseError> + 'static,
     ) -> Self {
         Self {
-            entrypoint: entrypoint.to_string(),
+            entrypoint: entrypoint.into(),
             params: params.iter().map(|s| s.to_string()).collect(),
             func: Box::new(f),
         }
