@@ -9,3 +9,4 @@ pub use crate::quantities::*;
 pub use crate::result::*;
 pub use crate::rigid_body::*;
 pub use crate::table_ident::*;
+pub use crate::wall_timer::*;

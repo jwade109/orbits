@@ -9,5 +9,6 @@ mod quantities;
 mod result;
 mod rigid_body;
 mod table_ident;
+mod wall_timer;
 
 pub mod prelude;

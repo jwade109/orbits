@@ -1,11 +1,10 @@
-use bary_core::prelude::{BaryError, Vec2};
-use bary_core::prelude::{BaryResult, Components, TableIdent, distance_str_v};
+use bary_core::prelude::*;
 use bary_ipc::*;
 use bary_raylib::assets::Assets;
 use bary_raylib::persistence::{list_saves_in_dir, load_world, save_world};
 use bary_raylib::render::draw_terminal;
 use bary_raylib::sim::{World, apparent_datetime, timedelta_from_delta_ticks};
-use bary_raylib::utils::{Application, BasicApp, WallTimer};
+use bary_raylib::utils::{Application, BasicApp};
 use bary_raylib::*;
 use bary_sim::*;
 use bary_terminal::Terminal;
@@ -131,9 +130,10 @@ impl ServerApp {
     }
 
     fn send_driver_packet(&mut self) {
+        let deltas = Vec::new();
         let msg = MessageKind::Driver {
             ticks: self.world.ticks,
-            deltas: vec![],
+            deltas,
         };
         self.broadcast.push(msg.with_source(MessageSource::Server));
     }
