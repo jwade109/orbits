@@ -184,7 +184,7 @@ impl App {
         }
 
         for delta in deltas {
-            if let Err(e) = self.world.apply(delta.clone()) {
+            if let Err(e) = apply_delta(&mut self.world, delta.clone()) {
                 error!("Failed to apply delta {:?}: {:?}", delta, e);
             }
         }
@@ -233,7 +233,7 @@ impl App {
 
     fn apply_world_delta(&mut self, delta: WorldDelta) {
         let s = format!("{delta:?} => OK");
-        match self.world.apply(delta) {
+        match apply_delta(&mut self.world, delta) {
             Ok(()) => self.terminal.log_info(s),
             Err(e) => self.terminal.log_error(format!("Failed to apply: {e:?}")),
         }

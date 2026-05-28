@@ -1,5 +1,6 @@
 use crate::sim::*;
 use anyhow::ensure;
+use bary_sim::World;
 
 pub fn computer_pointers_are_consistent(world: &World) -> Result<(), anyhow::Error> {
     for (_grid_id, grid) in world.grids.iter() {

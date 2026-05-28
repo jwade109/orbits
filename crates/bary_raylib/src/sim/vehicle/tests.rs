@@ -1,7 +1,7 @@
-use std::collections::{BTreeMap, BTreeSet};
-
 use bary_core::prelude::*;
 use bary_parts::*;
+use bary_sim::World;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{sim::*, tests::assert_world_is_consistent, world_builder::WorldBuilder};
 

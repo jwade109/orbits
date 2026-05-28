@@ -3,7 +3,7 @@ use bary_ipc::*;
 use bary_raylib::assets::Assets;
 use bary_raylib::persistence::{list_saves_in_dir, load_world, save_world};
 use bary_raylib::render::draw_terminal;
-use bary_raylib::sim::{World, apparent_datetime, timedelta_from_delta_ticks};
+use bary_raylib::sim::{apparent_datetime, apply_delta, timedelta_from_delta_ticks};
 use bary_raylib::utils::{Application, BasicApp};
 use bary_raylib::*;
 use bary_sim::*;
@@ -456,7 +456,7 @@ impl ServerApp {
             TermCmd::SetSimSpeed(speed) => {
                 self.tick_rate = speed;
             }
-            TermCmd::World(delta) => match self.world.apply(delta) {
+            TermCmd::World(delta) => match apply_delta(&mut self.world, delta) {
                 Ok(()) => self.terminal.log_info("OK"),
                 Err(e) => self.terminal.log_error(format!("FAILED: {:?}", e)),
             },

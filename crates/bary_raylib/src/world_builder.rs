@@ -150,7 +150,7 @@ impl WorldBuilder {
                         }
                     }
                     WorldBuilderCommand::ModifyWorld(delta) => {
-                        world.apply(delta);
+                        _ = apply_delta(&mut world, delta);
                     }
                     WorldBuilderCommand::InsertDebugSource(coord, item) => {
                         if let Some(grid_id) = self.cursor_grid {
@@ -161,19 +161,19 @@ impl WorldBuilder {
                                 layer: PartLayer::Plumbing,
                                 name: "debug-source".to_string(),
                             };
-                            world.apply(delta);
+                            _ = apply_delta(&mut world, delta);
                             let delta = WorldDelta::SetSourceItem {
                                 grid_id,
                                 coord,
                                 item,
                             };
-                            world.apply(delta);
+                            _ = apply_delta(&mut world, delta);
                         }
                     }
                     WorldBuilderCommand::InsertPipe(src, dst) => {
                         if let Some(grid_id) = self.cursor_grid {
                             let delta = WorldDelta::InsertPipe { grid_id, src, dst };
-                            world.apply(delta);
+                            _ = apply_delta(&mut world, delta);
                         }
                     }
                     WorldBuilderCommand::SetRecipe(coord, recipe) => {
@@ -183,15 +183,16 @@ impl WorldBuilder {
                                 coord,
                                 recipe,
                             };
-                            world.apply(delta);
+                            _ = apply_delta(&mut world, delta);
                         }
                     }
                     WorldBuilderCommand::SpawnAsteroid(p, r, seed) => {
-                        world.apply(WorldDelta::SpawnAsteroid {
+                        let delta = WorldDelta::SpawnAsteroid {
                             iso: p,
                             radius: r,
                             seed,
-                        });
+                        };
+                        _ = apply_delta(&mut world, delta);
                     }
                 }
             }

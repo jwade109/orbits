@@ -1,5 +1,5 @@
-use crate::sim::*;
 use bary_core::prelude::*;
+use bary_sim::World;
 use log::*;
 use std::path::{Path, PathBuf};
 

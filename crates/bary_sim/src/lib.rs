@@ -15,6 +15,7 @@ mod tracker;
 mod transactions;
 mod utils;
 mod world_delta;
+mod world_struct;
 
 pub use big_rock::*;
 pub use chat::*;
@@ -33,3 +34,4 @@ pub use tracker::*;
 pub use transactions::*;
 pub use utils::*;
 pub use world_delta::*;
+pub use world_struct::*;
