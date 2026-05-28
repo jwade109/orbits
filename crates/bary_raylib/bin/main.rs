@@ -41,7 +41,6 @@ pub struct App {
 
     server_ping_timer: WallTimer,
     server_telemetry_timer: WallTimer,
-    physics_timer: WallTimer,
 
     should_exit: bool,
 }
@@ -108,7 +107,6 @@ impl App {
             node,
             server_ping_timer,
             server_telemetry_timer,
-            physics_timer,
             should_exit: false,
         })
     }
@@ -162,6 +160,9 @@ impl App {
         }
 
         match (msg.level, msg.kind) {
+            (MessageLevel::Telemetry, MessageKind::Driver { ticks, deltas }) => {
+                self.on_driver_packet(ticks, deltas);
+            }
             (MessageLevel::Response, MessageKind::BlobResponse(blob)) => {
                 self.on_rcv_blob(blob);
             }
@@ -178,6 +179,18 @@ impl App {
                 }
             }
             _ => (),
+        }
+    }
+
+    fn on_driver_packet(&mut self, ticks: u64, deltas: Vec<WorldDelta>) {
+        while self.world.ticks < ticks {
+            update_world(&mut self.world);
+        }
+
+        for delta in deltas {
+            if let Err(e) = self.world.apply(delta.clone()) {
+                error!("Failed to apply delta {:?}: {:?}", delta, e);
+            }
         }
     }
 
@@ -484,10 +497,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
 
         let mut timers = DebugTimers::default();
-
-        if main_app.app.physics_timer.tick() {
-            update_world(&mut main_app.app.world);
-        }
 
         post_simulation_update(
             &mut main_app.app.world,

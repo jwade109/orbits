@@ -1,6 +1,6 @@
 use bary_core::prelude::{Ent, Isometry2d, TableIdent};
 use bary_parts::PartPrototype;
-use bary_sim::{Computer, Part, Thruster};
+use bary_sim::{Computer, Part, Thruster, WorldDelta};
 use crossbeam_queue::SegQueue;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -158,6 +158,13 @@ pub enum MessageKind {
     MultiBlobResponse(u64, Vec<Blob>),
     /// information sent consistently by each client
     ClientTelemetry(ClientTelemetry),
+    /// driver packet sent to each client each tick
+    Driver {
+        ticks: u64,
+        deltas: Vec<WorldDelta>,
+    },
+    /// request by the client to perform a certain [`WorldDelta`]
+    RequestDelta(WorldDelta),
 }
 
 impl MessageKind {

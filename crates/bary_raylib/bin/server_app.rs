@@ -85,7 +85,7 @@ impl ServerApp {
                 server_thread(node, incoming_transactions, broadcast, outgoing)
             }),
             world_timer: WallTimer::with_dur(Duration::from_millis(20)),
-            sync_timer: WallTimer::with_dur(Duration::from_millis(250)),
+            sync_timer: WallTimer::with_dur(Duration::from_millis(20)),
         })
     }
 
@@ -122,12 +122,21 @@ impl ServerApp {
         }
 
         if self.sync_timer.tick() {
+            self.send_driver_packet();
             self.send_tlm_current_tick();
             self.send_tlm_grid_pos();
             self.send_tlm_server_info();
         }
 
         messages
+    }
+
+    fn send_driver_packet(&mut self) {
+        let msg = MessageKind::Driver {
+            ticks: self.world.ticks,
+            deltas: vec![],
+        };
+        self.broadcast.push(msg.with_source(MessageSource::Server));
     }
 
     fn send_tlm_current_tick(&mut self) {
