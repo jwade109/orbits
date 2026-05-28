@@ -17,21 +17,6 @@ pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> Bary
     std::fs::create_dir_all(dir)?;
 
     info!("Saving world to {}", dir.display());
-    let blueprints_dir = dir.join("blueprints");
-    let parts_path = dir.join("parts.toml");
-    let thrusters_path = dir.join("thrusters.toml");
-    let computers_path = dir.join("computers.toml");
-    let lights_path = dir.join("lights.toml");
-
-    std::fs::create_dir(&blueprints_dir)?;
-
-    // for bp in world.blueprints.values() {
-    //     let path = blueprints_dir.join(format!("{}.bp", &bp));
-    //     if let Err(e) = save_blueprint(path, &bp.blueprint) {
-    //         error!("Failed to save blueprint: {:?}", e);
-    //         return Err(BaryError::FailedToSaveBlueprint);
-    //     }
-    // }
 
     let s = bincode::serialize(&world.ticks).map_err(|_| BaryError::BincodeError)?;
     std::fs::write(dir.join("ticks.bin"), s)?;
@@ -48,17 +33,17 @@ pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> Bary
     let s = bincode::serialize(&world.grids).map_err(|_| BaryError::BincodeError)?;
     std::fs::write(dir.join("grids.bin"), s)?;
 
-    let s = toml::to_string(&world.parts)?;
-    std::fs::write(parts_path, s)?;
+    let s = bincode::serialize(&world.parts).map_err(|_| BaryError::BincodeError)?;
+    std::fs::write(dir.join("parts.bin"), s)?;
 
-    let s = toml::to_string(&world.thrusters)?;
-    std::fs::write(thrusters_path, s)?;
+    let s = bincode::serialize(&world.thrusters).map_err(|_| BaryError::BincodeError)?;
+    std::fs::write(dir.join("thrusters.bin"), s)?;
 
-    let s = toml::to_string(&world.computers)?;
-    std::fs::write(computers_path, s)?;
+    let s = bincode::serialize(&world.computers).map_err(|_| BaryError::BincodeError)?;
+    std::fs::write(dir.join("computers.bin"), s)?;
 
-    let s = toml::to_string(&world.lights)?;
-    std::fs::write(lights_path, s)?;
+    let s = bincode::serialize(&world.lights).map_err(|_| BaryError::BincodeError)?;
+    std::fs::write(dir.join("lights.bin"), s)?;
 
     let s = bincode::serialize(&world.inventories).map_err(|_| BaryError::BincodeError)?;
     std::fs::write(dir.join("inventories.bin"), s)?;
@@ -87,11 +72,6 @@ pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> Bary
 pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
     let dir = dir.as_ref();
     info!("Loading world from {}", dir.display());
-
-    let parts_path = dir.join("parts.toml");
-    let thrusters_path = dir.join("thrusters.toml");
-    let computers_path = dir.join("computers.toml");
-    let lights_path = dir.join("lights.toml");
 
     let mut world = World::empty();
 
@@ -122,17 +102,17 @@ pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
     let s = std::fs::read(dir.join("grids.bin"))?;
     world.grids = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
 
-    let s = std::fs::read_to_string(parts_path)?;
-    world.parts = toml::from_str(&s)?;
+    let s = std::fs::read(dir.join("parts.bin"))?;
+    world.parts = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
 
-    let s = std::fs::read_to_string(lights_path)?;
-    world.lights = toml::from_str(&s)?;
+    let s = std::fs::read(dir.join("lights.bin"))?;
+    world.lights = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
 
-    let s = std::fs::read_to_string(thrusters_path)?;
-    world.thrusters = toml::from_str(&s)?;
+    let s = std::fs::read(dir.join("thrusters.bin"))?;
+    world.thrusters = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
 
-    let s = std::fs::read_to_string(computers_path)?;
-    world.computers = toml::from_str(&s)?;
+    let s = std::fs::read(dir.join("computers.bin"))?;
+    world.computers = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
 
     let s = std::fs::read(dir.join("asteroids.bin"))?;
     world.asteroids = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
