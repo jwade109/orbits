@@ -8,7 +8,6 @@ use chrono::NaiveDate;
 use chrono::NaiveDateTime;
 use chrono::TimeDelta;
 use log::*;
-use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::time::Duration;
 
@@ -91,19 +90,6 @@ pub fn spawn_grid_from_blueprint_c(
     update_grid_physical_props(grid, parts)?;
 
     Ok(grid_id)
-}
-
-pub fn body_frame_wrench(
-    thrust: f32,
-    center_of_thrust: Vec2,
-    rotation: Rotation,
-    com: Vec2,
-) -> Isometry2d {
-    let u = rotation.to_dir();
-    let lever_arm = center_of_thrust - com;
-    let thrust = thrust * u.as_vec2();
-    let torque = cross2d(lever_arm, thrust);
-    Isometry2d::new(thrust, torque as f32)
 }
 
 /// Updates the `body_frame_forces` field of a particular
@@ -313,11 +299,6 @@ pub fn set_thruster_state(thruster_id: Ent, world: &mut World, new_state: bool) 
     set_thruster_state_c(thruster_id, &mut world.thrusters, new_state)
 }
 
-pub fn ping(world: &mut World, pos: Vec2) {
-    let part = PingParticle::new(pos);
-    world.particles.push(part);
-}
-
 pub fn get_blueprint(world: &World, grid_id: Ent) -> BaryResult<Blueprint> {
     get_blueprint_c(
         &world.grids,
@@ -326,20 +307,6 @@ pub fn get_blueprint(world: &World, grid_id: Ent) -> BaryResult<Blueprint> {
         &world.prototypes,
         grid_id,
     )
-}
-
-/// Spawns an empty vehicle grid.
-pub fn spawn_empty_grid_c(
-    spawner: &mut EntitySpawner,
-    grids: &mut Components<VehicleGrid>,
-    name: impl Into<String>,
-) -> Ent {
-    let name = name.into();
-    debug!("Spawning empty grid with name {}", name);
-    let grid = VehicleGrid::with_name(name, None);
-    let id = spawner.spawn();
-    grids.spawn(id, grid);
-    id
 }
 
 /// Inserts a part into an existing grid.

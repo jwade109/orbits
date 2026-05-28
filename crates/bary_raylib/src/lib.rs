@@ -1,4 +1,3 @@
-pub mod app;
 pub mod assets;
 pub mod camera;
 pub mod constants;
@@ -54,7 +53,6 @@ pub use crate::sim::set_primary_computer_waypoint;
 pub use crate::sim::set_primary_computer_waypoint_c;
 pub use crate::sim::set_thruster_state;
 pub use crate::sim::spawn_empty_grid;
-pub use crate::sim::spawn_empty_grid_c;
 pub use crate::sim::split_grid_if_necessary;
 pub use crate::sim::update_grid_acceleration;
 pub use crate::sim::update_grid_physical_props;

@@ -250,6 +250,19 @@ pub fn low_pass(actual: f32, target: f32, rate: f32) -> f32 {
     actual + (target - actual) * rate
 }
 
+pub fn body_frame_wrench(
+    thrust: f32,
+    center_of_thrust: Vec2,
+    rotation: Rotation,
+    com: Vec2,
+) -> Isometry2d {
+    let u = rotation.to_dir();
+    let lever_arm = center_of_thrust - com;
+    let thrust = thrust * u.as_vec2();
+    let torque = cross2d(lever_arm, thrust);
+    Isometry2d::new(thrust, torque as f32)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

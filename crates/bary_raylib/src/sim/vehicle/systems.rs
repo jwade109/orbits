@@ -1,9 +1,12 @@
-use crate::sim::*;
 use bary_core::prelude::*;
 use bary_parts::*;
 use bary_sim::*;
 use log::info;
 use std::collections::{BTreeMap, BTreeSet};
+
+use crate::{
+    insert_part, set_grid_pose, set_grid_vel, spawn_empty_grid, update_grid_physical_props_by_id,
+};
 
 /// Removes a part from its parent grid, updating any relevant quantities
 /// about that grid. This does not perform an integrity check, and might
