@@ -1,7 +1,7 @@
-use crate::{camera::Camera, editor_state::EditorState, sim::*};
+use crate::{camera::Camera, editor_state::EditorState};
 use bary_core::prelude::*;
 use bary_input::*;
-use bary_sim::Chat;
+use bary_sim::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Deserialize, Serialize, Clone)]

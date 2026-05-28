@@ -1,4 +1,3 @@
-use crate::assets::load_names_from_file;
 use crate::sim::*;
 use bary_core::prelude::*;
 use bary_factory::*;

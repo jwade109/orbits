@@ -1,7 +1,9 @@
+mod big_rock;
 mod chat;
 mod computer;
 mod constants;
 mod debug_info;
+mod debug_portal;
 mod grid;
 mod light;
 mod part;
@@ -14,10 +16,12 @@ mod transactions;
 mod utils;
 mod world_delta;
 
+pub use big_rock::*;
 pub use chat::*;
 pub use computer::*;
 pub use constants::*;
 pub use debug_info::*;
+pub use debug_portal::*;
 pub use grid::*;
 pub use light::*;
 pub use part::*;

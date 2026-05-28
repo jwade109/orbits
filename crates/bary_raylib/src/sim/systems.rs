@@ -377,27 +377,6 @@ pub fn can_insert_part_c(
     Ok(grid.can_insert_part(pl, layer))
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
-pub enum PortalState {
-    Source(Option<Item>),
-    Sink,
-}
-
-#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
-pub struct DebugPortal {
-    pub state: PortalState,
-}
-
-impl DebugPortal {
-    pub fn from_proto(proto: DebugPortalPrototype) -> Self {
-        let state = match proto.dir {
-            PortalDirection::Sink => PortalState::Sink,
-            PortalDirection::Source => PortalState::Source(Some(Item::random())),
-        };
-        Self { state }
-    }
-}
-
 pub fn insert_part_c(
     grid_id: Ent,
     spawner: &mut EntitySpawner,

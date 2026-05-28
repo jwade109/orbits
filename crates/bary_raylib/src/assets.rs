@@ -1,5 +1,6 @@
 use crate::utils::{GlobalKeybinds, load_keybinds_from_file};
 use bary_parts::load_parts_from_dir;
+use bary_sim::load_names_from_file;
 use log::debug;
 use raylib::prelude::*;
 use std::{collections::BTreeMap, path::Path};
@@ -20,15 +21,6 @@ pub struct Assets {
     pub terrain_spritesheet: MaybeTexture,
     pub ship_names: Vec<String>,
     pub keybinds: GlobalKeybinds,
-}
-
-pub fn load_names_from_file(
-    filename: impl AsRef<Path>,
-) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    Ok(std::fs::read_to_string(filename)?
-        .lines()
-        .filter_map(|s| (!s.is_empty()).then(|| s.to_string()))
-        .collect())
 }
 
 pub fn load_assets(
