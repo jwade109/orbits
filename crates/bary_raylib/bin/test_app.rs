@@ -1,6 +1,6 @@
-use bary_core::prelude::TableIdent;
 use bary_ipc::*;
 use bary_raylib::{render::draw_terminal, *};
+use bary_sim::*;
 use bary_terminal::*;
 use clap::Parser;
 use raylib::prelude::*;

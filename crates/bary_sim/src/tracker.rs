@@ -1,7 +1,6 @@
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
-use bary_sim::*;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Tracker {
@@ -28,9 +27,9 @@ impl Tracker {
         }
     }
 
-    pub fn add(&mut self, grid: &VehicleGrid) {
-        Self::enqueue(&mut self.origin, grid.origin());
-        Self::enqueue(&mut self.center_of_mass, grid.particle_location);
-        Self::enqueue(&mut self.centroid, grid.centroid_isometry());
+    pub fn add(&mut self, o: Isometry2d, com: Isometry2d, c: Isometry2d) {
+        Self::enqueue(&mut self.origin, o);
+        Self::enqueue(&mut self.center_of_mass, com);
+        Self::enqueue(&mut self.centroid, c);
     }
 }

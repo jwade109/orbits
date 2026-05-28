@@ -181,7 +181,11 @@ fn sys_update_trackers(
             to_despawn.insert(*grid_id);
             continue;
         };
-        tracker.add(grid);
+        tracker.add(
+            grid.origin(),
+            grid.particle_location,
+            grid.centroid_isometry(),
+        );
     }
 
     for id in to_despawn {

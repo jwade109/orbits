@@ -4,11 +4,10 @@ use bary_ipc::*;
 use bary_raylib::assets::Assets;
 use bary_raylib::persistence::{list_saves_in_dir, load_world, save_world};
 use bary_raylib::render::draw_terminal;
-use bary_raylib::sim::{
-    World, apparent_datetime, apparent_elapsed_time, timedelta_from_delta_ticks,
-};
+use bary_raylib::sim::{World, apparent_datetime, timedelta_from_delta_ticks};
 use bary_raylib::utils::{Application, BasicApp, WallTimer};
 use bary_raylib::*;
+use bary_sim::*;
 use bary_terminal::Terminal;
 use clap::Parser;
 use log::{debug, info, warn};

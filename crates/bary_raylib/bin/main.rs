@@ -3,7 +3,6 @@ use std::time::Duration;
 
 use bary_core::prelude::*;
 use bary_ipc::*;
-use bary_raylib::TermCmd;
 use bary_raylib::assets::*;
 use bary_raylib::imgui;
 use bary_raylib::render::*;
@@ -13,9 +12,7 @@ use bary_raylib::tests::is_world_consistent;
 use bary_raylib::utils::WallTimer;
 use bary_raylib::utils::raylib_to_glam;
 use bary_raylib::*;
-use bary_sim::DebugInfo;
-use bary_sim::TICKS_PER_SECOND;
-use bary_sim::WorldDelta;
+use bary_sim::*;
 use bary_terminal::Terminal;
 use clap::Parser;
 use log::*;

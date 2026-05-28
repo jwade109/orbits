@@ -1,5 +1,5 @@
+use crate::WorldDelta;
 use bary_core::prelude::*;
-use bary_sim::WorldDelta;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -16,7 +16,6 @@ pub enum TermCmd {
     PrintEntityInfo(TableIdent),
 
     /// print blueprint info to the terminal
-
     ServerDisconnect,
     ServerConnect,
     RequestServerStatistics,

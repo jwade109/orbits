@@ -1,9 +1,9 @@
+use crate::assets::*;
 use crate::camera::{Camera, to_raylib_camera};
 use crate::editor_state::EditorState;
 use crate::imgui::{ImGui, ZOOM_NEAR_FAR_THRESHOLD};
 use crate::sim::*;
 use crate::utils::*;
-use crate::{TermCmd, assets::*};
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use bary_factory::*;

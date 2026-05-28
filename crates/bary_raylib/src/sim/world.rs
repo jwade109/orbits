@@ -1,4 +1,3 @@
-use crate::TermCmd;
 use crate::camera::Camera;
 use crate::constants::*;
 use crate::imgui::*;
