@@ -88,7 +88,6 @@ impl App {
 
         let server_ping_timer = WallTimer::with_dur(Duration::from_millis(1000));
         let server_telemetry_timer = WallTimer::with_dur(Duration::from_millis(1000));
-        let physics_timer = WallTimer::with_dur(Duration::from_millis(1000 / TICKS_PER_SECOND));
 
         Ok(App {
             world,
@@ -231,14 +230,6 @@ impl App {
     fn exit(&mut self) {
         info!("Exiting cleanly.");
         self.should_exit = true;
-    }
-
-    fn apply_world_delta(&mut self, delta: WorldDelta) {
-        let s = format!("{delta:?} => OK");
-        match apply_delta(&mut self.world, delta) {
-            Ok(()) => self.terminal.log_info(s),
-            Err(e) => self.terminal.log_error(format!("Failed to apply: {e:?}")),
-        }
     }
 
     pub fn on_terminal_cmd(&mut self, cmd: TermCmd) {

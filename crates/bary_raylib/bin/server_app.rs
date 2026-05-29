@@ -233,8 +233,12 @@ impl ServerApp {
                 self.on_accept_client_blob_request_all(client_id);
             }
             MessageKind::RequestDelta(delta) => {
-                self.queued_deltas.push(delta.clone());
-                apply_delta(&mut self.world, delta);
+                if let Err(e) = apply_delta(&mut self.world, delta.clone()) {
+                    self.terminal
+                        .log_error(format!("Failed to apply delta: {e}"));
+                } else {
+                    self.queued_deltas.push(delta);
+                }
             }
             _ => self.on_unsupported_message(),
         }

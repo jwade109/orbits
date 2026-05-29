@@ -181,7 +181,7 @@ pub struct TerrainTile {
 }
 
 impl TerrainTile {
-    pub fn new(parent: Ent, material: TerrainMaterial, is_edge: bool) -> Self {
+    pub fn new(parent: Ent, material: TerrainMaterial) -> Self {
         Self {
             parent,
             material,

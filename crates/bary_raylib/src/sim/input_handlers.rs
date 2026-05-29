@@ -4,7 +4,6 @@ use crate::persistence::save_world;
 use crate::sim::*;
 use crate::sounds::*;
 use crate::utils::*;
-use crate::*;
 use bary_core::prelude::*;
 use bary_input::*;
 use bary_sim::*;

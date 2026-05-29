@@ -1,10 +1,8 @@
+use crate::*;
 use bary_core::prelude::*;
 use bary_orbital::Asteroid;
-use bary_sim::*;
 use early_returns::{ok_or_continue, some_or_continue};
 use std::collections::BTreeMap;
-
-use crate::sim::*;
 
 pub fn spawn_asteroid(world: &mut World, ast: Asteroid, iso: Isometry2d) -> Ent {
     let parent = world.spawner.spawn();
@@ -43,7 +41,7 @@ pub fn spawn_asteroid(world: &mut World, ast: Asteroid, iso: Isometry2d) -> Ent 
                         ast.contains(c.translation)
                     });
 
-                    let tile = TerrainTile::new(parent, TerrainMaterial::random(), is_edge);
+                    let tile = TerrainTile::new(parent, TerrainMaterial::random());
 
                     let tile_id = world.spawner.spawn();
                     world.terrain_tiles.spawn(tile_id, tile);
@@ -117,7 +115,7 @@ pub fn add_terrain_tile(world: &mut World, ast_id: Ent, t: GlobalTileIndex) -> B
     }
 
     let tile_id = world.spawner.spawn();
-    let tile = TerrainTile::new(chunk_id, TerrainMaterial::random(), true);
+    let tile = TerrainTile::new(chunk_id, TerrainMaterial::random());
     chunk.tiles.insert(l, tile_id);
     if tile.is_visible() {
         chunk.visible_count += 1;
