@@ -216,6 +216,7 @@ impl App {
             TableIdent::Machines => Self::unpack_blob(&mut self.world.machines, blob.data()),
             TableIdent::Asteroids => Self::unpack_blob(&mut self.world.asteroids, blob.data()),
             TableIdent::Pipes => Self::unpack_blob(&mut self.world.pipes, blob.data()),
+            TableIdent::Lights => Self::unpack_blob(&mut self.world.lights, blob.data()),
         };
 
         if success {

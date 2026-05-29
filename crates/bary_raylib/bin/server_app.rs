@@ -34,6 +34,7 @@ pub struct ServerApp {
     _server_thread: JoinHandle<()>,
     world_timer: WallTimer,
     sync_timer: WallTimer,
+    draw_timer: WallTimer,
     queued_deltas: Vec<WorldDelta>,
 }
 
@@ -85,6 +86,7 @@ impl ServerApp {
             }),
             world_timer: WallTimer::with_dur(Duration::from_millis(20)),
             sync_timer: WallTimer::with_dur(Duration::from_millis(20)),
+            draw_timer: WallTimer::with_dur(Duration::from_millis(20)),
             queued_deltas: Vec::new(),
         })
     }
@@ -368,6 +370,7 @@ impl ServerApp {
             TableIdent::Machines => Self::serialize_table(&self.world.machines),
             TableIdent::Asteroids => Self::serialize_table(&self.world.asteroids),
             TableIdent::Pipes => Self::serialize_table(&self.world.pipes),
+            TableIdent::Lights => Self::serialize_table(&self.world.lights),
         };
         data.map(|data| Blob::new(data, table))
     }
@@ -433,6 +436,7 @@ impl ServerApp {
             TableIdent::Inventories => Self::lsblob(&mut self.terminal, &self.world.inventories),
             TableIdent::Machines => Self::lsblob(&mut self.terminal, &self.world.machines),
             TableIdent::Pipes => Self::lsblob(&mut self.terminal, &self.world.pipes),
+            TableIdent::Lights => Self::lsblob(&mut self.terminal, &self.world.lights),
         }
     }
 
@@ -501,6 +505,7 @@ impl ServerApp {
             TableIdent::Inventories => todo!(),
             TableIdent::Machines => todo!(),
             TableIdent::Pipes => todo!(),
+            TableIdent::Lights => todo!(),
         }
     }
 
@@ -677,6 +682,10 @@ impl Application for ServerApp {
     }
 
     fn draw(&mut self) {
+        if !self.draw_timer.tick() {
+            return;
+        }
+
         let n_clients = self.get_statistics().clients.len();
 
         let font = self.assets.consolas.as_ref().unwrap();

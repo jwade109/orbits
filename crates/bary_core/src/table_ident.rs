@@ -15,6 +15,7 @@ pub enum TableIdent {
     Inventories,
     Machines,
     Pipes,
+    Lights,
 }
 
 impl TableIdent {
