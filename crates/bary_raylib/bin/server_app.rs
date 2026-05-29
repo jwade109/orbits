@@ -34,6 +34,7 @@ pub struct ServerApp {
     _server_thread: JoinHandle<()>,
     world_timer: WallTimer,
     sync_timer: WallTimer,
+    queued_deltas: Vec<WorldDelta>,
 }
 
 impl ServerApp {
@@ -84,6 +85,7 @@ impl ServerApp {
             }),
             world_timer: WallTimer::with_dur(Duration::from_millis(20)),
             sync_timer: WallTimer::with_dur(Duration::from_millis(20)),
+            queued_deltas: Vec::new(),
         })
     }
 
@@ -130,7 +132,7 @@ impl ServerApp {
     }
 
     fn send_driver_packet(&mut self) {
-        let deltas = Vec::new();
+        let deltas = self.queued_deltas.drain(..).collect();
         let msg = MessageKind::Driver {
             ticks: self.world.ticks,
             deltas,
@@ -227,6 +229,10 @@ impl ServerApp {
             }
             MessageKind::ClientBlobRequestAll => {
                 self.on_accept_client_blob_request_all(client_id);
+            }
+            MessageKind::RequestDelta(delta) => {
+                self.queued_deltas.push(delta.clone());
+                apply_delta(&mut self.world, delta);
             }
             _ => self.on_unsupported_message(),
         }

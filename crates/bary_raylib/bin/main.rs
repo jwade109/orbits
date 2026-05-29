@@ -60,6 +60,7 @@ impl App {
 
         let mut cmds = all_commands();
         cmds.extend(client_request_blob_commands());
+        cmds.extend(world_delta_commands());
 
         simple_logger::SimpleLogger::new()
             .with_level(log_level)
@@ -243,9 +244,6 @@ impl App {
         self.terminal.log_info(format!("{cmd:?}"));
 
         match cmd {
-            TermCmd::World(delta) => {
-                self.apply_world_delta(delta);
-            }
             TermCmd::Say(s) => {
                 self.node.send_command(MessageKind::Text(s));
             }
@@ -284,6 +282,9 @@ impl App {
                 self.terminal
                     .log_warn(format!("Requesting all blobs at tick {}", self.world.ticks));
                 self.node.send_command(MessageKind::ClientBlobRequestAll);
+            }
+            TermCmd::World(delta) => {
+                self.node.send_command(MessageKind::RequestDelta(delta));
             }
             _ => self.terminal.log_error(format!("Unsupported: {:?}", cmd)),
         }
