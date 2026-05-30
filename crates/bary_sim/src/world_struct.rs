@@ -63,3 +63,8 @@ impl World {
         }
     }
 }
+
+pub fn size_in_bytes(world: &World) -> usize {
+    let bytes = bincode::serialize(world).unwrap();
+    bytes.len()
+}

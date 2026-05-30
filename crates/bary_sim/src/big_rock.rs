@@ -75,7 +75,7 @@ impl Ord for LocalTileIndex {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 pub struct GlobalTileIndex(pub IVec2);
 
 impl GlobalTileIndex {

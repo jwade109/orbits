@@ -155,7 +155,7 @@ pub enum MessageKind {
     /// server response containing a single blob
     BlobResponse(Blob),
     /// server response containing multiple blobs and the current tick
-    MultiBlobResponse(u64, Vec<Blob>),
+    MultiBlobResponse(Ent, u64, Vec<Blob>),
     /// information sent consistently by each client
     ClientTelemetry(ClientTelemetry),
     /// driver packet sent to each client each tick

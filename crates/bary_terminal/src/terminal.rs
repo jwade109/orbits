@@ -1,5 +1,7 @@
 use std::collections::{BTreeMap, VecDeque};
 
+use bary_input::InputState;
+
 #[derive(Debug)]
 pub enum ParseError {
     BadKey,
@@ -119,14 +121,14 @@ impl<T: std::fmt::Debug> Terminal<T> {
         self.lines.iter()
     }
 
-    pub fn on_arrow_left(&mut self) {
+    pub fn zoom_out(&mut self) {
         if self.font_size > 7 {
-            self.font_size -= 1;
+            self.font_size -= 2;
         }
     }
 
-    pub fn on_arrow_right(&mut self) {
-        self.font_size += 1;
+    pub fn zoom_in(&mut self) {
+        self.font_size += 2;
     }
 
     pub fn on_arrow_up(&mut self) {
@@ -187,35 +189,59 @@ impl<T: std::fmt::Debug> Terminal<T> {
         self.update_suggest_text();
     }
 
-    pub fn on_event(&mut self, event: &rdev::Event) -> Option<T> {
-        if let rdev::EventType::KeyPress(k) = &event.event_type {
-            match k {
-                rdev::Key::Alt => self.on_alt(),
-                rdev::Key::Backspace => self.on_backspace(),
-                rdev::Key::Return => return self.on_enter(),
-                rdev::Key::BackQuote => self.focus(),
-                rdev::Key::Escape => self.dismiss(),
-                rdev::Key::Tab => self.on_tab_complete(),
-                rdev::Key::UpArrow => self.on_arrow_up(),
-                rdev::Key::DownArrow => self.on_arrow_down(),
-                rdev::Key::LeftArrow => self.on_arrow_left(),
-                rdev::Key::RightArrow => self.on_arrow_right(),
-                _ => {
-                    if let Some(n) = &event.name {
-                        if n.is_ascii() {
-                            self.append(n);
+    pub fn handle_input(&mut self, input: &InputState) -> Vec<T> {
+        let mut ret = Vec::new();
+
+        let left_ctrl = input.is_key_pressed(rdev::Key::ControlLeft);
+
+        if input.just_pressed_debounced(rdev::Key::Equal) && left_ctrl {
+            self.zoom_in();
+        }
+
+        if input.just_pressed_debounced(rdev::Key::Minus) && left_ctrl {
+            self.zoom_out();
+        }
+
+        for event in input.events() {
+            if let rdev::EventType::KeyPress(k) = &event.event_type {
+                match k {
+                    rdev::Key::Alt => self.on_alt(),
+                    rdev::Key::Backspace => self.on_backspace(),
+                    rdev::Key::Return => {
+                        if let Some(event) = self.on_enter() {
+                            ret.push(event);
+                        }
+                    }
+                    rdev::Key::BackQuote => self.focus(),
+                    rdev::Key::Escape => self.dismiss(),
+                    rdev::Key::Tab => self.on_tab_complete(),
+                    rdev::Key::UpArrow => self.on_arrow_up(),
+                    rdev::Key::DownArrow => self.on_arrow_down(),
+                    _ => {
+                        if let Some(n) = &event.name {
+                            if n.is_ascii() {
+                                self.append(n);
+                            }
                         }
                     }
                 }
             }
+
+            if let rdev::EventType::Wheel {
+                delta_x: _,
+                delta_y,
+            } = &event.event_type
+            {
+                if left_ctrl && *delta_y > 0 {
+                    self.zoom_in();
+                }
+                if left_ctrl && *delta_y < 0 {
+                    self.zoom_out();
+                }
+            }
         }
 
-        if let rdev::EventType::Wheel { delta_x, delta_y } = &event.event_type {
-            let s = format!("mouse wheel: {} {}", delta_x, delta_y);
-            self.log_debug(s);
-        }
-
-        None
+        ret
     }
 
     pub fn on_alt(&mut self) {

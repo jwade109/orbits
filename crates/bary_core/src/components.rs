@@ -26,6 +26,10 @@ impl EntitySpawner {
     pub fn next(&self) -> Ent {
         self.next_id
     }
+
+    pub fn set_next(&mut self, e: Ent) {
+        self.next_id = e;
+    }
 }
 
 #[derive(Deserialize, Serialize, Clone)]

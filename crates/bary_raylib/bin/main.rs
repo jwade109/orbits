@@ -107,28 +107,10 @@ impl App {
         })
     }
 
-    #[must_use]
-    pub fn process_event(
-        &mut self,
-        e: rdev::Event,
-        sounds: &mut SoundEffects,
-        actions: &mut Vec<TermCmd>,
-        on_gui: bool,
-    ) -> Option<TermCmd> {
-        let cmd = self.terminal.on_event(&e);
-
-        if !self.terminal.is_focused() {
-            process_event(
-                &mut self.world,
-                &mut self.client,
-                &e,
-                sounds,
-                actions,
-                on_gui,
-            );
+    pub fn process_event(&mut self, sounds: &mut SoundEffects, on_gui: bool) {
+        if !self.terminal.is_active() {
+            process_event(&mut self.world, &mut self.client, sounds, on_gui);
         }
-
-        cmd
     }
 
     pub fn on_rcv_server_msg(&mut self, msg: Message) {
@@ -162,13 +144,14 @@ impl App {
             (MessageLevel::Response, MessageKind::BlobResponse(blob)) => {
                 self.on_rcv_blob(blob);
             }
-            (MessageLevel::Response, MessageKind::MultiBlobResponse(ticks, blobs)) => {
+            (MessageLevel::Response, MessageKind::MultiBlobResponse(ent, ticks, blobs)) => {
                 let delta = ticks as i64 - self.world.ticks as i64;
                 self.terminal.log_warn(format!(
                     "Delta ticks: {} AKA {:0.3}",
                     delta,
                     timedelta_from_delta_ticks(delta).as_seconds_f64()
                 ));
+                self.world.spawner.set_next(ent);
                 self.world.ticks = ticks;
                 for blob in blobs {
                     self.on_rcv_blob(blob);
@@ -477,7 +460,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // RUN PRE-PHYSICS, PHYSICS, AND POST-PHYSICS UPDATES
 
         let mut sounds = SoundEffects::new();
-        let mut actions = Vec::new();
 
         pre_simulation_update(
             &mut main_app.app.world,
@@ -491,6 +473,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &mut main_app.app.world,
             &mut main_app.app.client,
             &mut sounds,
+            main_app.app.terminal.is_focused(),
         );
 
         // CONSTRUCT IMMEDIATE-MODE GUI
@@ -507,25 +490,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // HANDLE RDEV EVENTS (DEPRECATED - USE INPUTSTATE)
 
-        let events: Vec<_> = main_app.app.client.input.events().cloned().collect();
-        for e in events {
-            let cmd = main_app.app.process_event(
-                e.clone(),
-                &mut sounds,
-                &mut actions,
-                gui.is_hovering_gui(),
-            );
+        let cmds = main_app
+            .app
+            .terminal
+            .handle_input(&main_app.app.client.input);
 
-            if let Some(cmd) = cmd {
-                main_app.app.on_terminal_cmd(cmd);
-            }
+        for cmd in cmds {
+            main_app.app.on_terminal_cmd(cmd);
         }
 
-        // EMIT ACTIONS TO OTHER MULTIPLAYER CLIENTS
-
-        for msg in actions {
-            warn!("Would emit action: {msg:?}");
-        }
+        main_app
+            .app
+            .process_event(&mut sounds, gui.is_hovering_gui());
 
         // AND DRAW IT ALL
 

@@ -34,15 +34,14 @@ pub fn command_selected_ships_to_waypoint(
         let rotation = Vec2::X.angle_to(q - p);
         let waypoint = Isometry2d::new(waypont, rotation);
 
-        if let Err(e) = set_primary_computer_waypoint(loc.grid_id, waypoint, world) {
-            client.chat.log(format!("Failed to set waypoint: {e:?}"));
-            continue;
-        }
+        let delta = WorldDelta::SetWaypoint {
+            grid_id: loc.grid_id,
+            waypoint,
+        };
+        let res = apply_delta(world, delta);
 
-        if let Err(e) = set_primary_computer_state(loc.grid_id, true, world) {
-            client
-                .chat
-                .log(format!("Failed to turn primary computer on: {e:?}"));
+        if let Err(e) = res {
+            client.chat.log(format!("Failed to set waypoint: {e:?}"));
             continue;
         }
 
@@ -59,7 +58,8 @@ pub fn command_selected_ships_to_waypoint(
 pub fn explode_at_mouseover(world: &mut World, client: &mut ClientSpecificInfo) {
     let free = some_or_return!(client.viewport.free());
     let loc = some_or_return!(free.selection_info.hovered);
-    explode_grid_at(loc, world);
+    let delta = WorldDelta::Explode(loc);
+    _ = apply_delta(world, delta);
 }
 
 pub fn editor_copy_on_control_c(world: &World, client: &mut ClientSpecificInfo) {
@@ -130,14 +130,7 @@ pub fn editor_layer_shift_on_page_key(client: &mut ClientSpecificInfo, is_up: bo
     };
 }
 
-pub fn panic_on_ctrl_d(input: &InputState) {
-    if input.is_key_pressed(Key::ControlLeft) {
-        info!("Exiting.");
-        panic!();
-    }
-}
-
-pub fn save_on_ctrl_s(world: &mut World, client: &mut ClientSpecificInfo) {
+pub fn save_on_ctrl_s(world: &World, client: &mut ClientSpecificInfo) {
     let pressed_ctrl = client.input.is_key_pressed(Key::ControlLeft);
 
     if !pressed_ctrl {
@@ -178,7 +171,6 @@ pub fn toggle_following_on_key_f(client: &mut ClientSpecificInfo, sounds: &mut S
 pub fn ping_on_alt_left_click(
     world: &mut World,
     client: &mut ClientSpecificInfo,
-    actions: &mut Vec<TermCmd>,
     sounds: &mut SoundEffects,
 ) {
     let Some(screen_pos) = client.mouse_screen_position else {
@@ -191,9 +183,9 @@ pub fn ping_on_alt_left_click(
 
     let pos = screen_to_world(&client.camera, screen_pos, client.screen_dims);
 
-    let particle = PingParticle::new(pos);
-    world.particles.push(particle);
-    actions.push(TermCmd::World(WorldDelta::Ping(pos)));
+    let delta = WorldDelta::Ping(pos);
+    _ = apply_delta(world, delta);
+
     client.chat.log(format!("Pinged {}", pos));
     sounds.push(SoundEffect::Ping);
 }
@@ -201,22 +193,8 @@ pub fn ping_on_alt_left_click(
 pub fn toggle_tracking_for_selected_grid(world: &mut World, client: &mut ClientSpecificInfo) {
     let free = some_or_return!(client.viewport.free());
     let grid_id = some_or_return!(free.selection_info.first_selected_grid());
-
-    match toggle_tracking(world, grid_id) {
-        Ok(true) => client.chat.log(format!("Enabled tracking for {}", grid_id)),
-        Ok(false) => client
-            .chat
-            .log(format!("Disabled tracking for {}", grid_id)),
-        Err(e) => client
-            .chat
-            .log(format!("Failed to toggle tracking: {:?}", e)),
-    }
-}
-
-pub fn destroy_selected_parts(_world: &mut World, client: &mut ClientSpecificInfo) {
-    let free = some_or_return!(client.viewport.free());
-    let s = format!("TODO DESTROY PARTS: {:?}", free.selection_info.selected);
-    client.chat.log(s);
+    let delta = WorldDelta::ToggleTracking(grid_id);
+    _ = apply_delta(world, delta);
 }
 
 pub fn reset_camera_on_ctrl_r(client: &mut ClientSpecificInfo) {
@@ -248,13 +226,6 @@ pub fn rotate_editor_part_on_key_r(client: &mut ClientSpecificInfo) {
         } else {
             editor.camera_rotation = editor.camera_rotation.next();
         }
-    }
-}
-
-pub fn spawn_random_ship_on_p(world: &mut World) {
-    if let Ok(grid_id) = spawn_grid_with_random_name(world, "remora") {
-        let pos = randvec(10.0, 200.0);
-        _ = set_grid_pose(world, grid_id, Isometry2d::from_pos(pos));
     }
 }
 

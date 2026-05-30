@@ -349,13 +349,6 @@ fn draw_actions(d: &mut RaylibDrawHandle, client: &ClientSpecificInfo, assets: &
 
         x += width + padding;
     }
-
-    // let s = format!("{:#?}", &assets.keybinds);
-    // d.draw_text(&s, 100, 100, 26, Color::WHITE);
-    // let s = format!("{:#?}", &assets.keybinds.piloting(&client.input));
-    // d.draw_text(&s, 600, 100, 20, Color::WHITE);
-    // let s = format!("{:#?}", &assets.keybinds.editor(&client.input));
-    // d.draw_text(&s, 900, 100, 20, Color::WHITE);
 }
 
 pub fn draw_selected_part_cursors(

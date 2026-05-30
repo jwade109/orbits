@@ -63,10 +63,6 @@ path = "bin/ship2png.rs"
 name = "generate_worlds"
 path = "bin/generate_worlds.rs"
 
-[[bin]]
-name = "test_app"
-path = "bin/test_app.rs"
-
 [dev-dependencies]
 criterion = "0.5.1"
 

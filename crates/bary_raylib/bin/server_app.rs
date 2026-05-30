@@ -411,7 +411,11 @@ impl ServerApp {
                 let msg = Message::new(
                     MessageSource::Server,
                     MessageLevel::Response,
-                    MessageKind::MultiBlobResponse(self.world.ticks, blobs),
+                    MessageKind::MultiBlobResponse(
+                        self.world.spawner.next(),
+                        self.world.ticks,
+                        blobs,
+                    ),
                 );
                 self.outgoing.push((client, msg));
             }
@@ -670,13 +674,7 @@ impl Application for ServerApp {
             self.terminal.log_debug(s);
         }
 
-        let mut cmds = Vec::new();
-
-        for e in self.app.input.events() {
-            if let Some(cmd) = self.terminal.on_event(e) {
-                cmds.push(cmd);
-            }
-        }
+        let cmds = self.terminal.handle_input(&self.app.input);
 
         for cmd in cmds {
             self.on_terminal_command(cmd);

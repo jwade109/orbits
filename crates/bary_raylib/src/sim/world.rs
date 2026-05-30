@@ -21,6 +21,14 @@ use std::time::Instant;
 pub fn apply_delta(world: &mut World, delta: WorldDelta) -> BaryResult<()> {
     info!("Applying delta {:?} at tick {}", delta, world.ticks);
     match delta {
+        WorldDelta::ToggleTracking(grid_id) => {
+            _ = toggle_tracking(world, grid_id);
+            Ok(())
+        }
+        WorldDelta::Explode(loc) => {
+            explode_grid_at(loc, world);
+            Ok(())
+        }
         WorldDelta::ClearAll => {
             *world = World::empty();
             Ok(())
@@ -124,12 +132,34 @@ pub fn apply_delta(world: &mut World, delta: WorldDelta) -> BaryResult<()> {
             spawn_random_asteroid(world, iso, radius, seed);
             Ok(())
         }
+        WorldDelta::RemoveTerrainTile { asteroid, tile } => {
+            remove_terrain_tile(world, asteroid, tile)?;
+            Ok(())
+        }
+        WorldDelta::AddTerrainTile { asteroid, tile } => {
+            add_terrain_tile(world, asteroid, tile)?;
+            Ok(())
+        }
+        WorldDelta::FullyRevealTerrainTile { asteroid, tile } => {
+            fully_reveal_terrain_tile(world, asteroid, tile)?;
+            Ok(())
+        }
+        WorldDelta::GoToAsteroid { grid_id, ast_id } => {
+            grid_set_waypoint_to_asteroid_center(world, grid_id, ast_id)?;
+            Ok(())
+        }
     }
 }
 
-pub fn size_in_bytes(world: &World) -> usize {
-    let bytes = bincode::serialize(world).unwrap();
-    bytes.len()
+fn grid_set_waypoint_to_asteroid_center(
+    world: &mut World,
+    grid_id: Ent,
+    ast_id: Ent,
+) -> BaryResult<()> {
+    let ast = world.asteroids.try_get(ast_id)?;
+    set_primary_computer_waypoint(grid_id, ast.iso, world)?;
+    set_primary_computer_state_c(grid_id, true, &world.grids, &mut world.computers)?;
+    Ok(())
 }
 
 fn camera_zooms_with_plus_minus(input: &InputState, target: &mut Camera) {
@@ -268,14 +298,6 @@ pub fn get_part_at(world: &World, loc: GridLocation, layer: PartLayer) -> BaryRe
         .get_parts_at(loc.coord)
         .ok_or(BaryError::NoPartsAt(loc.coord))?;
     occ.at_layer(layer).ok_or(BaryError::NoPartsInLayer(layer))
-}
-
-pub fn get_top_part_at(world: &World, loc: GridLocation) -> BaryResult<Ent> {
-    let grid = world.grids.try_get(loc.grid_id)?;
-    grid.get_parts_at(loc.coord)
-        .map(|occ| occ.top())
-        .flatten()
-        .ok_or(BaryError::NoPartsAt(loc.coord))
 }
 
 pub fn destroy_top_part_at(
@@ -659,63 +681,66 @@ impl<'a> Drop for ScopeTimer<'a> {
 pub fn process_event(
     world: &mut World,
     client: &mut ClientSpecificInfo,
-    event: &rdev::Event,
     sounds: &mut SoundEffects,
-    actions: &mut Vec<TermCmd>,
     on_gui: bool,
 ) {
-    match event.event_type {
-        rdev::EventType::KeyPress(key) => match key {
-            Key::KeyS => input_handlers::save_on_ctrl_s(world, client),
-            Key::KeyF => input_handlers::toggle_following_on_key_f(client, sounds),
-            Key::KeyT => input_handlers::toggle_tracking_for_selected_grid(world, client),
-            Key::KeyR => {
-                input_handlers::reset_camera_on_ctrl_r(client);
-                input_handlers::lock_rotation_on_key_r(client);
-                input_handlers::rotate_editor_part_on_key_r(client);
-            }
-            Key::Delete => input_handlers::destroy_selected_parts(world, client),
-            Key::DownArrow => input_handlers::editor_layer_shift_on_page_key(client, false),
-            Key::UpArrow => input_handlers::editor_layer_shift_on_page_key(client, true),
-            Key::KeyE => input_handlers::editor_layer_shift_on_page_key(client, true),
-            Key::KeyP => input_handlers::spawn_random_ship_on_p(world),
-            Key::KeyM => input_handlers::update_center_of_mass_on_m(world),
-            Key::KeyQ => input_handlers::pipette_part_if_in_editor_on_q(world, client),
-            Key::KeyG => input_handlers::enter_ship_editor(world, client, sounds),
-            Key::Escape => input_handlers::leave_ship_editor_on_escape(client, sounds),
-            Key::KeyC => {
-                input_handlers::explode_at_mouseover(world, client);
-                input_handlers::editor_copy_on_control_c(world, client);
-            }
-            _ => (),
-        },
-        rdev::EventType::KeyRelease(_key) => (),
-        rdev::EventType::ButtonPress(button) => {
-            if !on_gui {
-                match button {
-                    Button::Left => {
-                        input_handlers::ping_on_alt_left_click(world, client, actions, sounds);
-                        select_hovered_grid_loc_on_click(client, sounds);
-                        editor_on_left_click(world, client, sounds);
+    let events: Vec<_> = client.input.events().cloned().collect();
+
+    for event in events {
+        match event.event_type {
+            rdev::EventType::KeyPress(key) => match key {
+                Key::KeyS => input_handlers::save_on_ctrl_s(world, client),
+                Key::KeyF => input_handlers::toggle_following_on_key_f(client, sounds),
+                Key::KeyT => input_handlers::toggle_tracking_for_selected_grid(world, client),
+                Key::KeyR => {
+                    input_handlers::reset_camera_on_ctrl_r(client);
+                    input_handlers::lock_rotation_on_key_r(client);
+                    input_handlers::rotate_editor_part_on_key_r(client);
+                }
+                Key::DownArrow => input_handlers::editor_layer_shift_on_page_key(client, false),
+                Key::UpArrow => input_handlers::editor_layer_shift_on_page_key(client, true),
+                Key::KeyE => input_handlers::editor_layer_shift_on_page_key(client, true),
+                Key::KeyM => input_handlers::update_center_of_mass_on_m(world),
+                Key::KeyQ => input_handlers::pipette_part_if_in_editor_on_q(world, client),
+                Key::KeyG => input_handlers::enter_ship_editor(world, client, sounds),
+                Key::Escape => input_handlers::leave_ship_editor_on_escape(client, sounds),
+                Key::KeyC => {
+                    input_handlers::explode_at_mouseover(world, client);
+                    input_handlers::editor_copy_on_control_c(world, client);
+                }
+                _ => (),
+            },
+            rdev::EventType::KeyRelease(_key) => (),
+            rdev::EventType::ButtonPress(button) => {
+                if !on_gui {
+                    match button {
+                        Button::Left => {
+                            input_handlers::ping_on_alt_left_click(world, client, sounds);
+                            select_hovered_grid_loc_on_click(client, sounds);
+                            editor_on_left_click(world, client, sounds);
+                        }
+                        Button::Right => input_handlers::destroy_top_layer_part_at_mouseover(
+                            world, client, sounds,
+                        ),
+                        Button::Middle => (),
+                        Button::Unknown(_) => (),
                     }
-                    Button::Right => {
-                        input_handlers::destroy_top_layer_part_at_mouseover(world, client, sounds)
-                    }
-                    Button::Middle => (),
-                    Button::Unknown(_) => (),
                 }
             }
-        }
-        rdev::EventType::ButtonRelease(button) => match button {
-            Button::Left => editor_on_release_left_click(client, world),
-            _ => (),
-        },
-        rdev::EventType::MouseMove { x: _, y: _ } => (),
-        rdev::EventType::Wheel {
-            delta_x: _,
-            delta_y,
-        } => {
-            input_handlers::apply_scroll_wheel_to_camera_target(delta_y, &mut client.target_camera);
+            rdev::EventType::ButtonRelease(button) => match button {
+                Button::Left => editor_on_release_left_click(client, world),
+                _ => (),
+            },
+            rdev::EventType::MouseMove { x: _, y: _ } => (),
+            rdev::EventType::Wheel {
+                delta_x: _,
+                delta_y,
+            } => {
+                input_handlers::apply_scroll_wheel_to_camera_target(
+                    delta_y,
+                    &mut client.target_camera,
+                );
+            }
         }
     }
 }
@@ -786,14 +811,6 @@ pub fn pre_simulation_update(
     }
 }
 
-fn test_button_boundaries_with_key_y(input: &InputState, sounds: &mut SoundEffects) {
-    if input.just_pressed_debounced(Key::KeyY) {
-        sounds.push(SoundEffect::Open);
-    } else if input.just_released(Key::KeyY) {
-        sounds.push(SoundEffect::Close);
-    }
-}
-
 fn zoom_in_on_key_v(client: &mut ClientSpecificInfo) {
     if !client.input.just_pressed_debounced(Key::KeyV) {
         return;
@@ -813,28 +830,28 @@ fn do_terrain_tile_under_mouse(world: &mut World, client: &mut ClientSpecificInf
     let free = some_or_return!(client.viewport.free());
     let tile_info = some_or_return!(free.hovered_chunk);
 
-    match action {
-        0 => {
-            _ = remove_terrain_tile(world, tile_info.asteroid, tile_info.tile);
+    let asteroid = tile_info.asteroid;
+    let tile = tile_info.tile;
+
+    let delta = match action {
+        0 => WorldDelta::RemoveTerrainTile { asteroid, tile },
+        1 => WorldDelta::AddTerrainTile { asteroid, tile },
+        2 => WorldDelta::FullyRevealTerrainTile { asteroid, tile },
+        _ => {
+            return;
         }
-        1 => {
-            _ = add_terrain_tile(world, tile_info.asteroid, tile_info.tile);
-        }
-        2 => {
-            _ = fully_reveal_terrain_tile(world, tile_info.asteroid, tile_info.tile);
-        }
-        _ => (),
-    }
+    };
+
+    apply_delta(world, delta);
 }
 
 pub fn post_simulation_update(
     world: &mut World,
     client: &mut ClientSpecificInfo,
     sounds: &mut SoundEffects,
+    is_terminal_focused: bool,
 ) {
     client.chat.drop_old_messages();
-
-    test_button_boundaries_with_key_y(&client.input, sounds);
 
     zoom_in_on_key_v(client);
 
@@ -862,24 +879,28 @@ pub fn post_simulation_update(
                 &mut client.camera,
             );
 
-            camera_moves_with_wasd(
-                &client.input,
-                &mut client.target_camera,
-                &mut fly.follow_vehicle,
-                &mut fly.lock_rotation,
-                sounds,
-            );
+            if !is_terminal_focused {
+                camera_moves_with_wasd(
+                    &client.input,
+                    &mut client.target_camera,
+                    &mut fly.follow_vehicle,
+                    &mut fly.lock_rotation,
+                    sounds,
+                );
 
-            camera_zooms_with_plus_minus(&client.input, &mut client.target_camera);
+                camera_zooms_with_plus_minus(&client.input, &mut client.target_camera);
+            }
         }
         Viewport::Editor(editor) => {
-            camera_zooms_with_plus_minus(&client.input, &mut client.target_camera);
+            if !is_terminal_focused {
+                camera_zooms_with_plus_minus(&client.input, &mut client.target_camera);
 
-            editor_offset_moves_with_wasd(
-                &client.input,
-                &mut editor.target_offset,
-                client.camera.zoom,
-            );
+                editor_offset_moves_with_wasd(
+                    &client.input,
+                    &mut editor.target_offset,
+                    client.camera.zoom,
+                );
+            }
 
             editor_actual_offset_smooth_animation(editor.target_offset, &mut editor.actual_offset);
 

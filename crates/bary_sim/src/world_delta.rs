@@ -2,6 +2,8 @@ use bary_core::prelude::*;
 use bary_factory::*;
 use serde::{Deserialize, Serialize};
 
+use crate::GlobalTileIndex;
+
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum WorldDelta {
     ClearAll,
@@ -43,5 +45,23 @@ pub enum WorldDelta {
         iso: Isometry2d,
         radius: f32,
         seed: u64,
+    },
+    Explode(GridLocation),
+    ToggleTracking(Ent),
+    RemoveTerrainTile {
+        asteroid: Ent,
+        tile: GlobalTileIndex,
+    },
+    AddTerrainTile {
+        asteroid: Ent,
+        tile: GlobalTileIndex,
+    },
+    FullyRevealTerrainTile {
+        asteroid: Ent,
+        tile: GlobalTileIndex,
+    },
+    GoToAsteroid {
+        grid_id: Ent,
+        ast_id: Ent,
     },
 }

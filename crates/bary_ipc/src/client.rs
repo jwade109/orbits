@@ -1,6 +1,5 @@
 use crate::ClientId;
 use crate::*;
-use log::*;
 use renet::*;
 use renet_netcode::*;
 use std::net::*;

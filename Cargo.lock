@@ -572,6 +572,7 @@ dependencies = [
 name = "bary_terminal"
 version = "0.1.0"
 dependencies = [
+ "bary_input",
  "rdev",
  "shellwords",
 ]

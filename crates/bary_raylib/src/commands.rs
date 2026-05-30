@@ -118,7 +118,11 @@ pub fn world_delta_commands() -> Vec<Command<TermCmd>> {
             let grid_id = Ent(parse_arg(args, "grid_id")?);
             Ok(TermCmd::World(WorldDelta::DespawnGrid(grid_id)))
         }),
-        Command::new("sim.ping", vec![], |_| Ok(TermCmd::Ping)),
+        Command::new("sim.ping", vec!["x", "y"], |args| {
+            let x = parse_arg(args, "x")?;
+            let y = parse_arg(args, "y")?;
+            Ok(TermCmd::World(WorldDelta::Ping((x, y).into())))
+        }),
         Command::new("sim.clear", vec![], |_| {
             Ok(TermCmd::World(WorldDelta::ClearAll))
         }),
@@ -130,6 +134,60 @@ pub fn world_delta_commands() -> Vec<Command<TermCmd>> {
                 grid_id,
                 waypoint: Isometry2d::from_xya(x, y, 0.0),
             }))
+        }),
+        Command::new("sim.explode", vec!["grid_id", "x", "y"], |args| {
+            let grid_id = Ent(parse_arg(args, "grid_id")?);
+            let x = parse_arg(args, "x")?;
+            let y = parse_arg(args, "y")?;
+            let loc = GridLocation::new(grid_id, (x, y).into());
+            Ok(TermCmd::World(WorldDelta::Explode(loc)))
+        }),
+        Command::new("sim.toggle_tracking", vec!["grid_id"], |args| {
+            let grid_id = Ent(parse_arg(args, "grid_id")?);
+            Ok(TermCmd::World(WorldDelta::ToggleTracking(grid_id)))
+        }),
+        Command::new("sim.ast.remove", vec!["ast_id", "x", "y"], |args| {
+            let ast_id = Ent(parse_arg(args, "ast_id")?);
+            let x = parse_arg(args, "x")?;
+            let y = parse_arg(args, "y")?;
+            Ok(TermCmd::World(WorldDelta::RemoveTerrainTile {
+                asteroid: ast_id,
+                tile: GlobalTileIndex((x, y).into()),
+            }))
+        }),
+        Command::new("sim.ast.add", vec!["ast_id", "x", "y"], |args| {
+            let ast_id = Ent(parse_arg(args, "ast_id")?);
+            let x = parse_arg(args, "x")?;
+            let y = parse_arg(args, "y")?;
+            Ok(TermCmd::World(WorldDelta::AddTerrainTile {
+                asteroid: ast_id,
+                tile: GlobalTileIndex((x, y).into()),
+            }))
+        }),
+        Command::new("sim.ast.reveal", vec!["ast_id", "x", "y"], |args| {
+            let ast_id = Ent(parse_arg(args, "ast_id")?);
+            let x = parse_arg(args, "x")?;
+            let y = parse_arg(args, "y")?;
+            Ok(TermCmd::World(WorldDelta::FullyRevealTerrainTile {
+                asteroid: ast_id,
+                tile: GlobalTileIndex((x, y).into()),
+            }))
+        }),
+        Command::new("sim.ast.spawn", vec!["x", "y", "r", "seed"], |args| {
+            let x: f32 = parse_arg(args, "x")?;
+            let y: f32 = parse_arg(args, "y")?;
+            let r = parse_arg(args, "r")?;
+            let seed = parse_arg(args, "seed")?;
+            Ok(TermCmd::World(WorldDelta::SpawnAsteroid {
+                iso: (x, y, 0.0).into(),
+                radius: r,
+                seed,
+            }))
+        }),
+        Command::new("sim.goto.ast", vec!["grid_id", "ast_id"], |args| {
+            let grid_id = Ent(parse_arg(args, "grid_id")?);
+            let ast_id = Ent(parse_arg(args, "ast_id")?);
+            Ok(TermCmd::World(WorldDelta::GoToAsteroid { grid_id, ast_id }))
         }),
     ]
 }

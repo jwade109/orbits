@@ -244,10 +244,6 @@ pub fn imgui_test(
         leave_ship_editor_on_escape(client, sounds);
     }
 
-    if layout.button("Spawn Ship").clicked() {
-        spawn_random_ship_on_p(world);
-    }
-
     for portal in world.debug_portals.values_mut() {
         if let PortalState::Source(item) = &mut portal.state {
             let s = format!("{:?}", item);
