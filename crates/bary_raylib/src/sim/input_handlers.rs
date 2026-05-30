@@ -11,15 +11,15 @@ use early_returns::*;
 use log::*;
 
 pub fn command_selected_ships_to_waypoint(
-    world: &mut World,
     client: &mut ClientSpecificInfo,
-    sounds: &mut SoundEffects,
     p: Vec2,
     q: Vec2,
-) {
-    let free = some_or_return!(client.viewport.free());
+) -> Vec<WorldDelta> {
+    let mut deltas = Vec::new();
 
-    let mut successes = 0;
+    let Some(free) = client.viewport.free() else {
+        return deltas;
+    };
 
     let n_ships = free.selection_info.selected.len();
 
@@ -38,21 +38,11 @@ pub fn command_selected_ships_to_waypoint(
             grid_id: loc.grid_id,
             waypoint,
         };
-        let res = apply_delta(world, delta);
 
-        if let Err(e) = res {
-            client.chat.log(format!("Failed to set waypoint: {e:?}"));
-            continue;
-        }
-
-        successes += 1;
+        deltas.push(delta);
     }
 
-    if successes == free.selection_info.selected.len() {
-        sounds.push(SoundEffect::SetWaypoint);
-    } else {
-        sounds.push(SoundEffect::GenericFailure);
-    }
+    deltas
 }
 
 pub fn explode_at_mouseover(world: &mut World, client: &mut ClientSpecificInfo) {

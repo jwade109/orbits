@@ -771,11 +771,8 @@ fn update_terrain_selection_info(client: &mut ClientSpecificInfo, asteroids: &Co
     }
 }
 
-pub fn pre_simulation_update(
-    world: &mut World,
-    client: &mut ClientSpecificInfo,
-    sounds: &mut SoundEffects,
-) {
+#[must_use]
+pub fn pre_simulation_update(world: &World, client: &mut ClientSpecificInfo) -> Vec<WorldDelta> {
     client.ticks += 1;
 
     update_actual_hover_part_info(client, &world.grids);
@@ -795,12 +792,22 @@ pub fn pre_simulation_update(
         }
     }
 
+    let mut deltas = Vec::new();
+
     if client.input.just_released(Button::Right) {
         if let Some(free) = client.viewport.free() {
             if let Some(p) = free.waypoint_widget {
                 if let Some(mouse_pos) = client.mouse_screen_position {
                     let q = screen_to_world(&client.camera, mouse_pos, client.screen_dims);
-                    input_handlers::command_selected_ships_to_waypoint(world, client, sounds, p, q);
+                    deltas.extend(input_handlers::command_selected_ships_to_waypoint(
+                        client, p, q,
+                    ));
+
+                    // for delta in deltas {
+                    //     if apply_delta(world, delta).is_err() {
+                    //         client.chat.log("Failed to set waypoint");
+                    //     }
+                    // }
                 }
             }
         }
@@ -809,6 +816,8 @@ pub fn pre_simulation_update(
             free.waypoint_widget = None;
         }
     }
+
+    deltas
 }
 
 fn zoom_in_on_key_v(client: &mut ClientSpecificInfo) {
@@ -842,7 +851,7 @@ fn do_terrain_tile_under_mouse(world: &mut World, client: &mut ClientSpecificInf
         }
     };
 
-    apply_delta(world, delta);
+    _ = apply_delta(world, delta);
 }
 
 pub fn post_simulation_update(

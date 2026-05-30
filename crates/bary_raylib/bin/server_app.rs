@@ -18,6 +18,12 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
+struct DeltaLog {
+    tick: u64,
+    source: MessageSource,
+    delta: WorldDelta,
+}
+
 pub struct ServerApp {
     app: BasicApp,
     terminal: Terminal<TermCmd>,
@@ -36,6 +42,7 @@ pub struct ServerApp {
     sync_timer: WallTimer,
     draw_timer: WallTimer,
     queued_deltas: Vec<WorldDelta>,
+    delta_history: Vec<DeltaLog>,
 }
 
 impl ServerApp {
@@ -88,6 +95,7 @@ impl ServerApp {
             sync_timer: WallTimer::with_dur(Duration::from_millis(20)),
             draw_timer: WallTimer::with_dur(Duration::from_millis(20)),
             queued_deltas: Vec::new(),
+            delta_history: Vec::new(),
         })
     }
 
@@ -237,7 +245,13 @@ impl ServerApp {
                     self.terminal
                         .log_error(format!("Failed to apply delta: {e}"));
                 } else {
-                    self.queued_deltas.push(delta);
+                    self.queued_deltas.push(delta.clone());
+                    let log = DeltaLog {
+                        tick: self.world.ticks,
+                        source: msg.source,
+                        delta,
+                    };
+                    self.delta_history.push(log);
                 }
             }
             _ => self.on_unsupported_message(),
@@ -681,6 +695,9 @@ impl Application for ServerApp {
         }
 
         self.terminal.focus();
+
+        self.delta_history
+            .retain(|log| log.tick + 1000 > self.world.ticks);
     }
 
     fn draw(&mut self) {
@@ -704,6 +721,34 @@ impl Application for ServerApp {
         for (i, tlm) in self.client_telemetry.values().enumerate() {
             let s = date_line(i + 1, tlm.ticks, self.world.ticks);
             date_lines.push(s);
+        }
+
+        let mut lines = vec![
+            "Server Application".to_string(),
+            format!("Ticks:     {}", self.world.ticks),
+            format!("Grids:     {}", self.world.grids.len()),
+            format!("Parts:     {}", self.world.parts.len()),
+            format!("Protos:    {}", self.world.prototypes.len()),
+            format!("BPs:       {}", self.world.blueprints.len()),
+            format!("Thrusters: {}", self.world.thrusters.len()),
+            format!("Invs:      {}", self.world.inventories.len()),
+            format!("Machines:  {}", self.world.machines.len()),
+            format!("Asteroids: {}", self.world.asteroids.len()),
+            format!("Chunks:    {}", self.world.terrain_chunks.len()),
+            format!("Tiles:     {}", self.world.terrain_tiles.len()),
+            format!("GAUs:      {}", self.world.grid_acceleration_updates),
+            format!("Clients:   {}", n_clients),
+        ];
+
+        lines.extend(client_info_lines.clone());
+        lines.push(String::new());
+        lines.extend(date_lines.clone());
+
+        lines.push(String::new());
+
+        for log in self.delta_history.iter().rev() {
+            let s = format!("{} {:?} {:?}", log.tick, log.source, log.delta);
+            lines.push(s);
         }
 
         let w = self.app.handle.get_render_width();
@@ -733,27 +778,6 @@ impl Application for ServerApp {
             }
 
             draw_terminal(&mut d, &self.terminal, &self.assets);
-
-            let mut lines = vec![
-                "Server Application".to_string(),
-                format!("Ticks:     {}", self.world.ticks),
-                format!("Grids:     {}", self.world.grids.len()),
-                format!("Parts:     {}", self.world.parts.len()),
-                format!("Protos:    {}", self.world.prototypes.len()),
-                format!("BPs:       {}", self.world.blueprints.len()),
-                format!("Thrusters: {}", self.world.thrusters.len()),
-                format!("Invs:      {}", self.world.inventories.len()),
-                format!("Machines:  {}", self.world.machines.len()),
-                format!("Asteroids: {}", self.world.asteroids.len()),
-                format!("Chunks:    {}", self.world.terrain_chunks.len()),
-                format!("Tiles:     {}", self.world.terrain_tiles.len()),
-                format!("GAUs:      {}", self.world.grid_acceleration_updates),
-                format!("Clients:   {}", n_clients),
-            ];
-
-            lines.extend(client_info_lines.clone());
-            lines.push(String::new());
-            lines.extend(date_lines.clone());
 
             let text = lines.join("\n");
 

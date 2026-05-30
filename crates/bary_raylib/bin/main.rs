@@ -461,11 +461,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let mut sounds = SoundEffects::new();
 
-        pre_simulation_update(
-            &mut main_app.app.world,
-            &mut main_app.app.client,
-            &mut sounds,
-        );
+        let deltas = pre_simulation_update(&mut main_app.app.world, &mut main_app.app.client);
+
+        for delta in deltas {
+            main_app
+                .app
+                .node
+                .send_command(MessageKind::RequestDelta(delta));
+        }
 
         let mut timers = DebugTimers::default();
 
