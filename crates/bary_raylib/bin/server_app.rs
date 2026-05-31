@@ -5,7 +5,8 @@ use bary_raylib::assets::Assets;
 use bary_raylib::persistence::{list_saves_in_dir, load_world, save_world};
 use bary_raylib::render::{draw_terminal, draw_world};
 use bary_raylib::sim::{
-    ClientSpecificInfo, apparent_datetime, apply_delta, timedelta_from_delta_ticks,
+    ClientSpecificInfo, animate_camera_towards_target, apparent_datetime, apply_delta,
+    timedelta_from_delta_ticks,
 };
 use bary_raylib::utils::{Application, BasicApp};
 use bary_raylib::*;
@@ -29,6 +30,7 @@ struct DeltaLog {
 
 pub struct ServerApp {
     app: BasicApp,
+    client: ClientSpecificInfo,
     terminal: Terminal<TermCmd>,
     assets: Assets,
     saves_dir: PathBuf,
@@ -81,6 +83,7 @@ impl ServerApp {
 
         Ok(Self {
             app,
+            client: ClientSpecificInfo::new(),
             terminal,
             assets,
             saves_dir,
@@ -681,13 +684,39 @@ fn date_line(i: usize, ticks: u64, server_ticks: u64) -> String {
     }
 }
 
-fn draw_ship_label(d: &mut RaylibDrawHandle, font: &Font, p: Vector2, name: &str, color: Color) {
-    let size = 20.0;
-    d.draw_circle_v(p, 3.0, color);
-    let p = p + Vector2::new(8.0, -size / 2.0);
-    let t = name.to_uppercase();
-    d.draw_text_ex(font, &t, p, size, 0.0, color);
+fn get_server_camera_pos(world: &World) -> (Vec2, f32) {
+    if world.grids.is_empty() {
+        return (Vec2::ZERO, 4.0);
+    }
+
+    let sum: Vec2 = world
+        .grids
+        .values()
+        .map(|g| g.centroid_isometry().translation)
+        .sum();
+
+    let center = sum / world.grids.len() as f32;
+
+    let mut max_dist = 0.0;
+    for grid in world.grids.values() {
+        let d = center.distance(grid.centroid_isometry().translation);
+        if max_dist < d {
+            max_dist = d;
+        }
+    }
+
+    let zoom = if max_dist == 0.0 { 5.0 } else { 1000.0 / max_dist };
+
+    (center, zoom)
 }
+
+// fn draw_ship_label(d: &mut RaylibDrawHandle, font: &Font, p: Vector2, name: &str, color: Color) {
+//     let size = 20.0;
+//     d.draw_circle_v(p, 3.0, color);
+//     let p = p + Vector2::new(8.0, -size / 2.0);
+//     let t = name.to_uppercase();
+//     d.draw_text_ex(font, &t, p, size, 0.0, color);
+// }
 
 impl Application for ServerApp {
     fn update(&mut self) {
@@ -708,6 +737,18 @@ impl Application for ServerApp {
 
         self.delta_history
             .retain(|log| log.tick + 1000 > self.world.ticks);
+
+        self.client.screen_dims = Vec2::new(
+            self.app.handle.get_render_width() as f32,
+            self.app.handle.get_render_height() as f32,
+        );
+
+        let (center, zoom) = get_server_camera_pos(&self.world);
+
+        self.client.target_camera.isometry.translation = center;
+        self.client.target_camera.zoom = zoom;
+
+        animate_camera_towards_target(&mut self.client.target_camera, &mut self.client.camera);
     }
 
     fn draw(&mut self) {
@@ -717,7 +758,7 @@ impl Application for ServerApp {
 
         let n_clients = self.get_statistics().clients.len();
 
-        let font = self.assets.consolas.as_ref().unwrap();
+        // let font = self.assets.consolas.as_ref().unwrap();
 
         let mut client_info_lines = Vec::new();
         if let Some(node) = self.node() {
@@ -761,38 +802,31 @@ impl Application for ServerApp {
             lines.push(s);
         }
 
-        let w = self.app.handle.get_render_width();
-        let h = self.app.handle.get_render_height();
+        // let w = self.app.handle.get_render_width();
+        // let h = self.app.handle.get_render_height();
 
-        let scale = 4.0;
+        // let scale = 4.0;
 
-        let w2s = |p: Vec2| -> Vector2 {
-            let x = p.x * scale + w as f32 / 2.0;
-            let y = p.y * scale + h as f32 / 2.0;
-            Vector2::new(x, y)
-        };
+        // let w2s = |p: Vec2| -> Vector2 {
+        //     let x = p.x * scale + w as f32 / 2.0;
+        //     let y = p.y * scale + h as f32 / 2.0;
+        //     Vector2::new(x, y)
+        // };
 
         self.app.handle.draw(&self.app.thread, |mut d| {
             d.clear_background(Color::new(20, 20, 20, 255));
 
-            for grid in self.world.grids.values() {
-                let p = w2s(grid.particle_location.translation);
-                draw_ship_label(&mut d, font, p, &grid.name, Color::WHITE);
-            }
+            // for grid in self.world.grids.values() {
+            //     let p = w2s(grid.particle_location.translation);
+            //     draw_ship_label(&mut d, font, p, &grid.name, Color::WHITE);
+            // }
 
-            for (_id, tlm) in &self.client_telemetry {
-                for (_, name, iso) in &tlm.grid_transforms {
-                    let p = w2s(iso.translation);
-                    draw_ship_label(&mut d, font, p, name, Color::ORANGE.alpha(0.4));
-                }
-            }
-
-            draw_terminal(
-                &mut d,
-                &self.terminal,
-                &self.assets,
-                Color::BLACK.alpha(0.0),
-            );
+            // for (_id, tlm) in &self.client_telemetry {
+            //     for (_, name, iso) in &tlm.grid_transforms {
+            //         let p = w2s(iso.translation);
+            //         draw_ship_label(&mut d, font, p, name, Color::ORANGE.alpha(0.4));
+            //     }
+            // }
 
             let text = lines.join("\n");
 
@@ -805,11 +839,17 @@ impl Application for ServerApp {
                 Color::ORANGE,
             );
 
-            let info = ClientSpecificInfo::new();
             let input = InputState::default();
             let gui = imgui::ImGui::new(Vec2::ZERO, None, input);
 
-            draw_world(&self.world, &info, &self.assets, &gui, &mut d);
+            draw_world(&self.world, &self.client, &self.assets, &gui, &mut d);
+
+            draw_terminal(
+                &mut d,
+                &self.terminal,
+                &self.assets,
+                Color::BLACK.alpha(0.0),
+            );
         });
     }
 

@@ -109,6 +109,7 @@ impl<T: std::fmt::Debug> Terminal<T> {
             "#  .    .      .      .  ",
             "#   .  .  .       >#]   .",
             "#",
+            "# Welcome to the Barycenter Shell (bsh).",
             "# This provides a relatively rich interface",
             "# for interacting with the game via console commands.",
             "#",

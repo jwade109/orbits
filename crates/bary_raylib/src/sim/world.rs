@@ -249,7 +249,7 @@ fn editor_actual_offset_smooth_animation(target: Vec2, actual: &mut Vec2) {
     actual.y = low_pass(actual.y, target.y, rate_translation);
 }
 
-fn animate_camera_towards_target(target: &Camera, actual: &mut Camera) {
+pub fn animate_camera_towards_target(target: &Camera, actual: &mut Camera) {
     let rate_translation = 0.2;
     let rate_rotation = 0.2;
     actual.isometry.translation.x = low_pass(

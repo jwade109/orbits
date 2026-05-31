@@ -3,7 +3,7 @@ use bary_parts::load_parts_from_dir;
 use bary_sim::load_names_from_file;
 use log::debug;
 use raylib::prelude::*;
-use std::{collections::BTreeMap, path::Path};
+use std::collections::BTreeMap;
 
 pub type MaybeTexture = Option<Texture2D>;
 

@@ -10,7 +10,8 @@ def work(cmd):
 
 if __name__ == '__main__':
 
-    subprocess.check_call("cargo build --release", shell=False)
+    subprocess.check_call("cargo build --release --bin server_app", shell=False)
+    subprocess.check_call("cargo build --release --bin main", shell=False)
 
     pool = multiprocessing.Pool(3, init_worker)
     try:

@@ -276,7 +276,7 @@ pub fn draw_world(
 
     draw_imgui(d, gui, assets);
 
-    draw_animation(d, assets);
+    // draw_animation(d, assets);
 
     // draw_item_menu(d, (300, 200).into());
 
@@ -294,6 +294,7 @@ fn get_terrain_tile_rect(material: TerrainMaterial, variant: usize) -> Rectangle
     )
 }
 
+#[allow(unused)]
 fn draw_animation(d: &mut RaylibDrawHandle, assets: &Assets) {
     if let Some(anim) = &assets.terrain_spritesheet {
         d.draw_texture(&anim, 100, 100, Color::WHITE);
@@ -1363,6 +1364,7 @@ fn draw_light_source(d: &mut RaylibDrawHandle, p: Vec2, r_scale: f32, color: Col
     }
 }
 
+#[allow(unused)]
 fn draw_item_menu(d: &mut RaylibDrawHandle, origin: IVec2) {
     let n_cols: i32 = 5;
 

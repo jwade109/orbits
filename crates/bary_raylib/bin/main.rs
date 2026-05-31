@@ -22,6 +22,7 @@ use serde::Deserialize;
 pub struct App {
     client: ClientSpecificInfo,
     world: World,
+    #[allow(unused)]
     debug: DebugInfo,
 
     incoming_network_queue: MessageQueue<Message>,
@@ -110,6 +111,55 @@ impl App {
             server_telemetry_timer,
             should_exit: false,
         })
+    }
+
+    fn update(&mut self) {
+        // HANDLE MESSAGES FROM NETWORK NODE
+
+        for msg in self.node.update() {
+            self.on_rcv_server_msg(msg);
+        }
+
+        // HANDLE INPUTS FROM RDEV LISTENER THREAD
+
+        while let Some(e) = self.input_queue.pop() {
+            let focused = self.handle.is_window_focused();
+            self.client.input.process_rdev_event(&e, focused);
+        }
+
+        if self.server_ping_timer.tick() {
+            self.node.send_telemetry(MessageKind::Ping)
+        }
+
+        if self.server_telemetry_timer.tick() {
+            let tlm = ClientTelemetry {
+                ticks: self.world.ticks,
+                grid_transforms: self
+                    .world
+                    .grids
+                    .iter()
+                    .map(|(id, grid)| (*id, grid.name.clone(), grid.particle_location))
+                    .collect(),
+            };
+            self.node.send_telemetry(MessageKind::ClientTelemetry(tlm));
+        }
+
+        // GET SOME BASIC INPUT INFORMATION FROM RAYLIB
+
+        self.client.mouse_screen_position = self
+            .handle
+            .is_cursor_on_screen()
+            .then(|| raylib_to_glam(self.handle.get_mouse_position()));
+        self.client.screen_dims = Vec2::new(
+            self.handle.get_screen_width() as f32,
+            self.handle.get_screen_height() as f32,
+        );
+
+        // GET COMMANDS FROM THE MULTIPLAYER SERVER
+
+        while let Some(n) = self.incoming_network_queue.pop() {
+            info!("Got message: {n:?}")
+        }
     }
 
     pub fn process_event(&mut self, sounds: &mut SoundEffects, on_gui: bool) {
@@ -395,104 +445,36 @@ struct Args {
     server_addr: String,
 }
 
-struct MainApp {
-    app: App,
-}
-
-impl MainApp {
-    fn new(args: Args) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(Self {
-            app: App::new(args, log::LevelFilter::Info)?,
-        })
-    }
-
-    fn update(&mut self) {
-        // HANDLE MESSAGES FROM NETWORK NODE
-
-        for msg in self.app.node.update() {
-            self.app.on_rcv_server_msg(msg);
-        }
-
-        // HANDLE INPUTS FROM RDEV LISTENER THREAD
-
-        while let Some(e) = self.app.input_queue.pop() {
-            let focused = self.app.handle.is_window_focused();
-            self.app.client.input.process_rdev_event(&e, focused);
-        }
-
-        if self.app.server_ping_timer.tick() {
-            self.app.node.send_telemetry(MessageKind::Ping)
-        }
-
-        if self.app.server_telemetry_timer.tick() {
-            let tlm = ClientTelemetry {
-                ticks: self.app.world.ticks,
-                grid_transforms: self
-                    .app
-                    .world
-                    .grids
-                    .iter()
-                    .map(|(id, grid)| (*id, grid.name.clone(), grid.particle_location))
-                    .collect(),
-            };
-            self.app
-                .node
-                .send_telemetry(MessageKind::ClientTelemetry(tlm));
-        }
-
-        // GET SOME BASIC INPUT INFORMATION FROM RAYLIB
-
-        self.app.client.mouse_screen_position = self
-            .app
-            .handle
-            .is_cursor_on_screen()
-            .then(|| raylib_to_glam(self.app.handle.get_mouse_position()));
-        self.app.client.screen_dims = Vec2::new(
-            self.app.handle.get_screen_width() as f32,
-            self.app.handle.get_screen_height() as f32,
-        );
-
-        // GET COMMANDS FROM THE MULTIPLAYER SERVER
-
-        while let Some(n) = self.app.incoming_network_queue.pop() {
-            info!("Got message: {n:?}")
-        }
-    }
-}
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     info!("{:?}", args);
 
-    let mut main_app = MainApp::new(args)?;
+    let mut main_app = App::new(args, log::LevelFilter::Info)?;
 
     let audio = raylib::audio::RaylibAudio::init_audio_device()?;
     let mut active_sounds = Vec::new();
 
-    while !main_app.app.handle.window_should_close() && !main_app.app.should_exit {
+    while !main_app.handle.window_should_close() && !main_app.should_exit {
         main_app.update();
 
         // RUN PRE-PHYSICS, PHYSICS, AND POST-PHYSICS UPDATES
 
         let mut sounds = SoundEffects::new();
 
-        let deltas = pre_simulation_update(&mut main_app.app.world, &mut main_app.app.client);
+        let deltas = pre_simulation_update(&main_app.world, &mut main_app.client);
 
         for delta in deltas {
-            main_app
-                .app
-                .node
-                .send_command(MessageKind::RequestDelta(delta));
+            main_app.node.send_command(MessageKind::RequestDelta(delta));
         }
 
         let mut timers = DebugTimers::default();
 
         post_simulation_update(
-            &mut main_app.app.world,
-            &mut main_app.app.client,
+            &mut main_app.world,
+            &mut main_app.client,
             &mut sounds,
-            main_app.app.terminal.is_focused(),
+            main_app.terminal.is_focused(),
         );
 
         // CONSTRUCT IMMEDIATE-MODE GUI
@@ -500,84 +482,70 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let gui = {
             let _timer = timers.scope("imgui");
 
-            imgui::imgui_pass(
-                &mut main_app.app.client,
-                &mut main_app.app.world,
-                &mut sounds,
-            )
+            imgui::imgui_pass(&mut main_app.client, &mut main_app.world, &mut sounds)
         };
 
         // HANDLE RDEV EVENTS (DEPRECATED - USE INPUTSTATE)
 
-        let cmds = main_app
-            .app
-            .terminal
-            .handle_input(&main_app.app.client.input);
+        let cmds = main_app.terminal.handle_input(&main_app.client.input);
 
         for cmd in cmds {
-            main_app.app.on_terminal_cmd(cmd);
+            main_app.on_terminal_cmd(cmd);
         }
 
-        main_app
-            .app
-            .process_event(&mut sounds, gui.is_hovering_gui());
+        main_app.process_event(&mut sounds, gui.is_hovering_gui());
 
         // AND DRAW IT ALL
 
         main_app
-            .app
             .handle
-            .draw(&main_app.app.thread, |mut d: RaylibDrawHandle<'_>| {
+            .draw(&main_app.thread, |mut d: RaylibDrawHandle<'_>| {
                 d.clear_background(Color::BLACK);
 
                 draw_world(
-                    &main_app.app.world,
-                    &main_app.app.client,
-                    &main_app.app.assets,
+                    &main_app.world,
+                    &main_app.client,
+                    &main_app.assets,
                     &gui,
                     &mut d,
                 );
 
                 imgui::lame_old_imgui_entrypoint(
                     &mut d,
-                    &mut main_app.app.client,
-                    &mut main_app.app.world,
+                    &mut main_app.client,
+                    &mut main_app.world,
                     &mut sounds,
-                    &main_app.app.assets,
+                    &main_app.assets,
                 );
 
-                draw_mouse_screen_position(&mut d, main_app.app.client.mouse_screen_position);
+                draw_mouse_screen_position(&mut d, main_app.client.mouse_screen_position);
 
                 draw_debug_info(
-                    &main_app.app.world,
-                    &main_app.app.client,
-                    &main_app.app.assets,
+                    &main_app.world,
+                    &main_app.client,
+                    &main_app.assets,
                     &timers,
-                    &main_app.app.node,
+                    &main_app.node,
                     &mut d,
                 );
 
                 draw_terminal(
                     &mut d,
-                    &main_app.app.terminal,
-                    &main_app.app.assets,
+                    &main_app.terminal,
+                    &main_app.assets,
                     Color::BLACK.alpha(0.5),
                 );
             });
 
         handle_sounds(sounds, &audio, &mut active_sounds);
 
-        if main_app.app.client.input.just_pressed(rdev::Key::KeyC)
-            && main_app
-                .app
-                .client
-                .input
-                .is_key_pressed(rdev::Key::ControlLeft)
+        if main_app.client.input.just_pressed(rdev::Key::KeyC)
+            && main_app.client.input.is_key_pressed(rdev::Key::ControlLeft)
         {
             break;
         }
 
-        main_app.app.client.input.on_frame_boundary();
+        main_app.client.input.on_frame_boundary();
     }
 
     info!("Done.");
