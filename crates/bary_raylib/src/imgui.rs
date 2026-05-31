@@ -592,8 +592,6 @@ pub fn lame_old_imgui_entrypoint(
     sounds: &mut SoundEffects,
     assets: &Assets,
 ) {
-    let raylib_camera = to_raylib_camera(&client.camera, client.screen_dims);
-
     imgui_editor_layer_indicator(d, client, sounds);
     imgui_all_parts_in_layer(d, client, world, sounds);
 
@@ -727,7 +725,7 @@ pub fn imgui_pass(
         client.input.clone(),
     );
 
-    selected_part_gui(&mut gui, client, world);
+    // selected_part_gui(&mut gui, client, world);
 
     free_gui(&mut gui, world, client, sounds);
     editor_gui(&mut gui, world, client, sounds);

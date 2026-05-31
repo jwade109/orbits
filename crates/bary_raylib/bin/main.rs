@@ -14,6 +14,7 @@ use bary_raylib::utils::raylib_to_glam;
 use bary_raylib::*;
 use bary_sim::*;
 use bary_terminal::Terminal;
+use bary_ui::examples::example_layout;
 use clap::Parser;
 use log::*;
 use raylib::prelude::*;
@@ -445,6 +446,32 @@ struct Args {
     server_addr: String,
 }
 
+fn draw_gui<T>(d: &mut RaylibDrawHandle, gui: &bary_ui::layout::Tree<T>) {
+    for root in gui.layouts() {
+        let aabb: AABB = root.aabb();
+        let tl = aabb.lower();
+        d.draw_rectangle_lines(
+            tl.x as i32,
+            tl.y as i32,
+            aabb.span.x as i32,
+            aabb.span.y as i32,
+            Color::ORANGE.alpha(0.5),
+        );
+        for node in root.iter() {
+            let aabb: AABB = node.aabb();
+            let tl = aabb.lower();
+
+            d.draw_rectangle_lines(
+                tl.x as i32,
+                tl.y as i32,
+                aabb.span.x as i32,
+                aabb.span.y as i32,
+                Color::ORANGE.alpha(0.5),
+            );
+        }
+    }
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
@@ -509,6 +536,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &gui,
                     &mut d,
                 );
+
+                let gui = example_layout(d.get_render_width() as f32, d.get_render_height() as f32);
+
+                draw_gui(&mut d, &gui);
 
                 imgui::lame_old_imgui_entrypoint(
                     &mut d,
