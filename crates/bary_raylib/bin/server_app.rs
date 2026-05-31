@@ -60,11 +60,12 @@ impl ServerApp {
 
         let node = Arc::new(RwLock::new(ServerNode::new(port)));
 
-        let mut cmds = server_console_commands();
-        cmds.extend(world_delta_commands());
-        cmds.extend(blob_info_commands());
+        let mut terminal = Terminal::new();
 
-        let terminal = Terminal::with_commands(cmds);
+        terminal.register_commands(server_console_commands());
+        terminal.register_commands(world_delta_commands());
+        terminal.register_commands(blob_info_commands());
+        terminal.register_commands(terminal_commands());
 
         let mut app = BasicApp::new("Barycenter Server", TraceLogLevel::LOG_INFO);
         let mut assets = Assets::default();
@@ -492,6 +493,12 @@ impl ServerApp {
                 Ok(()) => self.terminal.log_info("OK"),
                 Err(e) => self.terminal.log_error(format!("FAILED: {:?}", e)),
             },
+            TermCmd::Help => {
+                self.terminal.print_help_command();
+            }
+            TermCmd::ToggleDebugMode => {
+                self.terminal.toggle_debug_mode();
+            }
             _ => self.terminal.log_warn(format!("Unsupported: {:?}", cmd)),
         }
     }

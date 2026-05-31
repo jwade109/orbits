@@ -5,6 +5,7 @@ use bary_core::prelude::*;
 use bary_ipc::*;
 use bary_raylib::assets::*;
 use bary_raylib::imgui;
+use bary_raylib::persistence::load_world;
 use bary_raylib::render::*;
 use bary_raylib::sim::*;
 use bary_raylib::sounds::SoundEffects;
@@ -42,10 +43,7 @@ pub struct App {
 }
 
 impl App {
-    fn new(
-        server_addr: &str,
-        log_level: log::LevelFilter,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    fn new(args: Args, log_level: log::LevelFilter) -> Result<Self, Box<dyn std::error::Error>> {
         let incoming_network_queue = new_message_queue();
 
         let input_queue = new_message_queue();
@@ -56,11 +54,18 @@ impl App {
             }
         });
 
-        let world = World::empty();
+        let mut world = World::empty();
 
-        let mut cmds = all_commands();
-        cmds.extend(client_request_blob_commands());
-        cmds.extend(world_delta_commands());
+        if let Some(save) = args.save_file {
+            world = load_world(save)?;
+        }
+
+        let mut terminal = Terminal::new();
+
+        terminal.register_commands(all_commands());
+        terminal.register_commands(client_request_blob_commands());
+        terminal.register_commands(world_delta_commands());
+        terminal.register_commands(terminal_commands());
 
         simple_logger::SimpleLogger::new()
             .with_level(log_level)
@@ -84,7 +89,7 @@ impl App {
         let mut assets = Assets::default();
         load_assets(&mut assets, &mut handle, &thread);
 
-        let node = ClientNode::with_str_addr(server_addr)?;
+        let node = ClientNode::with_str_addr(&args.server_addr)?;
 
         let server_ping_timer = WallTimer::with_dur(Duration::from_millis(1000));
         let server_telemetry_timer = WallTimer::with_dur(Duration::from_millis(1000));
@@ -96,7 +101,7 @@ impl App {
             incoming_network_queue,
             _input_thread,
             input_queue,
-            terminal: Terminal::with_commands(cmds),
+            terminal,
             handle,
             thread,
             assets,
@@ -261,6 +266,12 @@ impl App {
             TermCmd::World(delta) => {
                 self.node.send_command(MessageKind::RequestDelta(delta));
             }
+            TermCmd::Help => {
+                self.terminal.print_help_command();
+            }
+            TermCmd::ToggleDebugMode => {
+                self.terminal.toggle_debug_mode();
+            }
             _ => self.terminal.log_error(format!("Unsupported: {:?}", cmd)),
         }
     }
@@ -378,6 +389,9 @@ fn handle_sounds<'a>(
 #[derive(Parser, Debug, Default, Clone)]
 #[command(version, about, long_about = None)]
 struct Args {
+    #[arg(short)]
+    save_file: Option<String>,
+    #[arg(short = 'a', default_value = "127.0.0.1:5000")]
     server_addr: String,
 }
 
@@ -386,9 +400,9 @@ struct MainApp {
 }
 
 impl MainApp {
-    fn new(server_addr: &str) -> Result<Self, Box<dyn std::error::Error>> {
+    fn new(args: Args) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
-            app: App::new(server_addr, log::LevelFilter::Info)?,
+            app: App::new(args, log::LevelFilter::Info)?,
         })
     }
 
@@ -449,7 +463,9 @@ impl MainApp {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    let mut main_app = MainApp::new(&args.server_addr)?;
+    info!("{:?}", args);
+
+    let mut main_app = MainApp::new(args)?;
 
     let audio = raylib::audio::RaylibAudio::init_audio_device()?;
     let mut active_sounds = Vec::new();

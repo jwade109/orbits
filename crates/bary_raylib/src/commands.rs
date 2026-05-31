@@ -74,6 +74,18 @@ pub fn save_command() -> Command<TermCmd> {
     })
 }
 
+pub fn help_command() -> Command<TermCmd> {
+    Command::new("term.help", vec![], |_| Ok(TermCmd::Help))
+}
+
+pub fn loglevel_command() -> Command<TermCmd> {
+    Command::new("term.debug", vec![], |_| Ok(TermCmd::ToggleDebugMode))
+}
+
+pub fn terminal_commands() -> Vec<Command<TermCmd>> {
+    vec![help_command(), loglevel_command()]
+}
+
 pub fn server_console_commands() -> Vec<Command<TermCmd>> {
     vec![
         Command::new("echo", vec![], |_| Ok(TermCmd::PrintSaveInfo)),

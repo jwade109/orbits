@@ -34,4 +34,8 @@ pub enum TermCmd {
     ClientReqBlob(TableIdent),
     /// client requests all table blobs
     ClientReqAllBlobs,
+    /// get help about the commands on this terminal
+    Help,
+    /// toggle terminal debug output
+    ToggleDebugMode,
 }

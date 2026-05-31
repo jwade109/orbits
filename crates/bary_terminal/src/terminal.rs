@@ -54,8 +54,14 @@ impl<T> Command<T> {
     pub fn parse_complete_args(&self, args: &[String]) -> Option<ArgsMap> {
         let mut ret = ArgsMap::new();
         for (i, param) in self.params.iter().enumerate() {
-            let arg = args.get(i)?;
-            ret.insert(param.clone(), arg.clone());
+            if param.starts_with("?") {
+                if let Some(arg) = args.get(i) {
+                    ret.insert(param.clone(), arg.clone());
+                }
+            } else {
+                let arg = args.get(i)?;
+                ret.insert(param.clone(), arg.clone());
+            };
         }
         Some(ret)
     }
@@ -91,7 +97,7 @@ pub struct Terminal<T: std::fmt::Debug> {
 }
 
 impl<T: std::fmt::Debug> Terminal<T> {
-    pub fn with_commands(commands: impl Into<Vec<Command<T>>>) -> Self {
+    pub fn new() -> Self {
         Self {
             contents: String::new(),
             is_active: false,
@@ -99,10 +105,22 @@ impl<T: std::fmt::Debug> Terminal<T> {
             history_index: None,
             command_history: vec!["client.req.blob.all".into()].into(),
             suggest_text: String::new(),
-            commands: commands.into(),
+            commands: Vec::new(),
             log_level: LogLevel::Info,
             font_size: 30,
         }
+    }
+
+    pub fn register_commands(&mut self, commands: Vec<Command<T>>) {
+        self.commands.extend(commands);
+    }
+
+    pub fn register_command(&mut self, cmd: Command<T>) {
+        self.commands.push(cmd);
+    }
+
+    pub fn commands(&self) -> impl Iterator<Item = &Command<T>> {
+        self.commands.iter()
     }
 
     pub fn is_active(&self) -> bool {
@@ -205,7 +223,6 @@ impl<T: std::fmt::Debug> Terminal<T> {
         for event in input.events() {
             if let rdev::EventType::KeyPress(k) = &event.event_type {
                 match k {
-                    rdev::Key::Alt => self.on_alt(),
                     rdev::Key::Backspace => self.on_backspace(),
                     rdev::Key::Return => {
                         if let Some(event) = self.on_enter() {
@@ -244,15 +261,13 @@ impl<T: std::fmt::Debug> Terminal<T> {
         ret
     }
 
-    pub fn on_alt(&mut self) {
-        if self.is_active {
-            self.log_level = match self.log_level {
-                LogLevel::Debug => LogLevel::Info,
-                LogLevel::Info => LogLevel::Debug,
-                _ => self.log_level,
-            };
-            self.log_terminal(format!("Set log level to {:?}", self.log_level));
-        }
+    pub fn toggle_debug_mode(&mut self) {
+        self.log_level = match self.log_level {
+            LogLevel::Debug => LogLevel::Info,
+            LogLevel::Info => LogLevel::Debug,
+            _ => self.log_level,
+        };
+        self.log_terminal(format!("Set log level to {:?}", self.log_level));
     }
 
     pub fn on_backspace(&mut self) {
@@ -492,5 +507,20 @@ impl<T: std::fmt::Debug> Terminal<T> {
             }
         }
         ret
+    }
+
+    pub fn print_help_command(&mut self) {
+        let mut current_line = String::new();
+        let mut lines: Vec<String> = Vec::new();
+        for cmd in self.commands() {
+            // lines.push(cmd.entrypoint.clone());
+            current_line += &format!("{}   ", cmd.entrypoint);
+            if current_line.len() > 80 {
+                lines.push(current_line.drain(..).collect());
+            }
+        }
+        for line in lines {
+            self.log_info(line);
+        }
     }
 }
