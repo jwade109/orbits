@@ -1,9 +1,12 @@
 use bary_core::prelude::*;
+use bary_input::InputState;
 use bary_ipc::*;
 use bary_raylib::assets::Assets;
 use bary_raylib::persistence::{list_saves_in_dir, load_world, save_world};
-use bary_raylib::render::draw_terminal;
-use bary_raylib::sim::{apparent_datetime, apply_delta, timedelta_from_delta_ticks};
+use bary_raylib::render::{draw_terminal, draw_world};
+use bary_raylib::sim::{
+    ClientSpecificInfo, apparent_datetime, apply_delta, timedelta_from_delta_ticks,
+};
 use bary_raylib::utils::{Application, BasicApp};
 use bary_raylib::*;
 use bary_sim::*;
@@ -784,7 +787,12 @@ impl Application for ServerApp {
                 }
             }
 
-            draw_terminal(&mut d, &self.terminal, &self.assets);
+            draw_terminal(
+                &mut d,
+                &self.terminal,
+                &self.assets,
+                Color::BLACK.alpha(0.0),
+            );
 
             let text = lines.join("\n");
 
@@ -796,6 +804,12 @@ impl Application for ServerApp {
                 0.0,
                 Color::ORANGE,
             );
+
+            let info = ClientSpecificInfo::new();
+            let input = InputState::default();
+            let gui = imgui::ImGui::new(Vec2::ZERO, None, input);
+
+            draw_world(&self.world, &info, &self.assets, &gui, &mut d);
         });
     }
 

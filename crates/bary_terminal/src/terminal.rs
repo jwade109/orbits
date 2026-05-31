@@ -98,12 +98,40 @@ pub struct Terminal<T: std::fmt::Debug> {
 
 impl<T: std::fmt::Debug> Terminal<T> {
     pub fn new() -> Self {
+        let splash_text = vec![
+            "#   .    .    . .  ..    ",
+            "# .  >#]   .           . ",
+            "# .  .     .  . >#]   . .",
+            "#         ___ ___ ___    ",
+            "#  .    >[0%0|0%0|000]   ",
+            "#            .    . ..   ",
+            "#    >|=@=|<        .    ",
+            "#  .    .      .      .  ",
+            "#   .  .  .       >#]   .",
+            "#",
+            "# This provides a relatively rich interface",
+            "# for interacting with the game via console commands.",
+            "#",
+            "# Run `help` for help.",
+            "#",
+            "# Run `clear` to clear all printouts.",
+            "#",
+            "# Hit ESC to leave this command prompt.",
+            "#",
+            "# Press CTRL+C to exit this application.",
+            "#",
+        ];
+
         Self {
             contents: String::new(),
             is_active: false,
-            lines: VecDeque::new(),
+            lines: splash_text
+                .iter()
+                .rev()
+                .map(|s| (s.to_string(), LogLevel::Info))
+                .collect(),
             history_index: None,
-            command_history: vec!["client.req.blob.all".into()].into(),
+            command_history: vec!["help".into(), "client.req.blob.all".into()].into(),
             suggest_text: String::new(),
             commands: Vec::new(),
             log_level: LogLevel::Info,
@@ -402,13 +430,6 @@ impl<T: std::fmt::Debug> Terminal<T> {
             return Err(ep);
         }
         Err("".to_string())
-    }
-
-    fn get_list_of_entrypoints(&self) -> String {
-        self.commands
-            .iter()
-            .map(|c| format!("{} ", c.entrypoint))
-            .collect()
     }
 
     fn get_args(&self) -> Vec<String> {

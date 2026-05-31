@@ -75,7 +75,7 @@ pub fn save_command() -> Command<TermCmd> {
 }
 
 pub fn help_command() -> Command<TermCmd> {
-    Command::new("term.help", vec![], |_| Ok(TermCmd::Help))
+    Command::new("help", vec![], |_| Ok(TermCmd::Help))
 }
 
 pub fn loglevel_command() -> Command<TermCmd> {

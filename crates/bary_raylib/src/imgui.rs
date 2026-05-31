@@ -692,7 +692,6 @@ pub fn lame_old_imgui_entrypoint(
     d: &mut RaylibDrawHandle,
     client: &mut ClientSpecificInfo,
     world: &mut World,
-    terminal: &Terminal<TermCmd>,
     sounds: &mut SoundEffects,
     assets: &Assets,
 ) {
@@ -705,8 +704,6 @@ pub fn lame_old_imgui_entrypoint(
 
     imgui_selected_grid_primary_computer_info(d, world, client, assets);
     imgui_hovered_part_info(d, world, client, assets);
-
-    draw_terminal(d, &terminal, &assets);
 }
 
 fn selected_part_gui(gui: &mut ImGui, client: &ClientSpecificInfo, world: &mut World) {

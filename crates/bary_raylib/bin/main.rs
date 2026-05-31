@@ -542,7 +542,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &mut d,
                     &mut main_app.app.client,
                     &mut main_app.app.world,
-                    &main_app.app.terminal,
                     &mut sounds,
                     &main_app.app.assets,
                 );
@@ -556,6 +555,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &timers,
                     &main_app.app.node,
                     &mut d,
+                );
+
+                draw_terminal(
+                    &mut d,
+                    &main_app.app.terminal,
+                    &main_app.app.assets,
+                    Color::BLACK.alpha(0.5),
                 );
             });
 

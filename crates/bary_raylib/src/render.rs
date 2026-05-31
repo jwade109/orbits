@@ -1592,6 +1592,7 @@ pub fn draw_terminal<T: std::fmt::Debug>(
     d: &mut RaylibDrawHandle,
     cmd: &Terminal<T>,
     assets: &Assets,
+    bg_color: Color,
 ) {
     if !cmd.is_active() {
         return;
@@ -1600,6 +1601,8 @@ pub fn draw_terminal<T: std::fmt::Debug>(
     let Some(font) = &assets.consolas else {
         return;
     };
+
+    d.draw_rectangle(0, 0, d.get_render_width(), d.get_render_height(), bg_color);
 
     let chars = cmd.display_text();
 
