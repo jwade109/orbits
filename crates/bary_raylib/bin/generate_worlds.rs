@@ -3,7 +3,7 @@ use bary_factory::*;
 use bary_raylib::{persistence::save_world, world_builder::WorldBuilder};
 use bary_sim::*;
 
-fn main() -> BaryResult<()> {
+fn scenario_a() -> BaryResult<()> {
     let world = WorldBuilder::new()
         .assets()
         .blueprint(("pollux", 0))
@@ -38,4 +38,21 @@ fn main() -> BaryResult<()> {
         .build();
 
     save_world("saves/scenario_a", &world, true)
+}
+
+fn scenario_b() -> BaryResult<()> {
+    let world = WorldBuilder::new()
+        .assets()
+        .blueprint(("pollux", 2))
+        .spawn(("pollux", 2), "", (0.0, 0.0, 0.0))
+        .asteroid((-80.0, 30.0, 0.1), 50.0, 391)
+        .build();
+
+    save_world("saves/scenario_b", &world, true)
+}
+
+fn main() -> BaryResult<()> {
+    scenario_a()?;
+    scenario_b()?;
+    Ok(())
 }

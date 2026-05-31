@@ -705,7 +705,11 @@ fn get_server_camera_pos(world: &World) -> (Vec2, f32) {
         }
     }
 
-    let zoom = if max_dist == 0.0 { 5.0 } else { 1000.0 / max_dist };
+    let zoom = if max_dist == 0.0 {
+        5.0
+    } else {
+        1000.0 / max_dist
+    };
 
     (center, zoom)
 }
@@ -732,8 +736,6 @@ impl Application for ServerApp {
         for cmd in cmds {
             self.on_terminal_command(cmd);
         }
-
-        self.terminal.focus();
 
         self.delta_history
             .retain(|log| log.tick + 1000 > self.world.ticks);
@@ -848,7 +850,7 @@ impl Application for ServerApp {
                 &mut d,
                 &self.terminal,
                 &self.assets,
-                Color::BLACK.alpha(0.0),
+                Color::BLACK.alpha(0.8),
             );
         });
     }

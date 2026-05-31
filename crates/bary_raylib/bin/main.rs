@@ -464,18 +464,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let deltas = pre_simulation_update(&main_app.world, &mut main_app.client);
 
-        for delta in deltas {
-            main_app.node.send_command(MessageKind::RequestDelta(delta));
-        }
-
-        let mut timers = DebugTimers::default();
-
-        post_simulation_update(
-            &mut main_app.world,
+        let post_delta = post_simulation_update(
+            &main_app.world,
             &mut main_app.client,
             &mut sounds,
             main_app.terminal.is_focused(),
         );
+
+        for delta in deltas.into_iter().chain(post_delta) {
+            main_app.node.send_command(MessageKind::RequestDelta(delta));
+        }
+
+        let mut timers = DebugTimers::default();
 
         // CONSTRUCT IMMEDIATE-MODE GUI
 
@@ -533,7 +533,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &mut d,
                     &main_app.terminal,
                     &main_app.assets,
-                    Color::BLACK.alpha(0.5),
+                    Color::BLACK.alpha(0.8),
                 );
             });
 

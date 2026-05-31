@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use crate::{Blueprint, PartId};
 use bary_core::prelude::*;
 use std::collections::{BTreeMap, HashSet};

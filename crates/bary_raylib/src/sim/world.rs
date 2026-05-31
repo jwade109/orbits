@@ -835,46 +835,60 @@ fn zoom_in_on_key_v(client: &mut ClientSpecificInfo) {
     free.follow_vehicle = Some(grid_id);
 }
 
-fn do_terrain_tile_under_mouse(world: &mut World, client: &mut ClientSpecificInfo, action: u8) {
-    let free = some_or_return!(client.viewport.free());
-    let tile_info = some_or_return!(free.hovered_chunk);
+fn do_terrain_tile_under_mouse(
+    world: &World,
+    client: &mut ClientSpecificInfo,
+    action: u8,
+) -> Option<WorldDelta> {
+    let free = client.viewport.free()?;
+    let tile_info = free.hovered_chunk?;
 
     let asteroid = tile_info.asteroid;
     let tile = tile_info.tile;
 
-    let delta = match action {
-        0 => WorldDelta::RemoveTerrainTile { asteroid, tile },
-        1 => WorldDelta::AddTerrainTile { asteroid, tile },
-        2 => WorldDelta::FullyRevealTerrainTile { asteroid, tile },
-        _ => {
-            return;
-        }
-    };
+    let (chunk_idx, tile_idx) = tile.to_cl();
 
-    _ = apply_delta(world, delta);
+    let ast_id = asteroid;
+    let ast = world.asteroids.get(ast_id)?;
+    let chunk_id = ast.chunks.get(&chunk_idx)?;
+    let chunk = world.terrain_chunks.get(*chunk_id)?;
+    let tile_id = chunk.tiles.get(&tile_idx)?;
+
+    // just confirm that the tile exists
+    _ = world.terrain_tiles.get(*tile_id)?;
+
+    match action {
+        0 => Some(WorldDelta::RemoveTerrainTile { asteroid, tile }),
+        1 => Some(WorldDelta::AddTerrainTile { asteroid, tile }),
+        2 => Some(WorldDelta::FullyRevealTerrainTile { asteroid, tile }),
+        _ => None,
+    }
 }
 
+#[must_use]
 pub fn post_simulation_update(
-    world: &mut World,
+    world: &World,
     client: &mut ClientSpecificInfo,
     sounds: &mut SoundEffects,
     is_terminal_focused: bool,
-) {
+) -> Option<WorldDelta> {
     client.chat.drop_old_messages();
 
     zoom_in_on_key_v(client);
 
+    let mut delta = None;
+
     if client.focused_grid_id().is_none() {
         if client.input.is_key_pressed(rdev::Button::Left) {
-            do_terrain_tile_under_mouse(world, client, 0);
+            delta = do_terrain_tile_under_mouse(world, client, 0);
         }
 
         if client.input.is_key_pressed(rdev::Button::Right) {
-            do_terrain_tile_under_mouse(world, client, 1);
+            delta = do_terrain_tile_under_mouse(world, client, 1);
         }
 
         if client.input.is_key_pressed(rdev::Button::Middle) {
-            do_terrain_tile_under_mouse(world, client, 2);
+            delta = do_terrain_tile_under_mouse(world, client, 2);
         }
     }
 
@@ -928,6 +942,8 @@ pub fn post_simulation_update(
     }
 
     animate_camera_towards_target(&client.target_camera, &mut client.camera);
+
+    delta
 }
 
 fn set_cams_to_grid_pose(

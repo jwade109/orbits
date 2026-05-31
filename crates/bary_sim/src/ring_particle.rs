@@ -21,10 +21,6 @@ impl PingParticle {
         5.0
     }
 
-    fn alpha(&self) -> f32 {
-        1.0
-    }
-
     pub fn is_alive(&self) -> bool {
         self.age < 4.0
     }
