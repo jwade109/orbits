@@ -16,7 +16,7 @@ if __name__ == '__main__':
     try:
         pool.map(work, [
             "./target/release/server_app.exe 5000 saves/ scenario_a",
-            "./target/release/main.exe 127.0.0.1:5000",
+            "./target/release/main.exe -a 127.0.0.1:5000 -s saves/scenario_a",
         ])
     except KeyboardInterrupt:
         print("Caught KeyboardInterrupt, terminating workers")
