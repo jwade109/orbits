@@ -585,109 +585,6 @@ fn imgui_hovered_part_info(
     }
 }
 
-fn draw_grid_far_indicators(
-    grids: &Components<VehicleGrid>,
-    d: &mut RaylibDrawHandle,
-    client: &ClientSpecificInfo,
-    camera: &Camera2D,
-    assets: &Assets,
-) {
-    let free = some_or_return!(client.viewport.free());
-
-    if camera.zoom > ZOOM_NEAR_FAR_THRESHOLD {
-        return;
-    }
-
-    let marker_radius = 8.0f32;
-
-    let mut markers = Vec::new();
-
-    for (id, grid) in grids.iter() {
-        let loc = grid.centroid_isometry();
-        let p = glam_to_raylib_swap_y(loc.translation);
-        let q = d.get_world_to_screen2D(p, camera);
-
-        markers.push((
-            *id,
-            q,
-            q,
-            loc.rotation - camera.rotation.to_radians(),
-            grid.name.clone(),
-            !grid.computers.is_empty(),
-        ));
-    }
-
-    // move the markers apart
-    for _ in 0..10 {
-        for i in 0..markers.len() {
-            for j in 0..markers.len() {
-                if i <= j {
-                    continue;
-                }
-
-                let p1 = markers[i].1;
-                let p2 = markers[j].1;
-                let delta = p2 - p1;
-                let dist = delta.length();
-                if dist < marker_radius * 2.0 {
-                    let u = delta.normalized();
-                    let delta = marker_radius * 2.0 - dist;
-                    markers[j].1 += u * delta / 2.0;
-                    markers[i].1 -= u * delta / 2.0;
-                }
-            }
-        }
-    }
-
-    let get_triangle = |center: Vector2, angle: f32| {
-        let o = raylib_to_glam_invert_y(center);
-        let u = Vec2::X * marker_radius;
-        let a = o + rotate(u, angle);
-        let b = o + rotate(u, angle + PI * 0.75);
-        let c = o + rotate(u, angle - PI * 0.75);
-
-        (
-            glam_to_raylib_swap_y(a),
-            glam_to_raylib_swap_y(b),
-            glam_to_raylib_swap_y(c),
-        )
-    };
-
-    let font = &assets.lato_regular;
-
-    // draw the markers
-    for (id, p, q, angle, name, is_controllable) in markers {
-        let color = if is_controllable {
-            Color::ORANGE
-        } else {
-            Color::GRAY
-        };
-        d.draw_line_v(p, q, color);
-        if is_controllable {
-            let (v1, v2, v3) = get_triangle(q, angle);
-            d.draw_triangle(v1, v2, v3, color);
-        }
-
-        let is_hovered = Some(id) == free.selection_info.hovered.map(|g| g.grid_id);
-
-        if !name.is_empty() {
-            let color = if is_hovered {
-                Color::WHITE
-            } else if is_controllable && client.input.is_key_pressed(rdev::Key::ShiftLeft) {
-                Color::WHITE.alpha(0.4)
-            } else {
-                Color::WHEAT.alpha(0.0)
-            };
-            let q = q - Vector2::new(0.0, 35.0);
-            if let Some(font) = font {
-                draw_text_centered(d, &font, &name, q, 30, color);
-            } else {
-                draw_text_centered_weak(d, &d.get_font_default(), &name, q, 30, color);
-            }
-        }
-    }
-}
-
 pub fn lame_old_imgui_entrypoint(
     d: &mut RaylibDrawHandle,
     client: &mut ClientSpecificInfo,
@@ -696,8 +593,6 @@ pub fn lame_old_imgui_entrypoint(
     assets: &Assets,
 ) {
     let raylib_camera = to_raylib_camera(&client.camera, client.screen_dims);
-
-    draw_grid_far_indicators(&world.grids, d, &client, &raylib_camera, assets);
 
     imgui_editor_layer_indicator(d, client, sounds);
     imgui_all_parts_in_layer(d, client, world, sounds);
