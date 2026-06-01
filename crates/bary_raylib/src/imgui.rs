@@ -1,17 +1,14 @@
 use crate::assets::Assets;
-use crate::camera::to_raylib_camera;
 use crate::render::*;
 use crate::sim::*;
 use crate::sounds::*;
 use crate::ui::{Window, draw_window};
 use crate::utils::*;
-use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use bary_factory::*;
 use bary_input::*;
 use bary_parts::*;
 use bary_sim::*;
-use bary_terminal::Terminal;
 use early_returns::*;
 use enum_iterator::Sequence;
 use log::*;
@@ -588,7 +585,7 @@ fn imgui_hovered_part_info(
 pub fn lame_old_imgui_entrypoint(
     d: &mut RaylibDrawHandle,
     client: &mut ClientSpecificInfo,
-    world: &mut World,
+    world: &World,
     sounds: &mut SoundEffects,
     assets: &Assets,
 ) {
@@ -599,37 +596,6 @@ pub fn lame_old_imgui_entrypoint(
     imgui_hovered_part_info(d, world, client, assets);
 }
 
-fn selected_part_gui(gui: &mut ImGui, client: &ClientSpecificInfo, world: &mut World) {
-    let loc = some_or_return!(client.selected_grid_loc());
-    let grid = ok_or_return!(world.grids.try_get(loc.grid_id));
-    let part_iso = ok_or_return!(gridloc_pose(&world.grids, loc));
-    let pos = get_world_to_screen(&client.camera, part_iso.translation, client.screen_dims);
-    let mut layout = gui.layout(vround(pos), LayoutDirection::Down);
-    let occ = grid.get_parts_at(loc.coord);
-
-    let s = distance_str_v(part_iso.translation.into());
-
-    layout.button(s);
-    layout.button("Follow");
-    layout.button("Set Item");
-
-    let occ = occ.unwrap_or(&PartOccupancy::EMPTY);
-
-    if let Some(part_id) = occ.at_layer(PartLayer::Internal) {
-        if let Ok(machine) = world.machines.try_get_mut(part_id) {
-            selectable_ui(&mut layout, &mut machine.recipe);
-        }
-    }
-
-    if let Some(part_id) = occ.at_layer(PartLayer::Plumbing) {
-        if let Ok(portal) = world.debug_portals.try_get_mut(part_id) {
-            if let PortalState::Source(item) = &mut portal.state {
-                selectable_ui(&mut layout, item);
-            }
-        }
-    }
-}
-
 fn save_editor_vehicle_as_blueprint(client: &mut ClientSpecificInfo, world: &World) {
     client.chat.log("Save blueprint");
     let editor = some_or_return!(client.viewport.editor());
@@ -638,7 +604,6 @@ fn save_editor_vehicle_as_blueprint(client: &mut ClientSpecificInfo, world: &Wor
 
     if let Ok(bp) = bp {
         let bytes = bincode::serialize(&bp).unwrap();
-        let digest = md5::compute(bytes);
 
         let path = format!("/tmp/test.bp");
 
@@ -690,7 +655,7 @@ where
 
 pub fn imgui_pass(
     client: &mut ClientSpecificInfo,
-    world: &mut World,
+    world: &World,
     sounds: &mut SoundEffects,
 ) -> ImGui {
     let mut gui = ImGui::new(

@@ -202,11 +202,8 @@ fn sys_update_machines(world: &mut World) {
 }
 
 /// Updates ring particles.
-fn sys_update_ring_particles(particles: &mut Vec<PingParticle>) {
-    for ring in particles.iter_mut() {
-        ring.step()
-    }
-    particles.retain(|p| p.is_alive());
+fn sys_update_ring_particles(particles: &mut Vec<PingParticle>, current_tick: u64) {
+    particles.retain(|p| p.is_alive(current_tick));
 }
 
 /// Updates computers according to their current
@@ -334,7 +331,7 @@ pub fn update_world(world: &mut World) -> DebugTimers {
     {
         let _timer = timers.scope("grid_motion");
 
-        sys_update_ring_particles(&mut world.particles);
+        sys_update_ring_particles(&mut world.particles, world.ticks);
         let dirty_set = sys_update_thrusters(
             &mut world.thrusters,
             &world.grids,

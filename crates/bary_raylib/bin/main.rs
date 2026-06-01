@@ -86,7 +86,7 @@ impl App {
             .resizable()
             .build();
 
-        handle.set_target_fps(120);
+        handle.set_target_fps(1000);
         handle.maximize_window();
         handle.set_exit_key(None);
         handle.hide_cursor();
@@ -590,7 +590,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let gui = {
             let _timer = timers.scope("imgui");
 
-            imgui::imgui_pass(&mut main_app.client, &mut main_app.world, &mut sounds)
+            imgui::imgui_pass(&mut main_app.client, &main_app.world, &mut sounds)
         };
 
         // HANDLE RDEV EVENTS (DEPRECATED - USE INPUTSTATE)
@@ -637,7 +637,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 imgui::lame_old_imgui_entrypoint(
                     &mut d,
                     &mut main_app.client,
-                    &mut main_app.world,
+                    &main_app.world,
                     &mut sounds,
                     &main_app.assets,
                 );

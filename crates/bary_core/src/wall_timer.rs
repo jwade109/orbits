@@ -29,7 +29,7 @@ impl WallTimer {
         self.last_visited = now;
         self.fired_last_tick = now >= self.next_firing;
         self.times_fired += 1;
-        if self.fired_last_tick {
+        while self.next_firing < now {
             self.next_firing += self.duration;
         }
         self.fired_last_tick

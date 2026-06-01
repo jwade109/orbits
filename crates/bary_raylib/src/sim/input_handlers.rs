@@ -45,13 +45,6 @@ pub fn command_selected_ships_to_waypoint(
     deltas
 }
 
-pub fn explode_at_mouseover(world: &mut World, client: &mut ClientSpecificInfo) {
-    let free = some_or_return!(client.viewport.free());
-    let loc = some_or_return!(free.selection_info.hovered);
-    let delta = WorldDelta::Explode(loc);
-    _ = apply_delta(world, delta);
-}
-
 pub fn editor_copy_on_control_c(world: &World, client: &mut ClientSpecificInfo) {
     if !client.input.is_key_pressed(Key::ControlLeft) {
         return;
@@ -156,35 +149,6 @@ pub fn toggle_following_on_key_f(client: &mut ClientSpecificInfo, sounds: &mut S
         sounds.push(SoundEffect::Follow);
         debug!("Following {}", grid_id);
     }
-}
-
-pub fn ping_on_alt_left_click(
-    world: &mut World,
-    client: &mut ClientSpecificInfo,
-    sounds: &mut SoundEffects,
-) {
-    let Some(screen_pos) = client.mouse_screen_position else {
-        return;
-    };
-
-    if !client.input.is_key_pressed(Key::Alt) {
-        return;
-    }
-
-    let pos = screen_to_world(&client.camera, screen_pos, client.screen_dims);
-
-    let delta = WorldDelta::Ping(pos);
-    _ = apply_delta(world, delta);
-
-    client.chat.log(format!("Pinged {}", pos));
-    sounds.push(SoundEffect::Ping);
-}
-
-pub fn toggle_tracking_for_selected_grid(world: &mut World, client: &mut ClientSpecificInfo) {
-    let free = some_or_return!(client.viewport.free());
-    let grid_id = some_or_return!(free.selection_info.first_selected_grid());
-    let delta = WorldDelta::ToggleTracking(grid_id);
-    _ = apply_delta(world, delta);
 }
 
 pub fn reset_camera_on_ctrl_r(client: &mut ClientSpecificInfo) {

@@ -342,7 +342,7 @@ pub fn draw_world(
 
     draw_waypoint_widget(&mut c, client);
 
-    draw_particles(&mut c, &world.particles);
+    draw_ping_particles(&mut c, &world.particles, world.ticks);
 
     // draw_isometry_axes(&mut c, world.camera.isometry, "CAM", Vec2::splat(5.0));
     // draw_isometry_axes(&mut c, world.target_camera.isometry, "", Vec2::splat(5.0));
@@ -1033,13 +1033,22 @@ fn draw_test_isos(d: &mut RaylibDrawHandle) {
     }
 }
 
-fn draw_particles(d: &mut RaylibDrawHandle, particles: &Vec<PingParticle>) {
+fn draw_ping_particles(d: &mut RaylibDrawHandle, particles: &Vec<PingParticle>, current_tick: u64) {
     for particle in particles {
-        let r = particle.radius();
-        if particle.is_visible() {
-            let color = Color::GREEN;
-            draw_circle(d, particle.pos, r, color);
-            fill_circle(d, particle.pos, r / 10.0, color);
+
+        let wavelength = 1.0;
+        let ticks_per_wave = 25;
+        let n_waves = 10;
+        let vel = wavelength / ticks_per_wave as f32;
+        let init_offset = (current_tick - particle.start_tick()) % ticks_per_wave;
+
+        let r0 = init_offset as f32 * vel;
+
+        let rmax = wavelength * n_waves as f32;
+
+        for r in linspace(r0, r0 + rmax, n_waves) {
+            let a = (1.0 - r / rmax).clamp(0.0, 1.0);
+            draw_circle(d, particle.pos(), r, Color::ORANGE.alpha(a));
         }
     }
 }

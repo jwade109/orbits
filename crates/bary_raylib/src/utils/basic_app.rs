@@ -47,7 +47,7 @@ impl BasicApp {
             .init()
             .unwrap();
 
-        handle.set_target_fps(120);
+        handle.set_target_fps(1000);
         handle.maximize_window();
         handle.set_exit_key(None);
 

@@ -34,7 +34,8 @@ pub fn apply_delta(world: &mut World, delta: WorldDelta) -> BaryResult<()> {
             Ok(())
         }
         WorldDelta::Ping(pos) => {
-            ping(world, pos);
+            let particle = PingParticle::new(pos, world.ticks);
+            world.particles.push(particle);
             Ok(())
         }
         WorldDelta::SpawnShipAt(bp_name, iso) => {
@@ -691,7 +692,6 @@ pub fn process_event(
             rdev::EventType::KeyPress(key) => match key {
                 Key::KeyS => input_handlers::save_on_ctrl_s(world, client),
                 Key::KeyF => input_handlers::toggle_following_on_key_f(client, sounds),
-                Key::KeyT => input_handlers::toggle_tracking_for_selected_grid(world, client),
                 Key::KeyR => {
                     input_handlers::reset_camera_on_ctrl_r(client);
                     input_handlers::lock_rotation_on_key_r(client);
@@ -700,12 +700,10 @@ pub fn process_event(
                 Key::DownArrow => input_handlers::editor_layer_shift_on_page_key(client, false),
                 Key::UpArrow => input_handlers::editor_layer_shift_on_page_key(client, true),
                 Key::KeyE => input_handlers::editor_layer_shift_on_page_key(client, true),
-                Key::KeyM => input_handlers::update_center_of_mass_on_m(world),
                 Key::KeyQ => input_handlers::pipette_part_if_in_editor_on_q(world, client),
                 Key::KeyG => input_handlers::enter_ship_editor(world, client, sounds),
                 Key::Escape => input_handlers::leave_ship_editor_on_escape(client, sounds),
                 Key::KeyC => {
-                    input_handlers::explode_at_mouseover(world, client);
                     input_handlers::editor_copy_on_control_c(world, client);
                 }
                 _ => (),
@@ -715,7 +713,6 @@ pub fn process_event(
                 if !on_gui {
                     match button {
                         Button::Left => {
-                            input_handlers::ping_on_alt_left_click(world, client, sounds);
                             select_hovered_grid_loc_on_click(client, sounds);
                             editor_on_left_click(world, client, sounds);
                         }
@@ -771,6 +768,24 @@ fn update_terrain_selection_info(client: &mut ClientSpecificInfo, asteroids: &Co
     }
 }
 
+fn toggle_tracking_for_selected_grid(client: &mut ClientSpecificInfo) -> Option<WorldDelta> {
+    let free = client.viewport.free()?;
+    let grid_id = free.selection_info.first_selected_grid()?;
+    Some(WorldDelta::ToggleTracking(grid_id))
+}
+
+fn explode_at_mouseover(client: &mut ClientSpecificInfo) -> Option<WorldDelta> {
+    let free = client.viewport.free()?;
+    let loc = free.selection_info.hovered?;
+    Some(WorldDelta::Explode(loc))
+}
+
+fn ping_on_alt_left_click(client: &mut ClientSpecificInfo) -> Option<WorldDelta> {
+    let screen_pos = client.mouse_screen_position?;
+    let pos = screen_to_world(&client.camera, screen_pos, client.screen_dims);
+    Some(WorldDelta::Ping(pos))
+}
+
 #[must_use]
 pub fn pre_simulation_update(world: &World, client: &mut ClientSpecificInfo) -> Vec<WorldDelta> {
     client.ticks += 1;
@@ -794,6 +809,26 @@ pub fn pre_simulation_update(world: &World, client: &mut ClientSpecificInfo) -> 
 
     let mut deltas = Vec::new();
 
+    if client.input.just_pressed_debounced(Key::KeyT) {
+        if let Some(d) = toggle_tracking_for_selected_grid(client) {
+            deltas.push(d);
+        }
+    }
+
+    if client.input.just_pressed_debounced(Key::KeyC) {
+        if let Some(d) = explode_at_mouseover(client) {
+            deltas.push(d);
+        }
+    }
+
+    if client.input.just_pressed_debounced(Button::Left)
+        && client.input.is_key_pressed(Key::ControlLeft)
+    {
+        if let Some(d) = ping_on_alt_left_click(client) {
+            deltas.push(d);
+        }
+    }
+
     if client.input.just_released(Button::Right) {
         if let Some(free) = client.viewport.free() {
             if let Some(p) = free.waypoint_widget {
@@ -802,12 +837,6 @@ pub fn pre_simulation_update(world: &World, client: &mut ClientSpecificInfo) -> 
                     deltas.extend(input_handlers::command_selected_ships_to_waypoint(
                         client, p, q,
                     ));
-
-                    // for delta in deltas {
-                    //     if apply_delta(world, delta).is_err() {
-                    //         client.chat.log("Failed to set waypoint");
-                    //     }
-                    // }
                 }
             }
         }

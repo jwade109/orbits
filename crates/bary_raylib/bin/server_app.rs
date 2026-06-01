@@ -22,6 +22,46 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
+#[derive(Debug)]
+struct RateCalculator {
+    buffer: Vec<Instant>,
+    times_called: u64,
+}
+
+impl RateCalculator {
+    fn new() -> Self {
+        Self {
+            buffer: Vec::new(),
+            times_called: 0,
+        }
+    }
+
+    fn update_rate(&mut self) {
+        let now = Instant::now();
+        self.buffer.push(now);
+        if self.buffer.len() > 100 {
+            self.buffer.remove(0);
+        }
+        self.times_called += 1;
+    }
+
+    fn rate(&self) -> f64 {
+        if self.buffer.len() < 2 {
+            return 0.0;
+        }
+
+        let first = self.buffer.first().unwrap();
+        let last = self.buffer.last().unwrap();
+        let delta = *last - *first;
+
+        (self.buffer.len() - 1) as f64 / delta.as_secs_f64()
+    }
+
+    fn count(&self) -> u64 {
+        self.times_called
+    }
+}
+
 struct DeltaLog {
     tick: u64,
     source: MessageSource,
@@ -43,11 +83,14 @@ pub struct ServerApp {
     broadcast: MessageQueue<Message>,
     outgoing: MessageQueue<(ClientId, Message)>,
     _server_thread: JoinHandle<()>,
+    update_timer: WallTimer,
     world_timer: WallTimer,
     sync_timer: WallTimer,
     draw_timer: WallTimer,
     queued_deltas: Vec<WorldDelta>,
     delta_history: Vec<DeltaLog>,
+    physics_rate: RateCalculator,
+    draw_rate: RateCalculator,
 }
 
 impl ServerApp {
@@ -98,11 +141,14 @@ impl ServerApp {
             _server_thread: std::thread::spawn(|| {
                 server_thread(node, incoming_transactions, broadcast, outgoing)
             }),
+            update_timer: WallTimer::with_dur(Duration::from_millis(10)),
             world_timer: WallTimer::with_dur(Duration::from_millis(20)),
             sync_timer: WallTimer::with_dur(Duration::from_millis(20)),
-            draw_timer: WallTimer::with_dur(Duration::from_millis(20)),
+            draw_timer: WallTimer::with_dur(Duration::from_millis(25)),
             queued_deltas: Vec::new(),
             delta_history: Vec::new(),
+            physics_rate: RateCalculator::new(),
+            draw_rate: RateCalculator::new(),
         })
     }
 
@@ -127,6 +173,11 @@ impl ServerApp {
     #[must_use]
     pub fn update(&mut self) -> Vec<Message> {
         let mut messages = Vec::new();
+
+        if !self.update_timer.tick() {
+            return messages;
+        }
+
         while let Some(msg) = self.incoming_transactions.pop() {
             self.on_accept_message(msg.clone());
             messages.push(msg);
@@ -137,6 +188,8 @@ impl ServerApp {
                 update_world(&mut self.world);
             }
         }
+
+        self.physics_rate.update_rate();
 
         if self.sync_timer.tick() {
             self.send_driver_packet();
@@ -706,7 +759,7 @@ fn get_server_camera_pos(world: &World) -> (Vec2, f32) {
     }
 
     let zoom = if max_dist == 0.0 {
-        5.0
+        8.0
     } else {
         1000.0 / max_dist
     };
@@ -758,6 +811,8 @@ impl Application for ServerApp {
             return;
         }
 
+        self.draw_rate.update_rate();
+
         let n_clients = self.get_statistics().clients.len();
 
         // let font = self.assets.consolas.as_ref().unwrap();
@@ -779,6 +834,16 @@ impl Application for ServerApp {
         let mut lines = vec![
             "Server Application".to_string(),
             format!("Ticks:     {}", self.world.ticks),
+            format!(
+                "Update:    {:0.2} Hz, {}",
+                self.physics_rate.rate(),
+                self.physics_rate.count()
+            ),
+            format!(
+                "Draw:      {:0.2} Hz, {}",
+                self.draw_rate.rate(),
+                self.draw_rate.count()
+            ),
             format!("Grids:     {}", self.world.grids.len()),
             format!("Parts:     {}", self.world.parts.len()),
             format!("Protos:    {}", self.world.prototypes.len()),

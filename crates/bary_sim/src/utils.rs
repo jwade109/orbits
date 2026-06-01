@@ -34,11 +34,6 @@ pub fn spawn_empty_grid_c(
     id
 }
 
-pub fn ping(world: &mut World, pos: Vec2) {
-    let part = PingParticle::new(pos);
-    world.particles.push(part);
-}
-
 pub fn get_grid_physical_props(
     grid: &VehicleGrid,
     parts: &Components<Part>,
