@@ -1,4 +1,4 @@
-use crate::sim::*;
+use crate::{sim::*, world_builder::WorldBuilderCommand::SetAnchored};
 use bary_core::prelude::*;
 use bary_factory::*;
 use bary_parts::*;
@@ -14,6 +14,7 @@ enum WorldBuilderCommand {
     InsertPipe(PartCoord, PartCoord),
     SetRecipe(PartCoord, RecipeListing),
     SpawnAsteroid(Isometry2d, f32, u64),
+    SetAnchored(bool),
 }
 
 pub struct WorldBuilder {
@@ -96,6 +97,12 @@ impl WorldBuilder {
 
     pub fn asteroid(mut self, p: impl Into<Isometry2d>, r: f32, seed: u64) -> Self {
         let cmd = WorldBuilderCommand::SpawnAsteroid(p.into(), r, seed);
+        self.commands.push(cmd);
+        self
+    }
+
+    pub fn anchored(mut self, anchored: bool) -> Self {
+        let cmd = WorldBuilderCommand::SetAnchored(anchored);
         self.commands.push(cmd);
         self
     }
@@ -193,6 +200,12 @@ impl WorldBuilder {
                             seed,
                         };
                         _ = apply_delta(&mut world, delta);
+                    }
+                    WorldBuilderCommand::SetAnchored(anchored) => {
+                        if let Some(grid_id) = self.cursor_grid {
+                            let delta = WorldDelta::SetAnchored(grid_id, anchored);
+                            _ = apply_delta(&mut world, delta);
+                        }
                     }
                 }
             }

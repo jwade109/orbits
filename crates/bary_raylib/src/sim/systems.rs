@@ -102,6 +102,11 @@ pub fn update_single_grid_acceleration(
 ) -> BaryResult<()> {
     let grid = grids.try_get_mut(grid_id)?;
     grid.body_frame_forces = Isometry2d::ZERO;
+
+    if grid.is_anchored {
+        return Ok(());
+    }
+
     for thruster_id in &grid.thrusters {
         let thruster = thrusters.try_get(*thruster_id)?;
 
@@ -134,7 +139,7 @@ pub fn sys_update_grid_acceleration_c(
 ) {
     for grid_id in dirty_set {
         if let Err(e) = update_single_grid_acceleration(grid_id, grids, thrusters, parts) {
-            dbg!(e);
+            error!("Failed to update grid accel: {e:?}");
         }
     }
 }

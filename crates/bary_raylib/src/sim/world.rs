@@ -157,7 +157,18 @@ pub fn apply_delta(world: &mut World, delta: WorldDelta) -> BaryResult<()> {
             grid_set_waypoint_to_asteroid_center(world, grid_id, ast_id)?;
             Ok(())
         }
+        WorldDelta::SetAnchored(grid_id, anchored) => {
+            set_grid_anchored(world, grid_id, anchored)?;
+            Ok(())
+        }
     }
+}
+
+fn set_grid_anchored(world: &mut World, grid_id: Ent, anchored: bool) -> BaryResult<()> {
+    let grid = world.grids.try_get_mut(grid_id)?;
+    grid.is_anchored = anchored;
+    grid.velocity = Isometry2d::ZERO;
+    Ok(())
 }
 
 fn grid_set_waypoint_to_asteroid_center(

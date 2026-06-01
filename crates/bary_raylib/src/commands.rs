@@ -208,6 +208,14 @@ pub fn world_delta_commands() -> Vec<Command<TermCmd>> {
             let ast_id = Ent(parse_arg(args, "ast_id")?);
             Ok(TermCmd::World(WorldDelta::GoToAsteroid { grid_id, ast_id }))
         }),
+        Command::new("sim.anchor", vec!["grid_id", "is_anchored"], |args| {
+            let grid_id = Ent(parse_arg(args, "grid_id")?);
+            let is_anchored = parse_arg(args, "is_anchored")?;
+            Ok(TermCmd::World(WorldDelta::SetAnchored(
+                grid_id,
+                is_anchored,
+            )))
+        }),
     ]
 }
 

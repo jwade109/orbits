@@ -89,8 +89,6 @@ pub struct ServerApp {
     draw_timer: WallTimer,
     queued_deltas: Vec<WorldDelta>,
     delta_history: Vec<DeltaLog>,
-    physics_rate: RateCalculator,
-    draw_rate: RateCalculator,
 }
 
 impl ServerApp {
@@ -147,8 +145,6 @@ impl ServerApp {
             draw_timer: WallTimer::with_dur(Duration::from_millis(25)),
             queued_deltas: Vec::new(),
             delta_history: Vec::new(),
-            physics_rate: RateCalculator::new(),
-            draw_rate: RateCalculator::new(),
         })
     }
 
@@ -188,8 +184,6 @@ impl ServerApp {
                 update_world(&mut self.world);
             }
         }
-
-        self.physics_rate.update_rate();
 
         if self.sync_timer.tick() {
             self.send_driver_packet();
@@ -811,8 +805,6 @@ impl Application for ServerApp {
             return;
         }
 
-        self.draw_rate.update_rate();
-
         let n_clients = self.get_statistics().clients.len();
 
         // let font = self.assets.consolas.as_ref().unwrap();
@@ -835,14 +827,24 @@ impl Application for ServerApp {
             "Server Application".to_string(),
             format!("Ticks:     {}", self.world.ticks),
             format!(
-                "Update:    {:0.2} Hz, {}",
-                self.physics_rate.rate(),
-                self.physics_rate.count()
+                "Update:    {:0.2} Hz / {:0.2} Hz ",
+                self.update_timer.actual_rate(),
+                self.update_timer.nominal_rate()
             ),
             format!(
-                "Draw:      {:0.2} Hz, {}",
-                self.draw_rate.rate(),
-                self.draw_rate.count()
+                "World:     {:0.2} Hz / {:0.2} Hz ",
+                self.world_timer.actual_rate(),
+                self.world_timer.nominal_rate()
+            ),
+            format!(
+                "Sync:      {:0.2} Hz / {:0.2} Hz ",
+                self.sync_timer.actual_rate(),
+                self.sync_timer.nominal_rate()
+            ),
+            format!(
+                "Draw:      {:0.2} Hz / {:0.2} Hz ",
+                self.draw_timer.actual_rate(),
+                self.draw_timer.nominal_rate()
             ),
             format!("Grids:     {}", self.world.grids.len()),
             format!("Parts:     {}", self.world.parts.len()),

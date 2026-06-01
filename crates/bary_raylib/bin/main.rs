@@ -41,6 +41,7 @@ pub struct App {
     assets: Assets,
     node: ClientNode,
 
+    update_timer: WallTimer,
     server_ping_timer: WallTimer,
     server_telemetry_timer: WallTimer,
 
@@ -96,6 +97,7 @@ impl App {
 
         let node = ClientNode::with_str_addr(&args.server_addr)?;
 
+        let update_timer = WallTimer::with_dur(Duration::from_millis(20));
         let server_ping_timer = WallTimer::with_dur(Duration::from_millis(1000));
         let server_telemetry_timer = WallTimer::with_dur(Duration::from_millis(1000));
 
@@ -111,6 +113,7 @@ impl App {
             thread,
             assets,
             node,
+            update_timer,
             server_ping_timer,
             server_telemetry_timer,
             should_exit: false,
@@ -337,6 +340,9 @@ fn draw_debug_info(
     assets: &Assets,
     timers: &DebugTimers,
     node: &ClientNode,
+    update_timer: &WallTimer,
+    ping_timer: &WallTimer,
+    tlm_timer: &WallTimer,
     d: &mut RaylibDrawHandle,
 ) {
     let size = size_in_bytes(world);
@@ -367,6 +373,22 @@ fn draw_debug_info(
     s += &format!("\nFPS:       {}", d.get_fps());
     s += &format!("\nMemory:    {:0.3} KB", size as f64 / 1000.0);
     s += &format!("\nZoom:      {:0.3}", client.camera.zoom);
+
+    s += &format!(
+        "\nUpdate:    {:0.2} Hz / {:0.2} Hz ",
+        update_timer.actual_rate(),
+        update_timer.nominal_rate()
+    );
+    s += &format!(
+        "\nPing:      {:0.2} Hz / {:0.2} Hz ",
+        ping_timer.actual_rate(),
+        ping_timer.nominal_rate()
+    );
+    s += &format!(
+        "\nTLM:       {:0.2} Hz / {:0.2} Hz ",
+        tlm_timer.actual_rate(),
+        tlm_timer.nominal_rate()
+    );
 
     s += "\n";
 
@@ -564,6 +586,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut active_sounds = Vec::new();
 
     while !main_app.handle.window_should_close() && !main_app.should_exit {
+        if !main_app.update_timer.tick() {
+            continue;
+        }
+
         main_app.update();
 
         // RUN PRE-PHYSICS, PHYSICS, AND POST-PHYSICS UPDATES
@@ -650,6 +676,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &main_app.assets,
                     &timers,
                     &main_app.node,
+                    &main_app.update_timer,
+                    &main_app.server_ping_timer,
+                    &main_app.server_telemetry_timer,
                     &mut d,
                 );
 

@@ -69,4 +69,5 @@ pub enum WorldDelta {
         grid_id: Ent,
         ast_id: Ent,
     },
+    SetAnchored(Ent, bool),
 }
