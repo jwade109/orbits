@@ -286,21 +286,23 @@ pub fn draw_world(
 
     draw_asteroids(&mut c, world, assets, &client);
 
+    if client.viewport.is_real_view() {
+        draw_computer_target_isometry(&mut c, &world.computers, &world.parts, &world.grids);
+    }
+
     draw_parts(
         &mut c,
         &world.grids,
         &world.parts,
+        &world.prototypes,
         &raylib_camera,
         &client.viewport,
+        assets,
     );
 
     let is_holding_shift = client.input.is_key_pressed(rdev::Key::ShiftLeft);
 
-    draw_pipes(&mut c, &world.grids, &world.parts, &world.pipes);
-
     if client.viewport.is_real_view() {
-        draw_computer_target_isometry(&mut c, &world.computers, &world.parts, &world.grids);
-
         draw_selection_info(&mut c, &world.grids, &client);
 
         draw_lights(
@@ -356,6 +358,7 @@ pub fn draw_world(
     draw_editor_selection_region(&mut c, client, world);
 
     if client.alt_mode {
+        draw_pipes(&mut c, &world.grids, &world.parts, &world.pipes);
         draw_inventories(&mut c, &world.grids, &world.parts, &world.inventories);
     } else {
         draw_hovered_inventory(&mut c, world, client);
@@ -927,8 +930,10 @@ pub fn draw_parts(
     d: &mut RaylibDrawHandle,
     grids: &Components<VehicleGrid>,
     parts: &Components<Part>,
+    protos: &Components<PartPrototype>,
     camera: &Camera2D,
     viewport: &Viewport,
+    assets: &Assets,
 ) {
     if camera.zoom < 2.0 {
         return;
@@ -950,6 +955,10 @@ pub fn draw_parts(
                     continue;
                 };
 
+                let Ok(proto) = protos.try_get(part.prototype) else {
+                    continue;
+                };
+
                 if part.layer != draw_layer {
                     continue;
                 }
@@ -958,14 +967,35 @@ pub fn draw_parts(
 
                 let is_shown = is_focus_layer && is_focus_vehicle;
 
-                draw_part(
-                    d,
-                    part.region,
-                    part.classification,
-                    origin,
-                    !is_shown,
-                    is_shown && focus_layer.is_some(),
-                );
+                // draw_part(
+                //     d,
+                //     part.region,
+                //     part.classification,
+                //     origin,
+                //     !is_shown,
+                //     is_shown && focus_layer.is_some(),
+                // );
+
+                let tint = if is_shown {
+                    Color::WHITE
+                } else {
+                    Color::WHITE.alpha(0.3)
+                };
+
+                if let Some(sprite) = assets.part_textures.get(&proto.name) {
+                    let part_iso = match part.region.rot() {
+                        Rotation::East => part.region.top_left_isometry(),
+                        Rotation::North => part.region.bottom_left_isometry(),
+                        Rotation::South => part.region.top_right_isometry(),
+                        Rotation::West => part.region.bottom_right_isometry(),
+                    };
+
+                    let iso = grid.origin() * part_iso;
+                    let pos = glam_to_raylib_swap_y(iso.translation);
+                    let rot = -iso.rotation.to_degrees();
+                    let scale = 1.0 / 20.0;
+                    d.draw_texture_ex(sprite, pos, rot, scale, tint);
+                }
             }
         }
     }
@@ -1035,7 +1065,6 @@ fn draw_test_isos(d: &mut RaylibDrawHandle) {
 
 fn draw_ping_particles(d: &mut RaylibDrawHandle, particles: &Vec<PingParticle>, current_tick: u64) {
     for particle in particles {
-
         let wavelength = 1.0;
         let ticks_per_wave = 25;
         let n_waves = 10;

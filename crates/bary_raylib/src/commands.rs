@@ -1,4 +1,5 @@
 use bary_core::prelude::*;
+use bary_parts::BlueprintId;
 use bary_sim::*;
 use bary_terminal::*;
 
@@ -116,15 +117,22 @@ pub fn server_console_commands() -> Vec<Command<TermCmd>> {
 
 pub fn world_delta_commands() -> Vec<Command<TermCmd>> {
     vec![
-        Command::new("sim.spawn", vec!["bp_name", "x", "y"], |args| {
-            let bp = parse_arg(args, "bp_name")?;
-            let x = parse_arg(args, "x")?;
-            let y = parse_arg(args, "y")?;
-            Ok(TermCmd::World(WorldDelta::SpawnShipAt(
-                bp,
-                Isometry2d::from_pos(Vec2::new(x, y)),
-            )))
-        }),
+        Command::new(
+            "sim.spawn",
+            vec!["ship_name", "bp_name", "bp_version", "x", "y"],
+            |args| {
+                let name = parse_arg(args, "ship_name")?;
+                let bpname = parse_arg(args, "bp_name")?;
+                let version = parse_arg(args, "bp_version")?;
+                let x = parse_arg(args, "x")?;
+                let y = parse_arg(args, "y")?;
+                Ok(TermCmd::World(WorldDelta::SpawnShipAt(
+                    name,
+                    BlueprintId(bpname, version),
+                    Isometry2d::from_pos(Vec2::new(x, y)),
+                )))
+            },
+        ),
         Command::new("sim.despawn", vec!["grid_id"], |args| {
             let grid_id = Ent(parse_arg(args, "grid_id")?);
             Ok(TermCmd::World(WorldDelta::DespawnGrid(grid_id)))
@@ -213,6 +221,9 @@ pub fn all_commands() -> Vec<Command<TermCmd>> {
         Command::new("clear", vec![], cmd_clear),
         Command::new("ls.grids", vec![], |_| {
             Ok(TermCmd::PrintEntityInfo(TableIdent::Grids))
+        }),
+        Command::new("ls.blueprints", vec![], |_| {
+            Ok(TermCmd::PrintEntityInfo(TableIdent::Blueprints))
         }),
         Command::new("ls.protos", vec![], |_| {
             Ok(TermCmd::PrintEntityInfo(TableIdent::Protos))

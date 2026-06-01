@@ -1,5 +1,6 @@
 use bary_core::prelude::*;
 use bary_factory::*;
+use bary_parts::BlueprintId;
 use serde::{Deserialize, Serialize};
 
 use crate::GlobalTileIndex;
@@ -8,7 +9,7 @@ use crate::GlobalTileIndex;
 pub enum WorldDelta {
     ClearAll,
     Ping(Vec2),
-    SpawnShipAt(String, Isometry2d),
+    SpawnShipAt(String, BlueprintId, Isometry2d),
     FastForwardTo(u64),
     SetWaypoint {
         grid_id: Ent,
@@ -25,6 +26,10 @@ pub enum WorldDelta {
         coord: PartCoord,
         rotation: Rotation,
         layer: PartLayer,
+    },
+    DestroyPartAt {
+        loc: GridLocation,
+        layer: Option<PartLayer>,
     },
     SetSourceItem {
         grid_id: Ent,

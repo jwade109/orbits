@@ -3,7 +3,6 @@ use crate::editor_state::EditorState;
 use crate::persistence::save_world;
 use crate::sim::*;
 use crate::sounds::*;
-use crate::utils::*;
 use bary_core::prelude::*;
 use bary_input::*;
 use bary_sim::*;
@@ -56,40 +55,6 @@ pub fn editor_copy_on_control_c(world: &World, client: &mut ClientSpecificInfo) 
     let s = format!("TODO Ctrl-C behavior: {}", grid.name);
 
     client.chat.log(s);
-}
-
-pub fn destroy_top_layer_part_at_mouseover(
-    world: &mut World,
-    client: &mut ClientSpecificInfo,
-    sounds: &mut SoundEffects,
-) {
-    let editor = some_or_return!(client.viewport.editor());
-    let loc = some_or_return!(client.hovered_grid_loc());
-
-    let result = if let Some(layer) = editor.layer {
-        destroy_part_at_layer(world, loc, layer)
-    } else {
-        destroy_top_part_at(world, loc)
-    };
-
-    match result {
-        Ok((instance, grid_id, grids)) => {
-            info!("Removed part {:?}, grid {}", instance, grid_id);
-            sounds.push(SoundEffect::DestroyPart);
-
-            for grid_id in grids {
-                let Ok(grid) = world.grids.try_get_mut(grid_id) else {
-                    continue;
-                };
-
-                grid.velocity.translation += randvec(0.01, 0.03);
-                grid.velocity.rotation += rand(-0.02, 0.02);
-            }
-        }
-        Err(_e) => {
-            // don't care.
-        }
-    }
 }
 
 pub fn apply_scroll_wheel_to_camera_target(delta_y: i64, target: &mut Camera) {
@@ -180,12 +145,6 @@ pub fn rotate_editor_part_on_key_r(client: &mut ClientSpecificInfo) {
         } else {
             editor.camera_rotation = editor.camera_rotation.next();
         }
-    }
-}
-
-pub fn update_center_of_mass_on_m(world: &mut World) {
-    for grid in world.grids.values_mut() {
-        _ = update_grid_physical_props(grid, &mut world.parts);
     }
 }
 

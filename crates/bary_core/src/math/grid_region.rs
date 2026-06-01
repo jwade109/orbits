@@ -85,6 +85,26 @@ impl GridRegion {
         Isometry2d::new(self.origin().to_meters(), rot)
     }
 
+    pub fn bottom_right_isometry(&self) -> Isometry2d {
+        let rot = self.rotation.to_angle() as f32;
+        Isometry2d::new(self.bottom_right().to_meters(), rot)
+    }
+
+    pub fn top_left_isometry(&self) -> Isometry2d {
+        let rot = self.rotation.to_angle() as f32;
+        Isometry2d::new(self.top_left().to_meters(), rot)
+    }
+
+    pub fn bottom_left_isometry(&self) -> Isometry2d {
+        let rot = self.rotation.to_angle() as f32;
+        Isometry2d::new(self.bottom_left.to_meters(), rot)
+    }
+
+    pub fn top_right_isometry(&self) -> Isometry2d {
+        let rot = self.rotation.to_angle() as f32;
+        Isometry2d::new(self.top_right().to_meters(), rot)
+    }
+
     pub fn origin_transform(&self) -> ! {
         todo!()
         // isometry_to_transform(self.origin_isometry())

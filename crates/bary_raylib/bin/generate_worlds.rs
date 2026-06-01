@@ -43,7 +43,14 @@ fn scenario_a() -> BaryResult<()> {
 fn scenario_b() -> BaryResult<()> {
     let world = WorldBuilder::new()
         .assets()
+        .blueprint(("pollux", 0))
         .blueprint(("pollux", 2))
+        .blueprint("bellerophon")
+        .blueprint("remora")
+        .blueprint("spacestation")
+        .blueprint("foundation")
+        .blueprint("miner")
+        .blueprint("icecream")
         .spawn(("pollux", 2), "", (0.0, 0.0, 0.0))
         .asteroid((-80.0, 30.0, 0.1), 50.0, 391)
         .build();

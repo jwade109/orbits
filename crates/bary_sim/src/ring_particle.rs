@@ -1,5 +1,4 @@
 use crate::TICKS_PER_SECOND;
-use crate::constants::NOMINAL_DT;
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
 

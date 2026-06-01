@@ -759,9 +759,9 @@ fn get_server_camera_pos(world: &World) -> (Vec2, f32) {
     }
 
     let zoom = if max_dist == 0.0 {
-        8.0
+        16.0
     } else {
-        1000.0 / max_dist
+        300.0 / max_dist
     };
 
     (center, zoom)

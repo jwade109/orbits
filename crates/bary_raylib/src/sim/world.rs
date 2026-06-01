@@ -38,8 +38,8 @@ pub fn apply_delta(world: &mut World, delta: WorldDelta) -> BaryResult<()> {
             world.particles.push(particle);
             Ok(())
         }
-        WorldDelta::SpawnShipAt(bp_name, iso) => {
-            let grid_id = spawn_grid_with_random_name(world, bp_name)?;
+        WorldDelta::SpawnShipAt(name, bp_id, iso) => {
+            let grid_id = spawn_grid_with_bp_id(world, &bp_id, &name)?;
             set_grid_pose(world, grid_id, iso)?;
             Ok(())
         }
@@ -93,6 +93,14 @@ pub fn apply_delta(world: &mut World, delta: WorldDelta) -> BaryResult<()> {
                 region,
             };
             _ = insert_part(grid_id, world, &instance, true);
+            Ok(())
+        }
+        WorldDelta::DestroyPartAt { loc, layer } => {
+            if let Some(layer) = layer {
+                destroy_part_at_layer(world, loc, layer)?;
+            } else {
+                destroy_top_part_at(world, loc)?;
+            }
             Ok(())
         }
         WorldDelta::SetSourceItem {
@@ -301,7 +309,7 @@ pub fn get_part_at(world: &World, loc: GridLocation, layer: PartLayer) -> BaryRe
     occ.at_layer(layer).ok_or(BaryError::NoPartsInLayer(layer))
 }
 
-pub fn destroy_top_part_at(
+fn destroy_top_part_at(
     world: &mut World,
     loc: GridLocation,
 ) -> BaryResult<(PartInstance, Ent, Vec<Ent>)> {
@@ -309,7 +317,7 @@ pub fn destroy_top_part_at(
     destroy_part(world, top_part)
 }
 
-pub fn destroy_part_at_layer(
+fn destroy_part_at_layer(
     world: &mut World,
     loc: GridLocation,
     layer: PartLayer,
@@ -506,69 +514,46 @@ pub fn insert_pipe(
     )
 }
 
-fn editor_on_release_left_click(client: &mut ClientSpecificInfo, world: &mut World) {
-    let e = some_or_return!(client.viewport.editor_mut());
-    debug!("Editor left click release");
+fn editor_on_release_left_click(client: &mut ClientSpecificInfo) -> Option<WorldDelta> {
+    let e = client.viewport.editor_mut()?;
 
-    let src = e.select_start;
-    let dst = e.hovered;
+    let src = e.select_start?;
+    let dst = e.hovered?;
 
-    if let (Some(src), Some(dst)) = (src, dst) {
-        if e.layer == Some(PartLayer::Plumbing) {
-            match insert_pipe(e.vehicle, src, dst, world) {
-                Ok((pipe, _id)) => {
-                    let s = format!("{:?}", pipe);
-                    client.chat.log(s);
-                }
-                Err(e) => {
-                    let s = format!("Failed to insert pipe: {:?}", e);
-                    client.chat.log(s);
-                }
-            }
-        }
+    e.select_start = None;
+
+    if e.layer != Some(PartLayer::Plumbing) {
+        return None;
     }
 
-    e.select_start = None;
+    let delta = WorldDelta::InsertPipe {
+        grid_id: e.vehicle,
+        src,
+        dst,
+    };
+
+    Some(delta)
 }
 
-fn editor_on_left_click(
-    world: &mut World,
-    client: &mut ClientSpecificInfo,
-    sounds: &mut SoundEffects,
-) {
-    let e = some_or_return!(client.viewport.editor_mut());
-
-    debug!("Clicked on editor");
+fn editor_on_left_click(world: &World, client: &mut ClientSpecificInfo) -> Option<WorldDelta> {
+    let e = client.viewport.editor_mut()?;
+    let coord = e.hovered?;
 
     e.select_start = None;
 
-    let coord = some_or_return!(e.hovered);
-
     if let Some(proto_id) = e.prototype_id {
-        let proto = ok_or_return!(world.prototypes.try_get(proto_id));
+        let proto = world.prototypes.try_get(proto_id).ok()?;
 
-        let region = GridRegion::new(coord, e.part_rotation, proto.dims);
-
-        let instance = PartInstance {
+        Some(WorldDelta::InsertPart {
+            grid_id: e.vehicle,
             name: proto.name.clone(),
+            coord,
+            rotation: e.part_rotation,
             layer: proto.layer,
-            region,
-        };
-
-        let result = insert_part(e.vehicle, world, &instance, true);
-
-        match result {
-            Ok(ent) => {
-                info!("Inserted part {ent}");
-                sounds.push(SoundEffect::InsertPart);
-            }
-            Err(error) => {
-                warn!("Failed to insert: {error:?}");
-                sounds.push(SoundEffect::GenericFailure);
-            }
-        }
+        })
     } else {
         e.select_start = Some(coord);
+        None
     }
 }
 
@@ -680,7 +665,7 @@ impl<'a> Drop for ScopeTimer<'a> {
 }
 
 pub fn process_event(
-    world: &mut World,
+    world: &World,
     client: &mut ClientSpecificInfo,
     sounds: &mut SoundEffects,
     on_gui: bool,
@@ -714,20 +699,13 @@ pub fn process_event(
                     match button {
                         Button::Left => {
                             select_hovered_grid_loc_on_click(client, sounds);
-                            editor_on_left_click(world, client, sounds);
                         }
-                        Button::Right => input_handlers::destroy_top_layer_part_at_mouseover(
-                            world, client, sounds,
-                        ),
+                        Button::Right => (),
                         Button::Middle => (),
                         Button::Unknown(_) => (),
                     }
                 }
             }
-            rdev::EventType::ButtonRelease(button) => match button {
-                Button::Left => editor_on_release_left_click(client, world),
-                _ => (),
-            },
             rdev::EventType::MouseMove { x: _, y: _ } => (),
             rdev::EventType::Wheel {
                 delta_x: _,
@@ -738,6 +716,7 @@ pub fn process_event(
                     &mut client.target_camera,
                 );
             }
+            _ => (),
         }
     }
 }
@@ -768,22 +747,31 @@ fn update_terrain_selection_info(client: &mut ClientSpecificInfo, asteroids: &Co
     }
 }
 
-fn toggle_tracking_for_selected_grid(client: &mut ClientSpecificInfo) -> Option<WorldDelta> {
+fn toggle_tracking_for_selected_grid(client: &ClientSpecificInfo) -> Option<WorldDelta> {
     let free = client.viewport.free()?;
     let grid_id = free.selection_info.first_selected_grid()?;
     Some(WorldDelta::ToggleTracking(grid_id))
 }
 
-fn explode_at_mouseover(client: &mut ClientSpecificInfo) -> Option<WorldDelta> {
+fn explode_at_mouseover(client: &ClientSpecificInfo) -> Option<WorldDelta> {
     let free = client.viewport.free()?;
     let loc = free.selection_info.hovered?;
     Some(WorldDelta::Explode(loc))
 }
 
-fn ping_on_alt_left_click(client: &mut ClientSpecificInfo) -> Option<WorldDelta> {
+fn ping_on_alt_left_click(client: &ClientSpecificInfo) -> Option<WorldDelta> {
     let screen_pos = client.mouse_screen_position?;
     let pos = screen_to_world(&client.camera, screen_pos, client.screen_dims);
     Some(WorldDelta::Ping(pos))
+}
+
+fn destroy_top_layer_part_at_mouseover(client: &ClientSpecificInfo) -> Option<WorldDelta> {
+    let editor = client.viewport.editor()?;
+    let loc = client.hovered_grid_loc()?;
+    Some(WorldDelta::DestroyPartAt {
+        loc,
+        layer: editor.layer,
+    })
 }
 
 #[must_use]
@@ -825,6 +813,24 @@ pub fn pre_simulation_update(world: &World, client: &mut ClientSpecificInfo) -> 
         && client.input.is_key_pressed(Key::ControlLeft)
     {
         if let Some(d) = ping_on_alt_left_click(client) {
+            deltas.push(d);
+        }
+    }
+
+    if client.input.just_pressed(Button::Left) {
+        if let Some(d) = editor_on_left_click(world, client) {
+            deltas.push(d);
+        }
+    }
+
+    if client.input.just_released(Button::Left) {
+        if let Some(d) = editor_on_release_left_click(client) {
+            deltas.push(d);
+        }
+    }
+
+    if client.input.just_pressed(Button::Right) {
+        if let Some(d) = destroy_top_layer_part_at_mouseover(client) {
             deltas.push(d);
         }
     }
