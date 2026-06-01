@@ -344,6 +344,16 @@ impl<MessageType> Node<MessageType> {
         }
     }
 
+    pub fn color_u8(&self) -> [u8; 4] {
+        let [r, g, b, a] = self.color();
+        [
+            (r * 255.0).round() as u8,
+            (g * 255.0).round() as u8,
+            (b * 255.0).round() as u8,
+            (a * 255.0).round() as u8,
+        ]
+    }
+
     pub fn desired_dims(&self) -> (Size, Size) {
         (self.desired_width, self.desired_height)
     }

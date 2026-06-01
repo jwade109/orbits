@@ -2,6 +2,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use bary_core::prelude::*;
+use bary_input::InputState;
 use bary_ipc::*;
 use bary_raylib::assets::*;
 use bary_raylib::imgui;
@@ -9,12 +10,14 @@ use bary_raylib::persistence::load_world;
 use bary_raylib::render::*;
 use bary_raylib::sim::*;
 use bary_raylib::sounds::SoundEffects;
+use bary_raylib::utils::ActionSet;
+use bary_raylib::utils::glam_to_raylib;
 // use bary_raylib::tests::is_world_consistent;
 use bary_raylib::utils::raylib_to_glam;
 use bary_raylib::*;
 use bary_sim::*;
 use bary_terminal::Terminal;
-use bary_ui::examples::example_layout;
+use bary_ui::*;
 use clap::Parser;
 use log::*;
 use raylib::prelude::*;
@@ -446,28 +449,106 @@ struct Args {
     server_addr: String,
 }
 
-fn draw_gui<T>(d: &mut RaylibDrawHandle, gui: &bary_ui::layout::Tree<T>) {
-    for root in gui.layouts() {
-        let aabb: AABB = root.aabb();
-        let tl = aabb.lower();
+fn draw_ui_aabb(d: &mut RaylibDrawHandle, aabb: AABB, color: Color, fill: bool) {
+    let tl = aabb.lower();
+    if fill {
+        d.draw_rectangle(
+            tl.x as i32,
+            tl.y as i32,
+            aabb.span.x as i32,
+            aabb.span.y as i32,
+            color,
+        );
+    } else {
         d.draw_rectangle_lines(
             tl.x as i32,
             tl.y as i32,
             aabb.span.x as i32,
             aabb.span.y as i32,
-            Color::ORANGE.alpha(0.5),
+            color,
         );
-        for node in root.iter() {
-            let aabb: AABB = node.aabb();
-            let tl = aabb.lower();
+    }
+}
 
-            d.draw_rectangle_lines(
-                tl.x as i32,
-                tl.y as i32,
-                aabb.span.x as i32,
-                aabb.span.y as i32,
-                Color::ORANGE.alpha(0.5),
-            );
+fn generate_assets_ui(assets: &Assets, input: &InputState, width: f32, height: f32) -> Tree<()> {
+    let mut root = Node::new(width, Size::Fit);
+
+    for (ctx, mapping) in assets.keybinds.iter() {
+        let mut col = Node::new(Size::Grow, height / 2.0)
+            .down()
+            .with_padding(4.0)
+            .with_child_gap(1.0);
+
+        let s = format!("{:?}", ctx);
+        let header = Node::text(Size::Grow, 40, s);
+
+        col.add_child(header);
+
+        let actions = ActionSet::new(input, mapping);
+
+        for (key, action) in mapping.iter() {
+            let color = if actions.just_triggered(*action) {
+                Color::TEAL
+            } else if actions.is_active(*action) {
+                Color::new(60, 60, 110, 255)
+            } else {
+                Color::new(20, 20, 20, 255)
+            };
+
+            let color = [
+                color.r as f32 / 255.0,
+                color.g as f32 / 255.0,
+                color.b as f32 / 255.0,
+                color.a as f32 / 255.0,
+            ];
+
+            let line = format!("{:?}: {:?}", key, action);
+            let row = Node::text(Size::Grow, 30, line).with_color(color);
+            col.add_child(row);
+        }
+
+        root.add_child(col);
+
+        // x += width + padding;
+    }
+
+    Tree::new().with_layout(root, None)
+}
+
+fn draw_gui<T>(d: &mut RaylibDrawHandle, gui: &Tree<T>, mouse_pos: Option<Vec2>, assets: &Assets) {
+    let Some(font) = assets.consolas.as_ref() else {
+        return;
+    };
+
+    for root in gui.layouts() {
+        draw_ui_aabb(d, root.aabb(), Color::ORANGE.alpha(0.5), false);
+        for node in root.iter() {
+            if !node.is_visible() {
+                continue;
+            }
+
+            let aabb = node.aabb();
+
+            let [r, g, b, a] = node.color_u8();
+            let color = Color::new(r, g, b, a);
+
+            let is_hovered = mouse_pos.map(|p| aabb.contains(p)).unwrap_or(false);
+            let color = if is_hovered {
+                color.lerp(Color::WHITE, 0.5)
+            } else {
+                color
+            };
+
+            if node.is_leaf() {
+                draw_ui_aabb(d, node.aabb(), color, true);
+            } else {
+                draw_ui_aabb(d, node.aabb(), Color::new(20, 20, 20, 230), true);
+            }
+
+            if let Some(text) = node.text_content() {
+                let p = glam_to_raylib(aabb.center);
+                draw_text_centered(d, font, text, p, 16, Color::WHITE);
+            }
         }
     }
 }
@@ -537,9 +618,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &mut d,
                 );
 
-                let gui = example_layout(d.get_render_width() as f32, d.get_render_height() as f32);
+                if main_app.client.input.is_key_pressed(rdev::Key::BackSlash) {
+                    let gui = generate_assets_ui(
+                        &main_app.assets,
+                        &main_app.client.input,
+                        d.get_render_width() as f32,
+                        d.get_render_height() as f32,
+                    );
 
-                draw_gui(&mut d, &gui);
+                    draw_gui(
+                        &mut d,
+                        &gui,
+                        main_app.client.mouse_screen_position,
+                        &main_app.assets,
+                    );
+                }
 
                 imgui::lame_old_imgui_entrypoint(
                     &mut d,

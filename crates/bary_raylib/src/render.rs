@@ -365,10 +365,6 @@ pub fn draw_world(
 
     drop(c);
 
-    if client.alt_mode {
-        draw_actions(d, &client, assets);
-    }
-
     draw_grid_far_indicators(&world.grids, d, &client, &raylib_camera, assets);
 
     draw_waypoint_far_indicators(&world.computers, d, &raylib_camera);
@@ -409,51 +405,6 @@ fn draw_animation(d: &mut RaylibDrawHandle, assets: &Assets) {
         let rec = Rectangle::new(i as f32, 0.0, 100.0, 100.0);
 
         d.draw_texture_rec(&anim, rec, Vector2::new(100.0, 250.0), Color::WHITE);
-    }
-}
-
-fn draw_actions(d: &mut RaylibDrawHandle, client: &ClientSpecificInfo, assets: &Assets) {
-    let mut x = 50;
-    let y0 = 50;
-    let width = 250;
-    let cell_height = 28;
-    let font_size = 23;
-    let padding = 3;
-
-    let font = some_or_return!(&assets.lato_regular);
-
-    for (ctx, mapping) in assets.keybinds.iter() {
-        let actions = ActionSet::new(&client.input, mapping);
-        let s = format!("{:?}", ctx);
-        let mut y = y0;
-
-        d.draw_rectangle(x, y, width, cell_height, Color::ORANGE.alpha(0.5));
-        d.draw_text(&s, x + padding, y + padding, font_size, Color::WHITE);
-
-        y += cell_height + padding;
-
-        for (key, action) in mapping.iter() {
-            let line = format!("{:?}: {:?}", key, action);
-            let color = if actions.just_triggered(*action) {
-                Color::TEAL
-            } else if actions.is_active(*action) {
-                Color::new(60, 60, 110, 255)
-            } else {
-                Color::new(20, 20, 20, 255)
-            };
-            d.draw_rectangle(x, y, width, cell_height, color);
-            d.draw_text_ex(
-                font,
-                &line,
-                Vector2::new((x + padding) as f32, (y + padding) as f32),
-                font_size as f32,
-                0.0,
-                Color::WHITE,
-            );
-            y += cell_height + padding;
-        }
-
-        x += width + padding;
     }
 }
 

@@ -670,32 +670,6 @@ fn editor_gui(
     }
 }
 
-fn free_gui(
-    gui: &mut ImGui,
-    world: &mut World,
-    client: &mut ClientSpecificInfo,
-    sounds: &mut SoundEffects,
-) {
-    let _free = some_or_return!(client.viewport.free());
-
-    let mut layout = gui.layout(IVec2::new(100, 20), LayoutDirection::Right);
-
-    if let Some(id) = client.focused_grid_id() {
-        if layout.button(format!("Edit Grid {}", id)).clicked() {
-            enter_ship_editor(world, client, sounds);
-        }
-    }
-
-    if layout.button("<<").clicked() {
-        if client.tick_rate > 1 {
-            client.tick_rate -= 1;
-        }
-    }
-    if layout.button(">>").clicked() {
-        client.tick_rate += 1;
-    }
-}
-
 pub fn selectable_ui<T>(layout: &mut LayoutHandle, value: &mut T)
 where
     T: Sequence + std::fmt::Debug,
@@ -725,9 +699,6 @@ pub fn imgui_pass(
         client.input.clone(),
     );
 
-    // selected_part_gui(&mut gui, client, world);
-
-    free_gui(&mut gui, world, client, sounds);
     editor_gui(&mut gui, world, client, sounds);
 
     gui

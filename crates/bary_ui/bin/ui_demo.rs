@@ -1,6 +1,4 @@
-use bary_ui::examples::*;
-use bary_ui::layout::*;
-use bary_ui::svg::write_svg;
+use bary_ui::*;
 
 fn draw_layout(tree: &Tree<String>, path: &str) -> Result<(), std::io::Error> {
     let aabbs: Vec<_> = tree
