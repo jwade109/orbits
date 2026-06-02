@@ -63,13 +63,23 @@ pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> Bary
     let s = bincode::serialize(&world.asteroids).map_err(|_| BaryError::BincodeError)?;
     std::fs::write(dir.join("asteroids.bin"), s)?;
 
-    let s = bincode::serialize(&world.terrain_chunks).map_err(|_| BaryError::BincodeError)?;
+    let s = comp(bincode::serialize(&world.terrain_chunks).map_err(|_| BaryError::BincodeError)?);
     std::fs::write(dir.join("terrain_chunks.bin"), s)?;
 
-    let s = bincode::serialize(&world.terrain_tiles).map_err(|_| BaryError::BincodeError)?;
+    let s = comp(bincode::serialize(&world.terrain_tiles).map_err(|_| BaryError::BincodeError)?);
     std::fs::write(dir.join("terrain_tiles.bin"), s)?;
 
     Ok(())
+}
+
+fn comp(mut bytes: Vec<u8>) -> Vec<u8> {
+    let reader = std::io::Cursor::new(bytes);
+    zstd::stream::encode_all(reader, 0).unwrap()
+}
+
+fn decomp(bytes: Vec<u8>) -> Vec<u8> {
+    let reader = std::io::Cursor::new(bytes);
+    zstd::stream::decode_all(reader).unwrap()
 }
 
 pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
@@ -123,10 +133,10 @@ pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
     let s = std::fs::read(dir.join("asteroids.bin"))?;
     world.asteroids = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
 
-    let s = std::fs::read(dir.join("terrain_chunks.bin"))?;
+    let s = decomp(std::fs::read(dir.join("terrain_chunks.bin"))?);
     world.terrain_chunks = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
 
-    let s = std::fs::read(dir.join("terrain_tiles.bin"))?;
+    let s = decomp(std::fs::read(dir.join("terrain_tiles.bin"))?);
     world.terrain_tiles = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
 
     Ok(world)
