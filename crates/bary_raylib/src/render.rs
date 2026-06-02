@@ -290,6 +290,8 @@ pub fn draw_world(
         draw_computer_target_isometry(&mut c, &world.computers, &world.parts, &world.grids);
     }
 
+    draw_excavators(&mut c, world);
+
     draw_parts(
         &mut c,
         &world.grids,
@@ -385,6 +387,48 @@ pub fn draw_world(
     // draw_item_menu(d, (300, 200).into());
 
     // draw_test_isos(&mut d)
+}
+
+fn draw_excavator(
+    d: &mut RaylibDrawHandle,
+    part_id: Ent,
+    ex: &Excavator,
+    world: &World,
+) -> BaryResult<()> {
+    let part = world.parts.try_get(part_id)?;
+    let grid = world.grids.try_get(part.grid_id)?;
+    let part_iso = grid.origin() * part.region.center_isometry();
+    draw_circle(d, part_iso.translation, ex.radius, Color::RED);
+
+    // TODO(gross) spatial lookups here or something.
+    for ast in world.asteroids.values() {
+        let wrt_asteroid = in_frame(ast.iso, part_iso.translation);
+        let gc = GlobalTileIndex(vfloor(wrt_asteroid / TERRAIN_TILE_WIDTH_METERS));
+        let tile_dims = Vec2::splat(TERRAIN_TILE_WIDTH_METERS);
+
+        let ri = 2 * (ex.radius / TERRAIN_TILE_WIDTH_METERS).ceil() as i32;
+
+        for x in -ri..ri {
+            for y in -ri..ri {
+                let offset = IVec2::new(x, y);
+                let g = GlobalTileIndex(gc.0 + offset);
+                let c = g.center_isometry();
+                let dist = c.translation.distance(wrt_asteroid);
+                if dist < ex.radius {
+                    let o = g.origin_isometry();
+                    fill_rectangle(d, ast.iso * o, tile_dims, Color::TEAL.alpha(0.5));
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn draw_excavators(d: &mut RaylibDrawHandle, world: &World) {
+    for (part_id, ex) in world.excavators.iter() {
+        _ = draw_excavator(d, *part_id, ex, world);
+    }
 }
 
 fn get_terrain_tile_rect(material: TerrainMaterial, variant: usize) -> Rectangle {

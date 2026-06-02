@@ -443,6 +443,7 @@ impl ServerApp {
             TableIdent::Asteroids => Self::serialize_table(&self.world.asteroids),
             TableIdent::Pipes => Self::serialize_table(&self.world.pipes),
             TableIdent::Lights => Self::serialize_table(&self.world.lights),
+            TableIdent::Excavators => Self::serialize_table(&self.world.excavators),
         };
         data.map(|data| Blob::new(data, table))
     }
@@ -513,6 +514,7 @@ impl ServerApp {
             TableIdent::Machines => Self::lsblob(&mut self.terminal, &self.world.machines),
             TableIdent::Pipes => Self::lsblob(&mut self.terminal, &self.world.pipes),
             TableIdent::Lights => Self::lsblob(&mut self.terminal, &self.world.lights),
+            TableIdent::Excavators => Self::lsblob(&mut self.terminal, &self.world.excavators),
         }
     }
 
@@ -588,6 +590,7 @@ impl ServerApp {
             TableIdent::Machines => todo!(),
             TableIdent::Pipes => todo!(),
             TableIdent::Lights => todo!(),
+            TableIdent::Excavators => todo!(),
         }
     }
 

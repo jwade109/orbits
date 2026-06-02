@@ -97,6 +97,14 @@ impl GlobalTileIndex {
         let local = LocalTileIndex(l.as_i8vec2());
         (chunk, local)
     }
+
+    pub fn origin_isometry(&self) -> Isometry2d {
+        Isometry2d::from_pos(self.0.as_vec2() * TERRAIN_TILE_WIDTH_METERS)
+    }
+
+    pub fn center_isometry(&self) -> Isometry2d {
+        Isometry2d::from_pos((self.0.as_vec2() + Vec2::splat(0.5)) * TERRAIN_TILE_WIDTH_METERS)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]

@@ -261,6 +261,7 @@ impl App {
             TableIdent::Asteroids => Self::unpack_blob(&mut self.world.asteroids, blob.data()),
             TableIdent::Pipes => Self::unpack_blob(&mut self.world.pipes, blob.data()),
             TableIdent::Lights => Self::unpack_blob(&mut self.world.lights, blob.data()),
+            TableIdent::Excavators => Self::unpack_blob(&mut self.world.excavators, blob.data()),
         };
 
         if success {

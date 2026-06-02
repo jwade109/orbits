@@ -24,6 +24,7 @@ pub struct World {
     pub tracking: Components<Tracker>,
     pub inventories: Components<Inventory>,
     pub machines: Components<Machine>,
+    pub excavators: Components<Excavator>,
     pub stars: Components<Star>,
     pub pipes: Components<Pipe>,
     pub debug_portals: Components<DebugPortal>,

@@ -40,6 +40,7 @@ pub fn spawn_grid_from_blueprint_c(
     machines: &mut Components<Machine>,
     pipes: &mut Components<Pipe>,
     debug_portals: &mut Components<DebugPortal>,
+    excavators: &mut Components<Excavator>,
     grid_name: impl Into<String>,
     bp_id: Option<BlueprintId>,
     bp: &Blueprint,
@@ -65,6 +66,7 @@ pub fn spawn_grid_from_blueprint_c(
             inventories,
             machines,
             debug_portals,
+            excavators,
             proto,
             false,
         )?;
@@ -255,6 +257,7 @@ pub fn spawn_grid_from_blueprint(
         &mut world.machines,
         &mut world.pipes,
         &mut world.debug_portals,
+        &mut world.excavators,
         grid_name,
         bp_id.cloned(),
         bp,
@@ -326,6 +329,7 @@ pub fn insert_part(
         &mut world.inventories,
         &mut world.machines,
         &mut world.debug_portals,
+        &mut world.excavators,
         instance,
         update_props,
     )
@@ -353,6 +357,7 @@ pub fn insert_part_c(
     inventories: &mut Components<Inventory>,
     machines: &mut Components<Machine>,
     debug_portals: &mut Components<DebugPortal>,
+    excavators: &mut Components<Excavator>,
     instance: &PartInstance,
     update_props: bool,
 ) -> BaryResult<Ent> {
@@ -430,6 +435,10 @@ pub fn insert_part_c(
     if let Some(debug) = &proto.debug_portal_data {
         let portal = DebugPortal::from_proto(*debug);
         debug_portals.spawn(part_id, portal);
+    }
+    if let Some(ex) = &proto.excavator_data {
+        let excavator = Excavator::from_proto(ex);
+        excavators.spawn(part_id, excavator);
     }
 
     if update_props {
