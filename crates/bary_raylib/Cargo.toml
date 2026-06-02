@@ -52,6 +52,10 @@ name = "server_app"
 path = "bin/server_app.rs"
 
 [[bin]]
+name = "headless_server"
+path = "bin/headless_server.rs"
+
+[[bin]]
 name = "traj"
 path = "bin/traj.rs"
 

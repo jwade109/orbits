@@ -1,4 +1,4 @@
-use crate::{sim::*, world_builder::WorldBuilderCommand::SetAnchored};
+use crate::sim::*;
 use bary_core::prelude::*;
 use bary_factory::*;
 use bary_parts::*;

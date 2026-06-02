@@ -992,7 +992,6 @@ pub fn draw_parts(
     for (grid_id, grid) in grids.iter() {
         let is_focus_vehicle = focus_vehicle == Some(*grid_id) || focus_vehicle.is_none();
 
-        let origin = grid.origin();
         for draw_layer in PartLayer::draw_order() {
             for part_id in &grid.parts {
                 let Ok(part) = parts.try_get(*part_id) else {

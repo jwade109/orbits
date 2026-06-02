@@ -22,46 +22,6 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-#[derive(Debug)]
-struct RateCalculator {
-    buffer: Vec<Instant>,
-    times_called: u64,
-}
-
-impl RateCalculator {
-    fn new() -> Self {
-        Self {
-            buffer: Vec::new(),
-            times_called: 0,
-        }
-    }
-
-    fn update_rate(&mut self) {
-        let now = Instant::now();
-        self.buffer.push(now);
-        if self.buffer.len() > 100 {
-            self.buffer.remove(0);
-        }
-        self.times_called += 1;
-    }
-
-    fn rate(&self) -> f64 {
-        if self.buffer.len() < 2 {
-            return 0.0;
-        }
-
-        let first = self.buffer.first().unwrap();
-        let last = self.buffer.last().unwrap();
-        let delta = *last - *first;
-
-        (self.buffer.len() - 1) as f64 / delta.as_secs_f64()
-    }
-
-    fn count(&self) -> u64 {
-        self.times_called
-    }
-}
-
 struct DeltaLog {
     tick: u64,
     source: MessageSource,
@@ -764,14 +724,6 @@ fn get_server_camera_pos(world: &World) -> (Vec2, f32) {
     (center, zoom)
 }
 
-// fn draw_ship_label(d: &mut RaylibDrawHandle, font: &Font, p: Vector2, name: &str, color: Color) {
-//     let size = 20.0;
-//     d.draw_circle_v(p, 3.0, color);
-//     let p = p + Vector2::new(8.0, -size / 2.0);
-//     let t = name.to_uppercase();
-//     d.draw_text_ex(font, &t, p, size, 0.0, color);
-// }
-
 impl Application for ServerApp {
     fn update(&mut self) {
         self.app.frame();
@@ -809,8 +761,6 @@ impl Application for ServerApp {
         }
 
         let n_clients = self.get_statistics().clients.len();
-
-        // let font = self.assets.consolas.as_ref().unwrap();
 
         let mut client_info_lines = Vec::new();
         if let Some(node) = self.node() {
@@ -874,31 +824,9 @@ impl Application for ServerApp {
             lines.push(s);
         }
 
-        // let w = self.app.handle.get_render_width();
-        // let h = self.app.handle.get_render_height();
-
-        // let scale = 4.0;
-
-        // let w2s = |p: Vec2| -> Vector2 {
-        //     let x = p.x * scale + w as f32 / 2.0;
-        //     let y = p.y * scale + h as f32 / 2.0;
-        //     Vector2::new(x, y)
-        // };
 
         self.app.handle.draw(&self.app.thread, |mut d| {
             d.clear_background(Color::new(20, 20, 20, 255));
-
-            // for grid in self.world.grids.values() {
-            //     let p = w2s(grid.particle_location.translation);
-            //     draw_ship_label(&mut d, font, p, &grid.name, Color::WHITE);
-            // }
-
-            // for (_id, tlm) in &self.client_telemetry {
-            //     for (_, name, iso) in &tlm.grid_transforms {
-            //         let p = w2s(iso.translation);
-            //         draw_ship_label(&mut d, font, p, name, Color::ORANGE.alpha(0.4));
-            //     }
-            // }
 
             let text = lines.join("\n");
 
@@ -934,8 +862,11 @@ impl Application for ServerApp {
 #[derive(Parser, Debug, Default, Clone)]
 #[command(version, about, long_about = None)]
 pub struct Args {
+    #[arg(default_value = "5000")]
     server_port: u16,
+    #[arg(default_value = "saves/")]
     saves_dir: String,
+    #[arg(default_value = "scenario_a")]
     save_name: String,
 }
 

@@ -10,13 +10,13 @@ def work(cmd):
 
 if __name__ == '__main__':
 
-    subprocess.check_call("cargo build --release --bin server_app", shell=False)
+    subprocess.check_call("cargo build --release --bin headless_server", shell=False)
     subprocess.check_call("cargo build --release --bin main", shell=False)
 
     pool = multiprocessing.Pool(3, init_worker)
     try:
         pool.map(work, [
-            "./target/release/server_app.exe 5000 saves/ scenario_a",
+            "./target/release/headless_server.exe 5000 saves/ scenario_a",
             "./target/release/main.exe -a 127.0.0.1:5000 -s saves/scenario_a",
         ])
     except KeyboardInterrupt:

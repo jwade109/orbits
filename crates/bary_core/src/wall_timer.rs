@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct WallTimer {
     next_firing: Instant,
     last_visited: Instant,
@@ -9,6 +9,20 @@ pub struct WallTimer {
     dt: Duration,
     fired_last_tick: bool,
     firings: Vec<Instant>,
+}
+
+impl std::fmt::Debug for WallTimer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WallTimer")
+            .field("next_firing", &self.next_firing)
+            .field("last_visited", &self.last_visited)
+            .field("duration", &self.duration)
+            .field("times_fired", &self.times_fired)
+            .field("dt", &self.dt)
+            .field("fired_last_tick", &self.fired_last_tick)
+            .field("firings", &self.firings.len())
+            .finish()
+    }
 }
 
 impl WallTimer {
@@ -30,11 +44,10 @@ impl WallTimer {
         self.dt = now - self.last_visited;
         self.last_visited = now;
         self.fired_last_tick = now >= self.next_firing;
-        self.times_fired += 1;
-        while self.next_firing < now {
-            self.next_firing += self.duration;
-        }
+
         if self.fired_last_tick {
+            self.next_firing += self.duration;
+            self.times_fired += 1;
             self.firings.push(now);
             if self.firings.len() > 100 {
                 self.firings.remove(0);
