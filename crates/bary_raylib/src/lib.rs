@@ -13,6 +13,7 @@ pub mod utils;
 pub mod world_builder;
 
 mod commands;
+pub mod headless_server;
 
 pub use commands::*;
 

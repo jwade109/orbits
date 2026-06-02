@@ -5,12 +5,14 @@ use bary_core::prelude::*;
 use bary_input::InputState;
 use bary_ipc::*;
 use bary_raylib::assets::*;
+use bary_raylib::headless_server::HeadlessServerApp;
 use bary_raylib::imgui;
 use bary_raylib::persistence::load_world;
 use bary_raylib::render::*;
 use bary_raylib::sim::*;
 use bary_raylib::sounds::SoundEffects;
 use bary_raylib::utils::ActionSet;
+use bary_raylib::utils::Application;
 use bary_raylib::utils::glam_to_raylib;
 // use bary_raylib::tests::is_world_consistent;
 use bary_raylib::utils::raylib_to_glam;
@@ -23,7 +25,7 @@ use log::*;
 use raylib::prelude::*;
 use serde::Deserialize;
 
-pub struct App {
+pub struct ClientApp {
     client: ClientSpecificInfo,
     world: World,
     #[allow(unused)]
@@ -48,7 +50,7 @@ pub struct App {
     should_exit: bool,
 }
 
-impl App {
+impl ClientApp {
     fn new(args: Args, log_level: log::LevelFilter) -> Result<Self, Box<dyn std::error::Error>> {
         let incoming_network_queue = new_message_queue();
 
@@ -60,11 +62,7 @@ impl App {
             }
         });
 
-        let mut world = World::empty();
-
-        if let Some(save) = args.save_file {
-            world = load_world(save)?;
-        }
+        let world = load_world(&args.save_file)?;
 
         let mut terminal = Terminal::new();
 
@@ -101,7 +99,7 @@ impl App {
         let server_ping_timer = WallTimer::with_dur(Duration::from_millis(1000));
         let server_telemetry_timer = WallTimer::with_dur(Duration::from_millis(1000));
 
-        Ok(App {
+        Ok(ClientApp {
             world,
             client: ClientSpecificInfo::new(),
             debug: DebugInfo::default(),
@@ -224,7 +222,7 @@ impl App {
     }
 
     fn on_driver_packet(&mut self, ticks: u64, deltas: Vec<WorldDelta>) {
-        while self.world.ticks < ticks {
+        while self.world.ticks + 1 < ticks {
             update_world(&mut self.world);
         }
 
@@ -233,6 +231,8 @@ impl App {
                 error!("Failed to apply delta {:?}: {:?}", delta, e);
             }
         }
+
+        update_world(&mut self.world);
     }
 
     fn unpack_blob<'a, T: Deserialize<'a>>(entities: &mut Components<T>, bytes: &'a [u8]) -> bool {
@@ -466,10 +466,14 @@ fn handle_sounds<'a>(
 #[derive(Parser, Debug, Default, Clone)]
 #[command(version, about, long_about = None)]
 struct Args {
-    #[arg(short)]
-    save_file: Option<String>,
+    #[arg(short, default_value = "saves/scenario_a")]
+    save_file: String,
     #[arg(short = 'a', default_value = "127.0.0.1:5000")]
     server_addr: String,
+    #[arg(short = 'p', default_value = "5000")]
+    server_port: u16,
+    #[arg(long)]
+    run_server: bool,
 }
 
 fn draw_ui_aabb(d: &mut RaylibDrawHandle, aabb: AABB, color: Color, fill: bool) {
@@ -576,12 +580,32 @@ fn draw_gui<T>(d: &mut RaylibDrawHandle, gui: &Tree<T>, mouse_pos: Option<Vec2>,
     }
 }
 
+fn server_thread(args: Args) {
+    if !args.run_server {
+        return;
+    }
+
+    let server = match HeadlessServerApp::new(&args.save_file, args.server_port, 10) {
+        Ok(server) => server,
+        Err(e) => {
+            error!("Failed to start server: {e:?}");
+            return;
+        }
+    };
+
+    server.spin_forever();
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
+    let server_args = args.clone();
+
+    let _join = std::thread::spawn(move || server_thread(server_args));
+
     info!("{:?}", args);
 
-    let mut main_app = App::new(args, log::LevelFilter::Info)?;
+    let mut main_app = ClientApp::new(args, log::LevelFilter::Info)?;
 
     let audio = raylib::audio::RaylibAudio::init_audio_device()?;
     let mut active_sounds = Vec::new();

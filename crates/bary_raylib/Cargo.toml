@@ -2,7 +2,7 @@
 name = "bary_raylib"
 version = "0.1.0"
 edition = "2024"
-default-run = "main"
+default-run = "client_app"
 
 [dependencies]
 rand = "0.10.0"
@@ -36,8 +36,8 @@ image = "0.25.10"
 shellwords = "1.1.0"
 
 [[bin]]
-name = "main"
-path = "bin/main.rs"
+name = "client_app"
+path = "bin/client_app.rs"
 
 [[bin]]
 name = "kb"
@@ -46,10 +46,6 @@ path = "bin/kb.rs"
 [[bin]]
 name = "steam"
 path = "bin/steam.rs"
-
-[[bin]]
-name = "server_app"
-path = "bin/server_app.rs"
 
 [[bin]]
 name = "headless_server"

@@ -57,7 +57,7 @@ impl BasicApp {
         let thread_copy = input_queue.clone();
         let _input_thread = std::thread::spawn(|| {
             if let Err(error) = rdev::listen(move |e| thread_copy.push(e)) {
-                println!("Error: {:?}", error)
+                println!("Big bad: {:?}", error)
             }
         });
 

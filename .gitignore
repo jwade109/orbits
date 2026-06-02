@@ -2,3 +2,4 @@
 dist
 *.svg
 *.zip
+deploy_dir
