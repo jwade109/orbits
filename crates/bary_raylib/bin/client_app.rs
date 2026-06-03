@@ -392,6 +392,7 @@ fn draw_debug_info(
     s += "\n";
 
     s += &format!("\nConnected: {}", node.is_connected());
+    s += &format!("\nAddress:   {}", node.server_addr());
     s += &format!("\nRX:        {}", node.rx_count());
     s += &format!("\nTX:        {}", node.tx_count());
     s += &format!("\nErrors:    {}", node.errors());

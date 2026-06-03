@@ -129,6 +129,10 @@ impl ClientNode {
         self.client.is_connected()
     }
 
+    pub fn server_addr(&self) -> SocketAddr {
+        self.server_addr
+    }
+
     pub fn stats(&self) -> ClientStatistics {
         let is_connected = self.client.is_connected();
         let info = self.client.network_info();
