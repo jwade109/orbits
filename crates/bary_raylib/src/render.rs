@@ -400,26 +400,18 @@ fn draw_excavator(
     let part_iso = grid.origin() * part.region.center_isometry();
     draw_circle(d, part_iso.translation, ex.radius, Color::RED);
 
-    // TODO(gross) spatial lookups here or something.
-    for ast in world.asteroids.values() {
-        let wrt_asteroid = in_frame(ast.iso, part_iso.translation);
-        let gc = GlobalTileIndex(vfloor(wrt_asteroid / TERRAIN_TILE_WIDTH_METERS));
-        let tile_dims = Vec2::splat(TERRAIN_TILE_WIDTH_METERS);
+    let tiles = get_excavator_tiles(part_id, ex, world)?;
 
-        let ri = 2 * (ex.radius / TERRAIN_TILE_WIDTH_METERS).ceil() as i32;
+    let Some((ast_id, tiles)) = tiles else {
+        return Ok(());
+    };
 
-        for x in -ri..ri {
-            for y in -ri..ri {
-                let offset = IVec2::new(x, y);
-                let g = GlobalTileIndex(gc.0 + offset);
-                let c = g.center_isometry();
-                let dist = c.translation.distance(wrt_asteroid);
-                if dist < ex.radius {
-                    let o = g.origin_isometry();
-                    fill_rectangle(d, ast.iso * o, tile_dims, Color::TEAL.alpha(0.5));
-                }
-            }
-        }
+    let ast = world.asteroids.try_get(ast_id)?;
+    let tile_dims = Vec2::splat(TERRAIN_TILE_WIDTH_METERS);
+
+    for tile in tiles {
+        let o = tile.origin_isometry();
+        fill_rectangle(d, ast.iso * o, tile_dims, Color::TEAL.alpha(0.5));
     }
 
     Ok(())

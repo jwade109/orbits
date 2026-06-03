@@ -201,6 +201,73 @@ fn sys_update_machines(world: &mut World) {
     }
 }
 
+pub fn get_excavator_tiles(
+    id: Ent,
+    ex: &Excavator,
+    world: &World,
+) -> BaryResult<Option<(Ent, Vec<GlobalTileIndex>)>> {
+    let part = world.parts.try_get(id)?;
+    let grid = world.grids.try_get(part.grid_id)?;
+    let part_iso = grid.origin() * part.region.center_isometry();
+
+    // TODO(gross) spatial lookups here or something.
+    for (rock_id, rock) in world.asteroids.iter() {
+        let wrt_asteroid = in_frame(rock.iso, part_iso.translation);
+
+        if wrt_asteroid.length() > rock.ast.max_radius() {
+            continue;
+        }
+
+        let mut tiles = Vec::new();
+
+        let gc = GlobalTileIndex(vfloor(wrt_asteroid / TERRAIN_TILE_WIDTH_METERS));
+
+        let ri = 2 * (ex.radius / TERRAIN_TILE_WIDTH_METERS).ceil() as i32;
+
+        for x in -ri..ri {
+            for y in -ri..ri {
+                let offset = IVec2::new(x, y);
+                let g = GlobalTileIndex(gc.0 + offset);
+                let c = g.center_isometry();
+                let dist = c.translation.distance(wrt_asteroid);
+                if dist < ex.radius {
+                    tiles.push(g);
+                    //     let o = g.origin_isometry();
+                    //     fill_rectangle(d, ast.iso * o, tile_dims, Color::TEAL.alpha(0.5));
+                }
+            }
+        }
+
+        return Ok(Some((*rock_id, tiles)));
+    }
+
+    Ok(None)
+}
+
+/// Iterates over all active excavators and removes tiles accordingly
+fn sys_mine_tiles(world: &mut World) {
+    let mut to_remove: BTreeMap<Ent, BTreeSet<GlobalTileIndex>> = BTreeMap::new();
+    for (id, ex) in world.excavators.iter() {
+        let Ok(Some((ast_id, tiles))) = get_excavator_tiles(*id, ex, world) else {
+            continue;
+        };
+        to_remove
+            .entry(ast_id)
+            .and_modify(|e| {
+                for t in &tiles {
+                    e.insert(*t);
+                }
+            })
+            .or_insert(BTreeSet::from_iter(tiles));
+    }
+
+    for (ast_id, tiles) in to_remove {
+        for t in tiles {
+            _ = remove_terrain_tile(world, ast_id, t);
+        }
+    }
+}
+
 /// Updates ring particles.
 fn sys_update_ring_particles(particles: &mut Vec<PingParticle>, current_tick: u64) {
     particles.retain(|p| p.is_alive(current_tick));
@@ -367,6 +434,12 @@ pub fn update_world(world: &mut World) -> DebugTimers {
         let _timer = timers.scope("update_machines");
 
         sys_update_machines(world);
+    }
+
+    {
+        let _timer = timers.scope("terrain_mining");
+
+        sys_mine_tiles(world);
     }
 
     timers

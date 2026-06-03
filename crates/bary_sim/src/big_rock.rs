@@ -78,6 +78,18 @@ impl Ord for LocalTileIndex {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 pub struct GlobalTileIndex(pub IVec2);
 
+impl PartialOrd for GlobalTileIndex {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        (self.0.x, self.0.y).partial_cmp(&(other.0.x, other.0.y))
+    }
+}
+
+impl Ord for GlobalTileIndex {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        (self.0.x, self.0.y).cmp(&(other.0.x, other.0.y))
+    }
+}
+
 impl GlobalTileIndex {
     pub fn to_cl(&self) -> (ChunkIndex, LocalTileIndex) {
         let tpcs = TILES_PER_CHUNK_SIDE as i32;
