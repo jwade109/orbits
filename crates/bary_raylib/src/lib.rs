@@ -3,7 +3,6 @@ pub mod camera;
 pub mod constants;
 pub mod editor_state;
 pub mod imgui;
-pub mod persistence;
 pub mod render;
 pub mod sim;
 pub mod sounds;

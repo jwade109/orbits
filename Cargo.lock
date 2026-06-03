@@ -551,7 +551,6 @@ dependencies = [
  "simple_logger",
  "steamworks",
  "toml",
- "zstd",
 ]
 
 [[package]]
@@ -567,6 +566,7 @@ dependencies = [
  "early_returns",
  "log",
  "serde",
+ "zstd",
 ]
 
 [[package]]

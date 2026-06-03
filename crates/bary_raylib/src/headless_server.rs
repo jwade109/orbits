@@ -1,4 +1,3 @@
-use crate::persistence::load_world;
 use crate::sim::apply_delta;
 use crate::utils::Application;
 use crate::*;

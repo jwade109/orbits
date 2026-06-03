@@ -164,6 +164,31 @@ pub fn apply_delta(world: &mut World, delta: WorldDelta) -> BaryResult<()> {
     }
 }
 
+fn explode_grid_at(loc: GridLocation, world: &mut World) {
+    let p = loc.coord.inner();
+    let r = 2;
+    for x in p.x - r..=p.x + r {
+        for y in p.y - r..=p.y + r {
+            let mut loc = loc;
+            loc.coord.0 = (x, y).into();
+            _ = destroy_top_part_at(world, loc);
+        }
+    }
+}
+
+fn toggle_tracking(world: &mut World, grid_id: Ent) -> BaryResult<bool> {
+    let tracking = if world.tracking.has_entity(grid_id) {
+        world.tracking.despawn(grid_id)?;
+        info!("Removed tracking for grid {}", grid_id);
+        false
+    } else {
+        world.tracking.spawn(grid_id, Tracker::default());
+        info!("Enabled tracking for grid {}", grid_id);
+        true
+    };
+    Ok(tracking)
+}
+
 fn set_grid_anchored(world: &mut World, grid_id: Ent, anchored: bool) -> BaryResult<()> {
     let grid = world.grids.try_get_mut(grid_id)?;
     grid.is_anchored = anchored;
@@ -294,22 +319,6 @@ pub fn destroy_part(world: &mut World, part_id: Ent) -> BaryResult<(PartInstance
     let (instance, grid_id) = destroy_part_without_integrity_check(world, part_id, true)?;
     let grids = split_grid_if_necessary(world, grid_id)?;
     Ok((instance, grid_id, grids))
-}
-
-pub fn destroy_part_batch(_world: &mut World, _parts: &[Ent]) -> BaryResult<()> {
-    todo!()
-}
-
-pub fn explode_grid_at(loc: GridLocation, world: &mut World) {
-    let p = loc.coord.inner();
-    let r = 2;
-    for x in p.x - r..=p.x + r {
-        for y in p.y - r..=p.y + r {
-            let mut loc = loc;
-            loc.coord.0 = (x, y).into();
-            _ = destroy_top_part_at(world, loc);
-        }
-    }
 }
 
 pub fn get_part_at(world: &World, loc: GridLocation, layer: PartLayer) -> BaryResult<Ent> {
