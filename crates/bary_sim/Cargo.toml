@@ -10,7 +10,7 @@ bary_orbital = { path = "../bary_orbital" }
 bary_factory = { path = "../bary_factory" }
 serde = { version = "1.0.219", features = ["derive"] }
 chrono = "0.4.44"
-log = "0.4.29"
+log = "0.4.31"
 bincode = "1.3.3"
 early_returns = "0.4.0"
 zstd = "0.13.3"

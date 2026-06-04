@@ -3,6 +3,7 @@
 
 use crate::svg::write_svg;
 use bary_core::prelude::*;
+use log::*;
 
 #[derive(Debug, Clone, Copy)]
 pub enum LayoutDir {
@@ -77,23 +78,34 @@ pub struct NodeStyle {
     text_justify: TextJustify,
 }
 
+pub trait UiMsg: std::fmt::Debug + Clone + PartialEq + Eq {}
+
 #[derive(Debug, Clone)]
-pub struct Node<MessageType> {
+pub enum NodeType<T: UiMsg> {
+    Text(String),
+    Button(String, T),
+    Image(String),
+    Spacer,
+    Row(Vec<Node<T>>),
+    Column(Vec<Node<T>>),
+}
+
+#[derive(Debug, Clone)]
+pub struct Node<T: UiMsg> {
     desired_width: Size,
     desired_height: Size,
     calculated_width: Option<f32>,
     calculated_height: Option<f32>,
     calculated_position: Option<Vec2>,
     layer: Option<u32>,
-    children: Vec<Node<MessageType>>,
-    onclick: Option<MessageType>,
-    text_content: Option<String>,
+    // children: Vec<Node<T>>,
+    node_type: NodeType<T>,
     enabled: bool,
     sprite: Option<String>,
     style: NodeStyle,
 }
 
-impl<MessageType> Node<MessageType> {
+impl<T: UiMsg> Node<T> {
     pub fn new(width: impl Into<Size>, height: impl Into<Size>) -> Self {
         let w = width.into();
         let h = height.into();
@@ -104,9 +116,7 @@ impl<MessageType> Node<MessageType> {
             calculated_height: h.as_fixed(),
             calculated_position: None,
             layer: None,
-            children: Vec::new(),
-            onclick: None,
-            text_content: None,
+            node_type: NodeType::Spacer,
             enabled: true,
             sprite: None,
             style: NodeStyle {
@@ -122,11 +132,19 @@ impl<MessageType> Node<MessageType> {
     }
 
     pub fn text(width: impl Into<Size>, height: impl Into<Size>, text: impl Into<String>) -> Self {
-        Self::new(width, height).with_text(text)
+        let mut node = Self::new(width, height);
+        node.node_type = NodeType::Text(text.into());
+        node
     }
 
     pub fn structural(width: impl Into<Size>, height: impl Into<Size>) -> Self {
         Self::new(width, height)
+    }
+
+    pub fn root(width: impl Into<Size>, height: impl Into<Size>) -> Self {
+        let mut node = Self::new(width, height);
+        node.node_type = NodeType::Column(vec![]);
+        node
     }
 
     pub fn grow() -> Self {
@@ -137,31 +155,27 @@ impl<MessageType> Node<MessageType> {
         Node::new(Size::Fit, Size::Fit)
     }
 
-    pub fn row(height: impl Into<Size>) -> Self {
-        Node::new(Size::Grow, height).right()
+    pub fn row(height: impl Into<Size>, children: Vec<Node<T>>) -> Self {
+        let mut node = Node::new(Size::Grow, height).right();
+        node.node_type = NodeType::Row(children);
+        node
     }
 
     pub fn button(
         s: impl Into<String>,
-        onclick: impl Into<MessageType>,
+        onclick: impl Into<T>,
         width: impl Into<Size>,
         height: impl Into<Size>,
     ) -> Self {
-        Node::<MessageType>::new(width, height)
-            .with_text(s)
-            .with_on_click(onclick)
+        let mut node = Node::<T>::new(width, height);
+        node.node_type = NodeType::Button(s.into(), onclick.into());
+        node
     }
 
-    pub fn column(width: impl Into<Size>) -> Self {
-        Node::new(width, Size::Grow).down()
-    }
-
-    pub fn hline() -> Self {
-        Node::row(1).with_color([0.5, 0.5, 0.5, 0.8])
-    }
-
-    pub fn vline() -> Self {
-        Node::column(1).with_color([0.5, 0.5, 0.5, 0.8])
+    pub fn column(width: impl Into<Size>, children: Vec<Node<T>>) -> Self {
+        let mut node = Node::new(width, Size::Grow).down();
+        node.node_type = NodeType::Column(children);
+        node
     }
 
     pub fn enabled(mut self, enabled: bool) -> Self {
@@ -170,12 +184,10 @@ impl<MessageType> Node<MessageType> {
     }
 
     pub fn text_content(&self) -> Option<&String> {
-        self.text_content.as_ref()
-    }
-
-    pub fn with_text(mut self, s: impl Into<String>) -> Self {
-        self.text_content = Some(s.into());
-        self
+        match &self.node_type {
+            NodeType::Button(s, _) => Some(s),
+            _ => None,
+        }
     }
 
     pub fn with_sprite(mut self, s: impl Into<String>) -> Self {
@@ -202,7 +214,7 @@ impl<MessageType> Node<MessageType> {
         rows: u32,
         cols: u32,
         spacing: f32,
-        func: impl Fn(u32) -> Option<Node<MessageType>>,
+        func: impl Fn(u32) -> Option<Node<T>>,
     ) -> Self {
         let mut i = 0;
         let mut root = Node::new(width, height)
@@ -230,13 +242,11 @@ impl<MessageType> Node<MessageType> {
         root
     }
 
-    pub fn on_click(&self) -> Option<&MessageType> {
-        self.onclick.as_ref()
-    }
-
-    pub fn with_on_click(mut self, onclick: impl Into<MessageType>) -> Self {
-        self.onclick = Some(onclick.into());
-        self
+    pub fn on_click(&self) -> Option<&T> {
+        match &self.node_type {
+            NodeType::Button(_, onclick) => Some(onclick),
+            _ => None,
+        }
     }
 
     pub fn with_layout(mut self, bary_ui: LayoutDir) -> Self {
@@ -290,26 +300,38 @@ impl<MessageType> Node<MessageType> {
         self
     }
 
-    pub fn with_child(mut self, n: impl Into<Option<Node<MessageType>>>) -> Self {
+    pub fn with_child(mut self, n: impl Into<Option<Node<T>>>) -> Self {
         if let Some(n) = n.into() {
             self.add_child(n);
         }
         self
     }
 
-    pub fn with_children(mut self, nodes: impl Iterator<Item = Node<MessageType>>) -> Self {
+    pub fn with_children(mut self, nodes: impl Iterator<Item = Node<T>>) -> Self {
         nodes.for_each(|n| {
             self.add_child(n);
         });
         self
     }
 
-    pub fn children(&self) -> impl Iterator<Item = &Node<MessageType>> + use<'_, MessageType> {
-        self.children.iter()
+    pub fn children(&self) -> Option<&Vec<Node<T>>> {
+        match &self.node_type {
+            NodeType::Column(children) => Some(children),
+            NodeType::Row(children) => Some(children),
+            _ => None,
+        }
+    }
+
+    pub fn children_mut(&mut self) -> Option<&mut Vec<Node<T>>> {
+        match &mut self.node_type {
+            NodeType::Column(children) => Some(children),
+            NodeType::Row(children) => Some(children),
+            _ => None,
+        }
     }
 
     pub fn is_leaf(&self) -> bool {
-        self.children.is_empty()
+        self.children().map(|e| e.is_empty()).unwrap_or(true)
     }
 
     pub fn is_enabled(&self) -> bool {
@@ -320,12 +342,20 @@ impl<MessageType> Node<MessageType> {
         self.style.visible
     }
 
-    pub fn add_child(&mut self, n: Node<MessageType>) -> &mut Self {
-        self.children.push(n);
+    pub fn kind(&self) -> &NodeType<T> {
+        &self.node_type
+    }
+
+    pub fn add_child(&mut self, n: Node<T>) -> &mut Self {
+        if let Some(c) = self.children_mut() {
+            c.push(n);
+        } else {
+            warn!("Failed to add child to node with type {:?}", self.node_type);
+        }
         self
     }
 
-    pub fn add_children(&mut self, nodes: impl Iterator<Item = Node<MessageType>>) -> &mut Self {
+    pub fn add_children(&mut self, nodes: impl Iterator<Item = Node<T>>) -> &mut Self {
         nodes.for_each(|n| {
             self.add_child(n);
         });
@@ -384,10 +414,10 @@ impl<MessageType> Node<MessageType> {
         aabb.flip_y_about(0.0).offset(offset)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &Node<MessageType>> + use<'_, MessageType> {
+    pub fn iter(&self) -> impl Iterator<Item = &Node<T>> + use<'_, T> {
         let self_iter = [self].into_iter();
-        let child_iters: Vec<&Node<MessageType>> = self
-            .children
+        let child_iters: Vec<&Node<T>> = self
+            .children()
             .iter()
             .flat_map(|n| n.iter())
             .collect::<Vec<_>>();
@@ -395,9 +425,9 @@ impl<MessageType> Node<MessageType> {
     }
 }
 
-fn sum_fixed_dims<'a, MessageType: 'a>(
+fn sum_fixed_dims<'a, T: 'a + UiMsg>(
     bary_ui: LayoutDir,
-    nodes: impl Iterator<Item = &'a Node<MessageType>>,
+    nodes: impl Iterator<Item = &'a Node<T>>,
     padding: f32,
     childgap: f32,
 ) -> Vec2 {
@@ -438,51 +468,81 @@ fn sum_fixed_dims<'a, MessageType: 'a>(
     Vec2::new(sx, sy)
 }
 
-fn populate_positions<'a, MessageType: 'a>(
-    mut root: &mut Node<MessageType>,
-    origin: impl Into<Option<Vec2>>,
-) {
+#[test]
+fn simple_col_layout() {
+    let a = Node::button("Hello", "wow", 300, 60);
+    let b = Node::button("Hello", "wow", 300, 60);
+    let c = Node::button("Hello", "wow", 300, 60);
+
+    // let nested_col = Node::column(
+    //     Size::Fit,
+    //     vec![
+    //         // Node::button("Hello", "wow", 300, 60),
+    //         // Node::button("Hello", "wow", 300, 60),
+    //         // Node::button("Hello", "wow", 300, 60),
+    //     ],
+    // );
+
+    let children = vec![a, b, c];
+
+    let dims = sum_fixed_dims(LayoutDir::TopToBottom, children.iter(), 0.0, 0.0);
+
+    assert_eq!(dims, Vec2::new(300.0, 180.0));
+
+    let root = Node::<String>::column(Size::Fit, children);
+}
+
+fn populate_positions<'a, T: 'a + UiMsg>(mut root: &mut Node<T>, origin: impl Into<Option<Vec2>>) {
     let origin = origin.into().unwrap_or(Vec2::ZERO);
     root.calculated_position = Some(origin);
 
     let mut px = origin.x + root.style.padding;
     let mut py = origin.y + root.style.padding;
 
-    root.children.iter_mut().for_each(|n| {
-        let dim = n.calculated_dims();
-        let o = Vec2::new(px, py);
-        match root.style.bary_ui {
-            LayoutDir::LeftToRight => px += dim.x + root.style.child_gap,
-            LayoutDir::TopToBottom => py += dim.y + root.style.child_gap,
-        }
-        populate_positions(n, o)
+    let layout = root.style.bary_ui;
+    let child_gap = root.style.child_gap;
+
+    root.children_mut().iter_mut().for_each(|e| {
+        e.iter_mut().for_each(|n| {
+            let dim = n.calculated_dims();
+            let o = Vec2::new(px, py);
+            match layout {
+                LayoutDir::LeftToRight => px += dim.x + child_gap,
+                LayoutDir::TopToBottom => py += dim.y + child_gap,
+            }
+            populate_positions(n, o)
+        })
     });
 }
 
-fn assign_layers<MessageType>(root: &mut Node<MessageType>, layer: u32) {
+fn assign_layers<T: UiMsg>(root: &mut Node<T>, layer: u32) {
     root.layer = Some(layer);
 
-    for c in &mut root.children {
-        assign_layers(c, layer + 1);
+    if let Some(c) = root.children_mut() {
+        for c in c {
+            assign_layers(c, layer + 1);
+        }
     }
 }
 
-pub fn populate_fit_sizes<MessageType>(root: &mut Node<MessageType>) {
+pub fn populate_fit_sizes<T: UiMsg>(root: &mut Node<T>) {
     if root.is_leaf() {
         if root.desired_width.is_fit() {
-            root.calculated_width = Some(5.0);
+            root.calculated_width = Some(25.0);
         }
         if root.desired_height.is_fit() {
-            root.calculated_height = Some(5.0);
+            root.calculated_height = Some(25.0);
         }
         return;
     }
 
-    root.children.iter_mut().for_each(|n| populate_fit_sizes(n));
+    root.children_mut()
+        .iter_mut()
+        .for_each(|n| n.iter_mut().for_each(|n| populate_fit_sizes(n)));
 
     let dims = sum_fixed_dims(
         root.style.bary_ui,
-        root.children.iter(),
+        root.children().iter().flat_map(|e| e.iter()),
         root.style.padding,
         root.style.child_gap,
     );
@@ -496,30 +556,34 @@ pub fn populate_fit_sizes<MessageType>(root: &mut Node<MessageType>) {
     }
 }
 
-pub fn populate_grow_sizes<MessageType>(root: &mut Node<MessageType>) {
+pub fn populate_grow_sizes<T: UiMsg>(root: &mut Node<T>) {
     if root.is_leaf() {
         return;
     }
 
-    let n_to_grow: u32 = root
-        .children
-        .iter()
-        .map(|n| match root.style.bary_ui {
-            LayoutDir::LeftToRight => n.desired_width.is_grow(),
-            LayoutDir::TopToBottom => n.desired_height.is_grow(),
-        } as u32)
-        .sum();
+    let mut n_to_grow = 0;
+
+    if let Some(children) = root.children() {
+        for c in children {
+            let dim = match root.style.bary_ui {
+                LayoutDir::LeftToRight => c.desired_width.is_grow(),
+                LayoutDir::TopToBottom => c.desired_height.is_grow(),
+            } as u32;
+            n_to_grow += dim;
+        }
+    }
 
     let mut w = root.calculated_width.unwrap_or(0.0) - root.style.padding * 2.0;
     let mut h = root.calculated_height.unwrap_or(0.0) - root.style.padding * 2.0;
 
-    for c in &root.children {
-        match root.style.bary_ui {
-            LayoutDir::LeftToRight => {
-                w -= (c.calculated_width.unwrap_or(0.0) + root.style.child_gap)
-            }
-            LayoutDir::TopToBottom => {
-                h -= (c.calculated_height.unwrap_or(0.0) + root.style.child_gap)
+    let layout = root.style.bary_ui;
+    let child_gap = root.style.child_gap;
+
+    if let Some(children) = root.children_mut() {
+        for c in children {
+            match layout {
+                LayoutDir::LeftToRight => w -= (c.calculated_width.unwrap_or(0.0) + child_gap),
+                LayoutDir::TopToBottom => h -= (c.calculated_height.unwrap_or(0.0) + child_gap),
             }
         }
     }
@@ -537,28 +601,30 @@ pub fn populate_grow_sizes<MessageType>(root: &mut Node<MessageType>) {
         }
     }
 
-    root.children.iter_mut().for_each(|mut c| {
-        if c.desired_width.is_grow() {
-            c.calculated_width = Some(w);
-        }
-        if c.desired_height.is_grow() {
-            c.calculated_height = Some(h);
-        }
-        populate_grow_sizes(c)
+    root.children_mut().iter_mut().for_each(|mut c| {
+        c.iter_mut().for_each(|c| {
+            if c.desired_width.is_grow() {
+                c.calculated_width = Some(w);
+            }
+            if c.desired_height.is_grow() {
+                c.calculated_height = Some(h);
+            }
+            populate_grow_sizes(c)
+        })
     });
 }
 
 #[derive(Debug, Clone)]
-pub struct Tree<MessageType> {
-    roots: Vec<Node<MessageType>>,
+pub struct Tree<T: UiMsg> {
+    roots: Vec<Node<T>>,
 }
 
-impl<MessageType> Tree<MessageType> {
-    pub fn new() -> Tree<MessageType> {
+impl<T: UiMsg> Tree<T> {
+    pub fn new() -> Tree<T> {
         Tree { roots: Vec::new() }
     }
 
-    pub fn add_layout(&mut self, mut node: Node<MessageType>, origin: impl Into<Option<Vec2>>) {
+    pub fn add_layout(&mut self, mut node: Node<T>, origin: impl Into<Option<Vec2>>) {
         let origin = origin.into().unwrap_or(Vec2::ZERO);
         populate_fit_sizes(&mut node);
         populate_grow_sizes(&mut node);
@@ -567,18 +633,18 @@ impl<MessageType> Tree<MessageType> {
         self.roots.push(node);
     }
 
-    pub fn with_layout(mut self, node: Node<MessageType>, origin: impl Into<Option<Vec2>>) -> Self {
+    pub fn with_layout(mut self, node: Node<T>, origin: impl Into<Option<Vec2>>) -> Self {
         self.add_layout(node, origin);
         self
     }
 
-    pub fn layouts(&self) -> &Vec<Node<MessageType>> {
+    pub fn layouts(&self) -> &Vec<Node<T>> {
         &self.roots
     }
 
-    pub fn at(&self, p: Vec2, wb: Vec2) -> Option<&Node<MessageType>> {
+    pub fn at(&self, p: Vec2, wb: Vec2) -> Option<&Node<T>> {
         for bary_ui in self.roots.iter().rev() {
-            let mut candidates: Vec<&Node<MessageType>> = bary_ui
+            let mut candidates: Vec<&Node<T>> = bary_ui
                 .iter()
                 .filter(|n| n.aabb_camera(wb).contains(p))
                 .filter(|n| n.is_visible())
@@ -593,7 +659,7 @@ impl<MessageType> Tree<MessageType> {
     }
 }
 
-pub fn write_layout_to_svg<T>(filepath: &str, tree: &Tree<T>) -> Result<(), std::io::Error> {
+pub fn write_layout_to_svg<T: UiMsg>(filepath: &str, tree: &Tree<T>) -> Result<(), std::io::Error> {
     let aabbs: Vec<(AABB, [f32; 4])> = tree
         .layouts()
         .iter()
@@ -603,6 +669,10 @@ pub fn write_layout_to_svg<T>(filepath: &str, tree: &Tree<T>) -> Result<(), std:
 
     write_svg(filepath, &aabbs)
 }
+
+impl UiMsg for String {}
+
+impl UiMsg for () {}
 
 #[cfg(test)]
 mod tests {

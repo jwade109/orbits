@@ -1,3 +1,4 @@
+pub use crate::color::*;
 pub use crate::components::*;
 pub use crate::entity::*;
 pub use crate::grid_location::*;

@@ -591,7 +591,12 @@ fn generate_assets_ui(assets: &Assets, input: &InputState, width: f32, height: f
     Tree::new().with_layout(root, None)
 }
 
-fn draw_gui<T>(d: &mut RaylibDrawHandle, gui: &Tree<T>, mouse_pos: Option<Vec2>, assets: &Assets) {
+fn draw_gui<T: bary_ui::UiMsg>(
+    d: &mut RaylibDrawHandle,
+    gui: &Tree<T>,
+    mouse_pos: Option<Vec2>,
+    assets: &Assets,
+) {
     let Some(font) = assets.consolas.as_ref() else {
         return;
     };
@@ -603,10 +608,19 @@ fn draw_gui<T>(d: &mut RaylibDrawHandle, gui: &Tree<T>, mouse_pos: Option<Vec2>,
                 continue;
             }
 
+            let color = match node.kind() {
+                NodeType::Text(_) => Color::RED,
+                NodeType::Button(_, _) => Color::BLUE,
+                NodeType::Image(_) => Color::YELLOW,
+                NodeType::Spacer => Color::GRAY,
+                NodeType::Row(_) => Color::ORANGE,
+                NodeType::Column(_) => Color::PURPLE,
+            };
+
             let aabb = node.aabb();
 
-            let [r, g, b, a] = node.color_u8();
-            let color = Color::new(r, g, b, a);
+            // let [r, g, b, a] = node.color_u8();
+            // let color = Color::new(r, g, b, a);
 
             let is_hovered = mouse_pos.map(|p| aabb.contains(p)).unwrap_or(false);
             let color = if is_hovered {
@@ -718,6 +732,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &mut d,
                 );
 
+                let ui = example_layout(d.get_render_width() as f32, d.get_render_height() as f32);
+
+                draw_gui(
+                    &mut d,
+                    &ui,
+                    main_app.client.mouse_screen_position,
+                    &main_app.assets,
+                );
+
                 if main_app.client.input.is_key_pressed(rdev::Key::BackSlash) {
                     let gui = generate_assets_ui(
                         &main_app.assets,
@@ -744,19 +767,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 draw_mouse_screen_position(&mut d, main_app.client.mouse_screen_position);
 
-                draw_debug_info(
-                    &main_app.world,
-                    &main_app.client,
-                    &main_app.assets,
-                    &timers,
-                    &main_app.node,
-                    &main_app.update_timer,
-                    &main_app.server_ping_timer,
-                    &main_app.server_telemetry_timer,
-                    &main_app.username,
-                    main_app.client.player_id,
-                    &mut d,
-                );
+                // draw_debug_info(
+                //     &main_app.world,
+                //     &main_app.client,
+                //     &main_app.assets,
+                //     &timers,
+                //     &main_app.node,
+                //     &main_app.update_timer,
+                //     &main_app.server_ping_timer,
+                //     &main_app.server_telemetry_timer,
+                //     &main_app.username,
+                //     main_app.client.player_id,
+                //     &mut d,
+                // );
 
                 draw_terminal(
                     &mut d,

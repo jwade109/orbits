@@ -2,7 +2,7 @@ use crate::layout::*;
 
 fn box_with_corners(w: f32) -> Node<String> {
     let banner = || {
-        Node::row(Size::Fit)
+        Node::row(Size::Fit, vec![])
             .invisible()
             .with_child(Node::structural(w, w))
             .with_child(Node::grow().invisible())
@@ -39,71 +39,94 @@ fn text_node(s: &str, width: impl Into<Size>, height: impl Into<Size>) -> Node<S
             .tight()
             .with_child(Node::grow())
             .with_child(
-                Node::column(Size::Fit)
-                    .tight()
-                    .with_child(Node::grow())
-                    .with_child(Node::text(twidth, theight, s))
-                    .with_child(Node::grow()),
+                Node::column(
+                    Size::Fit,
+                    vec![Node::grow(), Node::text(twidth, theight, s), Node::grow()],
+                )
+                .tight(),
             )
             .with_child(Node::grow()),
     )
 }
 
 pub fn example_layout(width: f32, height: f32) -> Tree<String> {
-    let spacing = 8.0;
+    let a = Node::button("Hello", "wow", 300, 60);
+    let b = Node::button("Hello", "wow", 300, 60);
+    let c = Node::button("Hello", "wow", 300, 60);
 
-    let sidebar = Node::column(300.0)
-        .with_spacing(spacing)
-        .with_child(Node::button(
-            "wow this is\na fair amount\nof text",
-            "dingus",
-            Size::Grow,
-            Size::Grow,
-        ))
-        .with_child(Node::grid(Size::Grow, Size::Grow, 2, 4, spacing, |_| {
-            Some(Node::grow())
-        }))
-        .with_child(Node::hline())
-        .with_children((0..6).map(|i| {
-            Node::row(Size::Fit)
-                .invisible()
-                .with_padding(0.0)
-                .with_child(Node::structural(40 + i * 6, 10))
-                .with_child(Node::vline())
-                .with_child(Node::grow())
-        }))
-        .with_child(Node::row(30))
-        .with_child(
-            Node::grid(Size::Grow, 100, 4, 5, spacing, |_| Some(Node::grow()))
-                .with_child(Node::vline())
-                .with_child(Node::grow().with_text("hello\ndingus")),
-        )
-        .with_children((0..4).map(|_| Node::row(25)));
+    let nested_col = Node::column(
+        Size::Fit,
+        vec![
+            // Node::button("Hello", "wow", 300, 60),
+            // Node::button("Hello", "wow", 300, 60),
+            // Node::button("Hello", "wow", 300, 60),
+        ],
+    );
 
-    let topbar = Node::row(Size::Fit)
-        .with_spacing(spacing)
-        .with_children((0..10).map(|i| Node::text(120, 40, &format!("thing {}", i))))
-        .with_children((0..5).map(|_| Node::grow().invisible()))
-        .with_child(Node::column(70).with_text("Exit").with_on_click("exit"));
-
-    let main = Node::grow()
-        .tight()
-        .invisible()
-        .with_child(sidebar)
-        .with_child(
-            Node::grow()
-                .invisible()
-                .down()
-                .tight()
-                .with_children([box_with_corners(40.0), Node::row(30)].into_iter()),
-        );
-
-    let root = Node::structural(width, height)
-        .invisible()
-        .tight()
-        .down()
-        .with_child(topbar)
-        .with_child(main);
+    let root = Node::column(Size::Fit, vec![a, b, c, nested_col]);
 
     Tree::new().with_layout(root, None)
 }
+
+// pub fn example_layout(width: f32, height: f32) -> Tree<String> {
+//     let spacing = 8.0;
+
+//     let a = Node::button(
+//         "wow this is\na fair amount\nof text",
+//         "dingus",
+//         Size::Grow,
+//         Size::Grow,
+//     );
+
+//     let b = Node::grid(
+//         Size::Grow,
+//         Size::Grow,
+//         2,
+//         4,
+//         spacing,
+//         |_| Some(Node::grow()),
+//     );
+
+//     // let c = (0..6).map(|i| {
+//     //     let a = Node::structural(40 + i * 6, 10);
+//     //     let b = Node::grow();
+//     //     Node::row(Size::Fit, vec![a, b])
+//     //         .invisible()
+//     //         .with_padding(0.0);
+//     // });
+
+//     let g = Node::grid(Size::Grow, 100, 4, 5, spacing, |_| Some(Node::grow()));
+
+//     let d = Node::row(30, vec![]);
+
+//     let sidebar = Node::column(300.0, vec![a, b, g, d])
+//         .with_spacing(spacing)
+//         .with_children((0..4).map(|_| Node::row(25, vec![])));
+
+//     let topbar = Node::row(Size::Fit, vec![])
+//         .with_spacing(spacing)
+//         .with_children((0..10).map(|i| Node::text(120, 40, &format!("thing {}", i))))
+//         .with_children((0..5).map(|_| Node::grow().invisible()))
+//         .with_child(Node::column(70, vec![]));
+
+//     let main = Node::grow()
+//         .tight()
+//         .invisible()
+//         .with_child(sidebar)
+//         .with_child(
+//             Node::grow()
+//                 .invisible()
+//                 .down()
+//                 .tight()
+//                 .with_children([box_with_corners(40.0), Node::row(30, vec![])].into_iter()),
+//         );
+
+//     let root = Node::root(width, height)
+//         .invisible()
+//         .tight()
+//         .down()
+//         .with_child(topbar)
+//         .with_child(main);
+
+//     Tree::new().with_layout(root, None)
+// }

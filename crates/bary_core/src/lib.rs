@@ -10,5 +10,6 @@ mod result;
 mod rigid_body;
 mod table_ident;
 mod wall_timer;
+mod color;
 
 pub mod prelude;
