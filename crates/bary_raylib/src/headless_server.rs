@@ -152,6 +152,7 @@ impl HeadlessServerApp {
                 if let Err(e) = apply_delta(&mut self.world, delta.clone()) {
                     error!("Failed to apply delta: {e}");
                 } else {
+                    info!("Successfully applied delta: {delta:?}");
                     self.queued_deltas.push(delta.clone());
                 }
             }
@@ -291,6 +292,7 @@ impl HeadlessServerApp {
             TableIdent::Pipes => Self::serialize_table(&self.world.pipes),
             TableIdent::Lights => Self::serialize_table(&self.world.lights),
             TableIdent::Excavators => Self::serialize_table(&self.world.excavators),
+            TableIdent::Players => Self::serialize_table(&self.world.players),
         };
         data.map(|data| Blob::new(data, table))
     }

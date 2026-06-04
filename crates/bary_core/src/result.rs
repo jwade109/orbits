@@ -22,6 +22,8 @@ pub enum BaryError {
     NoChunk,
     NoTile,
     TileAlreadyExists,
+    PlayerNotDriving(Ent),
+    PlayerAlreadyExists(String),
     IoError(String),
     SerdeYaml(String),
     TomlSer(toml::ser::Error),

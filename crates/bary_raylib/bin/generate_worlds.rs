@@ -63,6 +63,8 @@ fn scenario_b() -> BaryResult<()> {
 }
 
 fn main() -> BaryResult<()> {
+    simple_logger::init_with_level(log::Level::Info).unwrap();
+
     scenario_a()?;
     scenario_b()?;
     Ok(())

@@ -4,8 +4,9 @@ use bary_factory::*;
 use bary_parts::*;
 use bary_sim::*;
 use log::*;
-use std::path::PathBuf;
+use std::{collections::BTreeMap, path::PathBuf};
 
+#[derive(Debug, Clone)]
 enum WorldBuilderCommand {
     LoadBlueprint(BlueprintId),
     SpawnShip(BlueprintId, Option<String>, Isometry2d),
@@ -15,12 +16,15 @@ enum WorldBuilderCommand {
     SetRecipe(PartCoord, RecipeListing),
     SpawnAsteroid(Isometry2d, f32, u64),
     SetAnchored(bool),
+    SpawnPlayer(String, Isometry2d),
+    EnterPiloting,
 }
 
 pub struct WorldBuilder {
     assets_dir: Option<String>,
     commands: Vec<WorldBuilderCommand>,
     cursor_grid: Option<Ent>,
+    cursor_player: Option<Ent>,
 }
 
 impl WorldBuilder {
@@ -29,6 +33,7 @@ impl WorldBuilder {
             assets_dir: None,
             commands: Vec::new(),
             cursor_grid: None,
+            cursor_player: None,
         }
     }
 
@@ -107,10 +112,22 @@ impl WorldBuilder {
         self
     }
 
+    pub fn player(mut self, name: &str, pos: impl Into<Vec2>) -> Self {
+        let iso = Isometry2d::from_pos(pos.into());
+        let cmd = WorldBuilderCommand::SpawnPlayer(name.to_string(), iso);
+        self.commands.push(cmd);
+        self
+    }
+
+    pub fn piloting(mut self) -> Self {
+        self.commands.push(WorldBuilderCommand::EnterPiloting);
+        self
+    }
+
     pub fn build(mut self) -> World {
         let mut world = World::empty();
 
-        if let Some(assets_dir) = self.assets_dir {
+        let parts = if let Some(assets_dir) = &self.assets_dir {
             let parts_dir = PathBuf::from(&assets_dir).join("parts");
 
             let ship_names_path = PathBuf::from(&assets_dir).join("ship_names.txt");
@@ -123,89 +140,114 @@ impl WorldBuilder {
                 world.prototypes.spawn(id, part.clone());
             }
 
-            for cmd in self.commands {
-                match cmd {
-                    WorldBuilderCommand::LoadBlueprint(bpid) => {
-                        let id = world.spawner.spawn();
-                        let bp = load_blueprint(&bpid, &assets_dir, &parts).expect("Vehicle dir");
-                        let bp = NamedBlueprint {
-                            id: bpid,
-                            blueprint: bp,
-                        };
-                        info!(
-                            "Loaded blueprint: {} v{} ({} parts)",
-                            bp.id.0,
-                            bp.id.1,
-                            bp.blueprint.part_count()
-                        );
-                        world.blueprints.spawn(id, bp);
-                    }
-                    WorldBuilderCommand::SpawnShip(bp_id, name, iso) => {
-                        let id = match name {
-                            Some(name) => spawn_grid_with_bp_id(&mut world, &bp_id, &name),
-                            None => spawn_grid_with_random_name(&mut world, bp_id),
-                        };
+            parts
+        } else {
+            BTreeMap::new()
+        };
 
-                        match id {
-                            Ok(id) => {
-                                self.cursor_grid = Some(id);
-                                _ = set_grid_pose(&mut world, id, iso);
-                            }
-                            Err(e) => {
-                                error!("Failed to spawn grid: {e:?}");
-                            }
+        let commands = self.commands.clone();
+
+        for cmd in commands {
+            match cmd {
+                WorldBuilderCommand::LoadBlueprint(bpid) => {
+                    if let Some(assets_dir) = self.assets_dir.as_ref() {
+                        let id = world.spawner.spawn();
+                        if let Ok(bp) = load_blueprint(&bpid, &assets_dir, &parts) {
+                            let bp = NamedBlueprint {
+                                id: bpid,
+                                blueprint: bp,
+                            };
+                            info!(
+                                "Loaded blueprint: {} v{} ({} parts)",
+                                bp.id.0,
+                                bp.id.1,
+                                bp.blueprint.part_count()
+                            );
+                            world.blueprints.spawn(id, bp);
                         }
                     }
-                    WorldBuilderCommand::ModifyWorld(delta) => {
+                }
+                WorldBuilderCommand::SpawnShip(bp_id, name, iso) => {
+                    let id = match name {
+                        Some(name) => spawn_grid_with_bp_id(&mut world, &bp_id, &name),
+                        None => spawn_grid_with_random_name(&mut world, bp_id),
+                    };
+
+                    match id {
+                        Ok(id) => {
+                            self.cursor_grid = Some(id);
+                            _ = set_grid_pose(&mut world, id, iso);
+                        }
+                        Err(e) => {
+                            error!("Failed to spawn grid: {e:?}");
+                        }
+                    }
+                }
+                WorldBuilderCommand::ModifyWorld(delta) => {
+                    _ = apply_delta(&mut world, delta);
+                }
+                WorldBuilderCommand::InsertDebugSource(coord, item) => {
+                    if let Some(grid_id) = self.cursor_grid {
+                        let delta = WorldDelta::InsertPart {
+                            grid_id,
+                            coord,
+                            rotation: Rotation::East,
+                            layer: PartLayer::Plumbing,
+                            name: "debug-source".to_string(),
+                        };
                         _ = apply_delta(&mut world, delta);
-                    }
-                    WorldBuilderCommand::InsertDebugSource(coord, item) => {
-                        if let Some(grid_id) = self.cursor_grid {
-                            let delta = WorldDelta::InsertPart {
-                                grid_id,
-                                coord,
-                                rotation: Rotation::East,
-                                layer: PartLayer::Plumbing,
-                                name: "debug-source".to_string(),
-                            };
-                            _ = apply_delta(&mut world, delta);
-                            let delta = WorldDelta::SetSourceItem {
-                                grid_id,
-                                coord,
-                                item,
-                            };
-                            _ = apply_delta(&mut world, delta);
-                        }
-                    }
-                    WorldBuilderCommand::InsertPipe(src, dst) => {
-                        if let Some(grid_id) = self.cursor_grid {
-                            let delta = WorldDelta::InsertPipe { grid_id, src, dst };
-                            _ = apply_delta(&mut world, delta);
-                        }
-                    }
-                    WorldBuilderCommand::SetRecipe(coord, recipe) => {
-                        if let Some(grid_id) = self.cursor_grid {
-                            let delta = WorldDelta::SetRecipe {
-                                grid_id,
-                                coord,
-                                recipe,
-                            };
-                            _ = apply_delta(&mut world, delta);
-                        }
-                    }
-                    WorldBuilderCommand::SpawnAsteroid(p, r, seed) => {
-                        let delta = WorldDelta::SpawnAsteroid {
-                            iso: p,
-                            radius: r,
-                            seed,
+                        let delta = WorldDelta::SetSourceItem {
+                            grid_id,
+                            coord,
+                            item,
                         };
                         _ = apply_delta(&mut world, delta);
                     }
-                    WorldBuilderCommand::SetAnchored(anchored) => {
-                        if let Some(grid_id) = self.cursor_grid {
-                            let delta = WorldDelta::SetAnchored(grid_id, anchored);
-                            _ = apply_delta(&mut world, delta);
-                        }
+                }
+                WorldBuilderCommand::InsertPipe(src, dst) => {
+                    if let Some(grid_id) = self.cursor_grid {
+                        let delta = WorldDelta::InsertPipe { grid_id, src, dst };
+                        _ = apply_delta(&mut world, delta);
+                    }
+                }
+                WorldBuilderCommand::SetRecipe(coord, recipe) => {
+                    if let Some(grid_id) = self.cursor_grid {
+                        let delta = WorldDelta::SetRecipe {
+                            grid_id,
+                            coord,
+                            recipe,
+                        };
+                        _ = apply_delta(&mut world, delta);
+                    }
+                }
+                WorldBuilderCommand::SpawnAsteroid(p, r, seed) => {
+                    let delta = WorldDelta::SpawnAsteroid {
+                        iso: p,
+                        radius: r,
+                        seed,
+                    };
+                    _ = apply_delta(&mut world, delta);
+                }
+                WorldBuilderCommand::SetAnchored(anchored) => {
+                    if let Some(grid_id) = self.cursor_grid {
+                        let delta = WorldDelta::SetAnchored(grid_id, anchored);
+                        _ = apply_delta(&mut world, delta);
+                    }
+                }
+                WorldBuilderCommand::SpawnPlayer(name, iso) => {
+                    let player = Player {
+                        name,
+                        state: PlayerState::Flying(iso),
+                    };
+                    let id = world.spawner.spawn();
+                    world.players.spawn(id, player);
+                    self.cursor_player = Some(id);
+                }
+                WorldBuilderCommand::EnterPiloting => {
+                    info!("{:?} {:?}", self.cursor_grid, self.cursor_player);
+                    if let Some((player_id, grid_id)) = self.cursor_player.zip(self.cursor_grid) {
+                        let delta = WorldDelta::PlayerPilotingEnterGrid { player_id, grid_id };
+                        _ = apply_delta(&mut world, delta);
                     }
                 }
             }

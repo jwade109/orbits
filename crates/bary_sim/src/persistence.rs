@@ -1,6 +1,7 @@
 use crate::World;
 use bary_core::prelude::*;
 use log::*;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> BaryResult<()> {
@@ -21,11 +22,8 @@ pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> Bary
     let s = bincode::serialize(&world.ticks).map_err(|_| BaryError::BincodeError)?;
     std::fs::write(dir.join("ticks.bin"), s)?;
 
-    let s = bincode::serialize(&world.spawner).map_err(|_| BaryError::BincodeError)?;
-    std::fs::write(dir.join("spawner.bin"), s)?;
-
-    let s = bincode::serialize(&world.blueprints).map_err(|_| BaryError::BincodeError)?;
-    std::fs::write(dir.join("blueprints.bin"), s)?;
+    save(&world.spawner, &dir, "spawner.bin")?;
+    save(&world.blueprints, &dir, "blueprints.bin")?;
 
     let s = bincode::serialize(&world.prototypes).map_err(|_| BaryError::BincodeError)?;
     std::fs::write(dir.join("prototypes.bin"), s)?;
@@ -69,10 +67,12 @@ pub fn save_world(dir: impl AsRef<Path>, world: &World, overwrite: bool) -> Bary
     let s = comp(bincode::serialize(&world.terrain_tiles).map_err(|_| BaryError::BincodeError)?);
     std::fs::write(dir.join("terrain_tiles.bin"), s)?;
 
+    save(&world.players, dir, "players.bin")?;
+
     Ok(())
 }
 
-fn comp(mut bytes: Vec<u8>) -> Vec<u8> {
+fn comp(bytes: Vec<u8>) -> Vec<u8> {
     let reader = std::io::Cursor::new(bytes);
     zstd::stream::encode_all(reader, 0).unwrap()
 }
@@ -80,6 +80,18 @@ fn comp(mut bytes: Vec<u8>) -> Vec<u8> {
 fn decomp(bytes: Vec<u8>) -> Vec<u8> {
     let reader = std::io::Cursor::new(bytes);
     zstd::stream::decode_all(reader).unwrap()
+}
+
+fn load<T: for<'a> Deserialize<'a>>(dir: &Path, name: &str) -> BaryResult<T> {
+    let s = decomp(std::fs::read(dir.join(name))?);
+    let comp = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
+    Ok(comp)
+}
+
+fn save<T: Serialize>(val: &T, dir: &Path, name: &str) -> BaryResult<()> {
+    let s = comp(bincode::serialize(val).map_err(|_| BaryError::BincodeError)?);
+    std::fs::write(dir.join(name), s)?;
+    Ok(())
 }
 
 pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
@@ -91,11 +103,8 @@ pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
     let s = std::fs::read(dir.join("ticks.bin"))?;
     world.ticks = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
 
-    let s = std::fs::read(dir.join("spawner.bin"))?;
-    world.spawner = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
-
-    let s = std::fs::read(dir.join("blueprints.bin"))?;
-    world.blueprints = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
+    world.spawner = load(dir, "spawner.bin")?;
+    world.blueprints = load(dir, "blueprints.bin")?;
 
     let s = std::fs::read(dir.join("prototypes.bin"))?;
     world.prototypes = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
@@ -138,6 +147,11 @@ pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
 
     let s = decomp(std::fs::read(dir.join("terrain_tiles.bin"))?);
     world.terrain_tiles = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
+
+    let s = decomp(std::fs::read(dir.join("terrain_tiles.bin"))?);
+    world.terrain_tiles = bincode::deserialize(&s).map_err(|_| BaryError::BincodeError)?;
+
+    world.players = load(dir, "players.bin")?;
 
     Ok(world)
 }

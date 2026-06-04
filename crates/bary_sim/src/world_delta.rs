@@ -3,7 +3,7 @@ use bary_factory::*;
 use bary_parts::BlueprintId;
 use serde::{Deserialize, Serialize};
 
-use crate::GlobalTileIndex;
+use crate::{GlobalTileIndex, Player};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum WorldDelta {
@@ -70,4 +70,11 @@ pub enum WorldDelta {
         ast_id: Ent,
     },
     SetAnchored(Ent, bool),
+    SpawnPlayer(String, Isometry2d),
+    PlayerPilotingEnterGrid {
+        player_id: Ent,
+        grid_id: Ent,
+    },
+    PlayerPilotingExitGrid(Ent),
+    SetPlayerPosition(Ent, Isometry2d),
 }

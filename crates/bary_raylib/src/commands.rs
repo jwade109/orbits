@@ -216,6 +216,14 @@ pub fn world_delta_commands() -> Vec<Command<TermCmd>> {
                 is_anchored,
             )))
         }),
+        Command::new("sim.pilot.enter", vec!["grid_id"], |args| {
+            let player_id = Ent(parse_arg(args, "player_id")?);
+            let grid_id = Ent(parse_arg(args, "grid_id")?);
+            Ok(TermCmd::World(WorldDelta::PlayerPilotingEnterGrid {
+                player_id,
+                grid_id,
+            }))
+        }),
     ]
 }
 

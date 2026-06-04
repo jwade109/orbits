@@ -24,6 +24,8 @@ use raylib::prelude::*;
 use serde::Deserialize;
 
 pub struct ClientApp {
+    username: String,
+
     client: ClientSpecificInfo,
     world: World,
     #[allow(unused)]
@@ -95,9 +97,10 @@ impl ClientApp {
 
         let update_timer = WallTimer::with_dur(Duration::from_millis(20));
         let server_ping_timer = WallTimer::with_dur(Duration::from_millis(1000));
-        let server_telemetry_timer = WallTimer::with_dur(Duration::from_millis(1000));
+        let server_telemetry_timer = WallTimer::with_dur(Duration::from_millis(100));
 
         Ok(ClientApp {
+            username: args.username,
             world,
             client: ClientSpecificInfo::new(),
             debug: DebugInfo::default(),
@@ -137,14 +140,24 @@ impl ClientApp {
         if self.server_telemetry_timer.tick() {
             let tlm = ClientTelemetry {
                 ticks: self.world.ticks,
-                grid_transforms: self
-                    .world
-                    .grids
-                    .iter()
-                    .map(|(id, grid)| (*id, grid.name.clone(), grid.particle_location))
-                    .collect(),
             };
             self.node.send_telemetry(MessageKind::ClientTelemetry(tlm));
+
+            let id = self
+                .world
+                .players
+                .iter()
+                .find_map(|(id, player)| (player.name == self.username).then(|| *id));
+
+            if let Some(id) = id {
+                self.client.player_id = Some(id);
+                let delta = WorldDelta::SetPlayerPosition(id, self.client.camera.isometry);
+                self.node.send_command(MessageKind::RequestDelta(delta));
+            } else {
+                warn!("Client with username {} isn't in the world", self.username);
+                let delta = WorldDelta::SpawnPlayer(self.username.clone(), Isometry2d::ZERO);
+                self.node.send_command(MessageKind::RequestDelta(delta));
+            }
         }
 
         // GET SOME BASIC INPUT INFORMATION FROM RAYLIB
@@ -260,6 +273,7 @@ impl ClientApp {
             TableIdent::Pipes => Self::unpack_blob(&mut self.world.pipes, blob.data()),
             TableIdent::Lights => Self::unpack_blob(&mut self.world.lights, blob.data()),
             TableIdent::Excavators => Self::unpack_blob(&mut self.world.excavators, blob.data()),
+            TableIdent::Players => Self::unpack_blob(&mut self.world.players, blob.data()),
         };
 
         if success {
@@ -342,6 +356,8 @@ fn draw_debug_info(
     update_timer: &WallTimer,
     ping_timer: &WallTimer,
     tlm_timer: &WallTimer,
+    username: &str,
+    user_id: Option<Ent>,
     d: &mut RaylibDrawHandle,
 ) {
     let size = size_in_bytes(world);
@@ -368,6 +384,11 @@ fn draw_debug_info(
         apparent_elapsed_time(world.ticks).as_secs_f64(),
         apparent_datetime(world.ticks).format("%b %d %Y %I:%M:%S %p"),
     );
+
+    s += &format!("\nUsername:  {}", username);
+    if let Some(uid) = user_id {
+        s += &format!("\nUser ID:   {}", uid);
+    }
 
     s += &format!("\nFPS:       {}", d.get_fps());
     s += &format!("\nMemory:    {:0.3} KB", size as f64 / 1000.0);
@@ -411,6 +432,11 @@ fn draw_debug_info(
     s += &format!("\nChunks:    {}", world.terrain_chunks.len());
     s += &format!("\nTiles:     {}", world.terrain_tiles.len());
     s += &format!("\nGAUs:      {}", world.grid_acceleration_updates);
+    s += &format!("\nPlayers:   {}", world.players.len());
+
+    for player in world.players.values() {
+        s += &format!("\n  {} {}", player.name, player.state);
+    }
 
     s += "\n";
 
@@ -465,6 +491,8 @@ fn handle_sounds<'a>(
 #[derive(Parser, Debug, Default, Clone)]
 #[command(version, about, long_about = None)]
 struct Args {
+    #[arg(long)]
+    username: String,
     #[arg(short, default_value = "saves/scenario_a")]
     save_file: String,
     #[arg(short = 'a', default_value = "127.0.0.1:5000")]
@@ -703,6 +731,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &main_app.update_timer,
                     &main_app.server_ping_timer,
                     &main_app.server_telemetry_timer,
+                    &main_app.username,
+                    main_app.client.player_id,
                     &mut d,
                 );
 

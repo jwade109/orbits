@@ -97,6 +97,7 @@ impl Viewport {
 /// Information that doesn't *in general* need to be synchronized across
 /// clients in multiplayer.
 pub struct ClientSpecificInfo {
+    pub player_id: Option<Ent>,
     pub ticks: u64,
     pub tick_rate: u32,
     pub chat: Chat,
@@ -112,6 +113,7 @@ pub struct ClientSpecificInfo {
 impl ClientSpecificInfo {
     pub fn new() -> Self {
         Self {
+            player_id: None,
             ticks: 0,
             tick_rate: 1,
             chat: Chat::default(),

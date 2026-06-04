@@ -8,7 +8,9 @@ use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use bary_factory::*;
 use bary_input::*;
+use bary_orbital::VehicleControl;
 use bary_parts::*;
+use bary_sim::PlayerState::PilotingGrid;
 use bary_sim::*;
 use early_returns::*;
 use log::*;
@@ -161,7 +163,61 @@ pub fn apply_delta(world: &mut World, delta: WorldDelta) -> BaryResult<()> {
             set_grid_anchored(world, grid_id, anchored)?;
             Ok(())
         }
+        WorldDelta::PlayerPilotingEnterGrid { player_id, grid_id } => {
+            set_player_piloting_grid(world, player_id, grid_id)?;
+            Ok(())
+        }
+        WorldDelta::PlayerPilotingExitGrid(player_id) => {
+            player_exit_grid(world, player_id)?;
+            Ok(())
+        }
+        WorldDelta::SpawnPlayer(username, iso) => {
+            spawn_player(world, username, iso)?;
+            Ok(())
+        }
+        WorldDelta::SetPlayerPosition(id, iso) => {
+            set_player_position(world, id, iso)?;
+            Ok(())
+        }
     }
+}
+
+fn spawn_player(world: &mut World, username: String, iso: Isometry2d) -> BaryResult<Ent> {
+    let already_exists = world.players.values().any(|player| player.name == username);
+
+    if already_exists {
+        return Err(BaryError::PlayerAlreadyExists(username));
+    }
+
+    let player = Player {
+        name: username,
+        state: PlayerState::Flying(iso),
+    };
+    let id = world.spawner.spawn();
+    world.players.spawn(id, player);
+    Ok(id)
+}
+
+fn set_player_position(world: &mut World, player_id: Ent, iso: Isometry2d) -> BaryResult<()> {
+    let player = world.players.try_get_mut(player_id)?;
+    player.set_position(iso);
+    Ok(())
+}
+
+fn player_exit_grid(world: &mut World, player_id: Ent) -> BaryResult<()> {
+    let player = world.players.try_get_mut(player_id)?;
+    let grid_id = player
+        .driving_grid()
+        .ok_or(BaryError::PlayerNotDriving(player_id))?;
+    let grid = world.grids.try_get(grid_id)?;
+    player.set_position(grid.particle_location);
+    Ok(())
+}
+
+fn set_player_piloting_grid(world: &mut World, player_id: Ent, grid_id: Ent) -> BaryResult<()> {
+    let player = world.players.try_get_mut(player_id)?;
+    player.state = PilotingGrid(grid_id, VehicleControl::NULLOPT);
+    Ok(())
 }
 
 fn explode_grid_at(loc: GridLocation, world: &mut World) {
@@ -855,6 +911,12 @@ pub fn pre_simulation_update(world: &World, client: &mut ClientSpecificInfo) -> 
         }
     }
 
+    if client.input.just_pressed_debounced(Key::Return) {
+        if let Some(d) = drive_ship_on_enter(client, world) {
+            deltas.push(d);
+        }
+    }
+
     if client.input.just_released(Button::Right) {
         if let Some(free) = client.viewport.free() {
             if let Some(p) = free.waypoint_widget {
@@ -893,7 +955,6 @@ fn zoom_in_on_key_v(client: &mut ClientSpecificInfo) {
 fn do_terrain_tile_under_mouse(
     world: &World,
     client: &mut ClientSpecificInfo,
-    action: u8,
 ) -> Option<WorldDelta> {
     let free = client.viewport.free()?;
     let tile_info = free.hovered_chunk?;
@@ -912,12 +973,7 @@ fn do_terrain_tile_under_mouse(
     // just confirm that the tile exists
     _ = world.terrain_tiles.get(*tile_id)?;
 
-    match action {
-        0 => Some(WorldDelta::RemoveTerrainTile { asteroid, tile }),
-        1 => Some(WorldDelta::AddTerrainTile { asteroid, tile }),
-        2 => Some(WorldDelta::FullyRevealTerrainTile { asteroid, tile }),
-        _ => None,
-    }
+    Some(WorldDelta::FullyRevealTerrainTile { asteroid, tile })
 }
 
 #[must_use]
@@ -935,15 +991,7 @@ pub fn post_simulation_update(
 
     if client.focused_grid_id().is_none() {
         if client.input.is_key_pressed(rdev::Button::Left) {
-            delta = do_terrain_tile_under_mouse(world, client, 0);
-        }
-
-        if client.input.is_key_pressed(rdev::Button::Right) {
-            delta = do_terrain_tile_under_mouse(world, client, 1);
-        }
-
-        if client.input.is_key_pressed(rdev::Button::Middle) {
-            delta = do_terrain_tile_under_mouse(world, client, 2);
+            delta = do_terrain_tile_under_mouse(world, client);
         }
     }
 

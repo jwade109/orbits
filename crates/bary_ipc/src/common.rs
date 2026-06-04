@@ -94,7 +94,6 @@ impl Message {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ClientTelemetry {
     pub ticks: u64,
-    pub grid_transforms: Vec<(Ent, String, Isometry2d)>,
 }
 
 /// clone of [`renet::NetworkInfo`]

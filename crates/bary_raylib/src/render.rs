@@ -7,6 +7,7 @@ use crate::utils::*;
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use bary_factory::*;
+use bary_orbital::VehicleControl;
 use bary_parts::*;
 use bary_sim::*;
 use bary_terminal::*;
@@ -279,6 +280,8 @@ pub fn draw_world(
 
     let raylib_camera = to_raylib_camera(&client.camera, client.screen_dims);
 
+    draw_players(d, &world, &raylib_camera);
+
     // this apparently is incredibly slow; curious
     let mut c = d.begin_mode2D(raylib_camera);
 
@@ -387,6 +390,58 @@ pub fn draw_world(
     // draw_item_menu(d, (300, 200).into());
 
     // draw_test_isos(&mut d)
+}
+
+fn draw_player_piloting(
+    d: &mut RaylibDrawHandle,
+    world: &World,
+    camera: &Camera2D,
+    name: &str,
+    grid_id: Ent,
+) -> BaryResult<()> {
+    let grid = world.grids.try_get(grid_id)?;
+    let radius = grid.bounding_radius() * camera.zoom * 1.3;
+    let p = glam_to_raylib_swap_y(grid.particle_location.translation);
+    let q = d.get_world_to_screen2D(p, camera);
+
+    let font_size = 18;
+
+    let x = q.x as i32;
+    let y = q.y as i32;
+
+    let radius = radius as i32;
+    let w = radius;
+    let h = radius;
+
+    d.draw_circle_lines(x, y, radius as f32, Color::RED);
+
+    let rec = Rectangle::new((x - w / 2) as f32, (y - h / 2) as f32, w as f32, h as f32);
+    d.draw_rectangle_lines_ex(rec, 4.0, Color::RED);
+
+    let x = x + w / 2 + 6;
+    let y = y + h / 2;
+
+    d.draw_text(&name, x, y, font_size, Color::RED);
+
+    Ok(())
+}
+
+fn draw_players(d: &mut RaylibDrawHandle, world: &World, camera: &Camera2D) {
+    for player in world.players.values() {
+        match &player.state {
+            PlayerState::Flying(iso) => {
+                let p = glam_to_raylib_swap_y(iso.translation);
+                let q = d.get_world_to_screen2D(p, camera);
+                let x = q.x as i32;
+                let y = q.y as i32;
+                d.draw_circle(x, y, 3.0, Color::TEAL);
+                d.draw_text(&player.name, x + 2, y + 6, 18, Color::TEAL);
+            }
+            PlayerState::PilotingGrid(grid_id, _ctrl) => {
+                _ = draw_player_piloting(d, world, camera, &player.name, *grid_id);
+            }
+        }
+    }
 }
 
 fn draw_excavator(
