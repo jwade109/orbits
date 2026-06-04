@@ -13,8 +13,10 @@ pub mod world_builder;
 
 mod commands;
 pub mod headless_server;
+mod new_ui;
 
 pub use commands::*;
+pub use new_ui::*;
 
 /// A namespace of functions which are potentially expensive,
 /// but nonetheless offer a readonly way to retrieve some information

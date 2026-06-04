@@ -777,7 +777,6 @@ pub fn process_event(
                 Key::UpArrow => input_handlers::editor_layer_shift_on_page_key(client, true),
                 Key::KeyE => input_handlers::editor_layer_shift_on_page_key(client, true),
                 Key::KeyQ => input_handlers::pipette_part_if_in_editor_on_q(world, client),
-                Key::KeyG => input_handlers::enter_ship_editor(world, client, sounds),
                 Key::Escape => input_handlers::leave_ship_editor_on_escape(client, sounds),
                 Key::KeyC => {
                     input_handlers::editor_copy_on_control_c(world, client);

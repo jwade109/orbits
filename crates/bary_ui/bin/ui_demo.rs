@@ -1,6 +1,6 @@
 use bary_ui::*;
 
-fn draw_layout(tree: &Tree<String>, path: &str) -> Result<(), std::io::Error> {
+fn draw_layout<T: UiMsg>(tree: &Tree<T>, path: &str) -> Result<(), std::io::Error> {
     let aabbs: Vec<_> = tree
         .layouts()
         .iter()

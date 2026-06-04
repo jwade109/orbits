@@ -80,6 +80,8 @@ pub struct NodeStyle {
 
 pub trait UiMsg: std::fmt::Debug + Clone + PartialEq + Eq {}
 
+impl<T: std::fmt::Debug + Clone + PartialEq + Eq> UiMsg for T {}
+
 #[derive(Debug, Clone)]
 pub enum NodeType<T: UiMsg> {
     Text(String),
@@ -314,6 +316,10 @@ impl<T: UiMsg> Node<T> {
         self
     }
 
+    pub fn children_count(&self) -> usize {
+        self.children().map(|e| e.len()).unwrap_or_default()
+    }
+
     pub fn children(&self) -> Option<&Vec<Node<T>>> {
         match &self.node_type {
             NodeType::Column(children) => Some(children),
@@ -419,7 +425,7 @@ impl<T: UiMsg> Node<T> {
         let child_iters: Vec<&Node<T>> = self
             .children()
             .iter()
-            .flat_map(|n| n.iter())
+            .flat_map(|n| n.iter().flat_map(|e| e.iter()))
             .collect::<Vec<_>>();
         self_iter.chain(child_iters)
     }
@@ -642,6 +648,10 @@ impl<T: UiMsg> Tree<T> {
         &self.roots
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = &Node<T>> {
+        self.roots.iter().flat_map(|e| e.iter())
+    }
+
     pub fn at(&self, p: Vec2, wb: Vec2) -> Option<&Node<T>> {
         for bary_ui in self.roots.iter().rev() {
             let mut candidates: Vec<&Node<T>> = bary_ui
@@ -669,10 +679,6 @@ pub fn write_layout_to_svg<T: UiMsg>(filepath: &str, tree: &Tree<T>) -> Result<(
 
     write_svg(filepath, &aabbs)
 }
-
-impl UiMsg for String {}
-
-impl UiMsg for () {}
 
 #[cfg(test)]
 mod tests {
@@ -711,7 +717,7 @@ mod tests {
         assert_eq!(t2b.x, 574.0);
         assert_eq!(t2b.y, 1439.0);
 
-        let mut root = Node::<String>::new(Size::Fit, Size::Fit)
+        let mut root = Node::<String>::root(Size::Fit, Size::Fit)
             .with_child(a)
             .with_child(b)
             .with_child(c);

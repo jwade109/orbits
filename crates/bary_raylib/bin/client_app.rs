@@ -49,6 +49,10 @@ pub struct ClientApp {
     server_telemetry_timer: WallTimer,
 
     should_exit: bool,
+
+    show_debug_text: bool,
+
+    sounds: SoundEffects,
 }
 
 impl ClientApp {
@@ -117,6 +121,8 @@ impl ClientApp {
             server_ping_timer,
             server_telemetry_timer,
             should_exit: false,
+            show_debug_text: false,
+            sounds: SoundEffects::new(),
         })
     }
 
@@ -192,9 +198,9 @@ impl ClientApp {
         }
     }
 
-    pub fn process_event(&mut self, sounds: &mut SoundEffects, on_gui: bool) {
+    pub fn process_event(&mut self, on_gui: bool) {
         if !self.terminal.is_active() {
-            process_event(&mut self.world, &mut self.client, sounds, on_gui);
+            process_event(&mut self.world, &mut self.client, &mut self.sounds, on_gui);
         }
     }
 
@@ -265,7 +271,9 @@ impl ClientApp {
             }
         }
 
-        update_world(&mut self.world);
+        if self.world.ticks < ticks {
+            update_world(&mut self.world);
+        }
     }
 
     fn unpack_blob<'a, T: Deserialize<'a>>(entities: &mut Components<T>, bytes: &'a [u8]) -> bool {
@@ -312,6 +320,41 @@ impl ClientApp {
         self.should_exit = true;
     }
 
+    fn save(&mut self) {
+        let path = "/tmp/autosave";
+        match save_world(&path, &self.world, true) {
+            Ok(()) => {
+                self.client.chat.log(format!("Saved to {}", path));
+            }
+            Err(e) => {
+                self.client
+                    .chat
+                    .log(format!("Failed to save to {}: {:?}", path, e));
+            }
+        }
+    }
+
+    fn editor(&mut self) {
+        enter_ship_editor(&self.world, &mut self.client, &mut self.sounds)
+    }
+
+    fn set_sim_speed(&mut self, speed: u32) {
+        self.node.send_command(MessageKind::SetSimSpeed(speed));
+    }
+
+    pub fn on_click_event(&mut self, c: ClickInfo) {
+        debug!("{:?}", c);
+
+        match c.msg {
+            UiMessage::Exit => self.exit(),
+            UiMessage::SaveFile => self.save(),
+            UiMessage::OpenEditor => self.editor(),
+            UiMessage::AltMode => self.client.alt_mode ^= true,
+            UiMessage::DebugText => self.show_debug_text ^= true,
+            UiMessage::SimSpeed(sp) => self.set_sim_speed(sp),
+        }
+    }
+
     pub fn on_terminal_cmd(&mut self, cmd: TermCmd) {
         self.terminal.log_info(format!("{cmd:?}"));
 
@@ -326,7 +369,7 @@ impl ClientApp {
                 self.terminal.clear();
             }
             TermCmd::SetSimSpeed(speed) => {
-                self.node.send_command(MessageKind::SetSimSpeed(speed));
+                self.set_sim_speed(speed);
             }
             TermCmd::FindGridByName(name) => {
                 self.node.send_command(MessageKind::FindGridByName(name));
@@ -462,10 +505,6 @@ fn draw_debug_info(
 
     s += "\n";
 
-    if let Some(free) = client.viewport.free() {
-        s += &format!("\nTerrain: {:?}", free.hovered_chunk);
-    }
-
     let total = timers.total();
 
     s += &format!("\ntotal\n{}", fmt_time(total, total));
@@ -475,18 +514,37 @@ fn draw_debug_info(
         s += &format!("\n{}\n{}", timer.0, time);
     }
 
-    d.draw_text_ex(
-        assets.consolas.as_ref().unwrap(),
-        &s,
-        Vector2::new(10.0, 10.0),
-        16.0,
-        0.0,
-        Color::ORANGE,
+    let font_size = 16.0;
+
+    let font = assets.consolas.as_ref().unwrap();
+    let dims = font.measure_text(&s, font_size, 0.0);
+    let padding = 10;
+    let pos = Vector2::new(10.0, 60.0);
+
+    d.draw_rectangle(
+        pos.x as i32,
+        pos.y as i32,
+        dims.x as i32 + padding * 2,
+        dims.y as i32 + padding * 2,
+        Color::new(20, 20, 20, 255).alpha(0.9),
     );
+
+    let rec = Rectangle::new(
+        pos.x,
+        pos.y,
+        dims.x + padding as f32 * 2.0,
+        dims.y + padding as f32 * 2.0,
+    );
+
+    d.draw_rectangle_lines_ex(rec, 3.0, Color::new(60, 60, 60, 255).alpha(0.9));
+
+    let pos = Vector2::new(pos.x + padding as f32, pos.y + padding as f32);
+
+    d.draw_text_ex(font, &s, pos, 16.0, 0.0, Color::ORANGE);
 }
 
 fn handle_sounds<'a>(
-    sounds: SoundEffects,
+    sounds: &SoundEffects,
     audio: &'a RaylibAudio,
     active_sounds: &mut Vec<Sound<'a>>,
 ) {
@@ -591,56 +649,104 @@ fn generate_assets_ui(assets: &Assets, input: &InputState, width: f32, height: f
     Tree::new().with_layout(root, None)
 }
 
-fn draw_gui<T: bary_ui::UiMsg>(
-    d: &mut RaylibDrawHandle,
-    gui: &Tree<T>,
-    mouse_pos: Option<Vec2>,
-    assets: &Assets,
-) {
-    let Some(font) = assets.consolas.as_ref() else {
-        return;
-    };
+fn node_color<T: bary_ui::UiMsg>(node: &bary_ui::Node<T>) -> Color {
+    match node.kind() {
+        NodeType::Text(_) => Color::RED,
+        NodeType::Button(_, _) => Color::ORANGE,
+        NodeType::Image(_) => Color::YELLOW,
+        NodeType::Spacer => Color::GRAY,
+        NodeType::Row(_) => Color::ORANGE,
+        NodeType::Column(_) => Color::PURPLE,
+    }
+}
 
-    for root in gui.layouts() {
-        draw_ui_aabb(d, root.aabb(), Color::ORANGE.alpha(0.5), false);
-        for node in root.iter() {
-            if !node.is_visible() {
-                continue;
-            }
+pub struct UiBuilder<'a> {
+    font: &'a Font,
+    font_size: f32,
+}
 
-            let color = match node.kind() {
-                NodeType::Text(_) => Color::RED,
-                NodeType::Button(_, _) => Color::BLUE,
-                NodeType::Image(_) => Color::YELLOW,
-                NodeType::Spacer => Color::GRAY,
-                NodeType::Row(_) => Color::ORANGE,
-                NodeType::Column(_) => Color::PURPLE,
-            };
-
-            let aabb = node.aabb();
-
-            // let [r, g, b, a] = node.color_u8();
-            // let color = Color::new(r, g, b, a);
-
-            let is_hovered = mouse_pos.map(|p| aabb.contains(p)).unwrap_or(false);
-            let color = if is_hovered {
-                color.lerp(Color::WHITE, 0.5)
-            } else {
-                color
-            };
-
-            if node.is_leaf() {
-                draw_ui_aabb(d, node.aabb(), color, true);
-            } else {
-                draw_ui_aabb(d, node.aabb(), Color::new(20, 20, 20, 230), true);
-            }
-
-            if let Some(text) = node.text_content() {
-                let p = glam_to_raylib(aabb.center);
-                draw_text_centered(d, font, text, p, 16, Color::WHITE);
-            }
+impl<'a> UiBuilder<'a> {
+    fn new(font: &'a Font) -> Self {
+        Self {
+            font,
+            font_size: UI_FONT_SIZE as f32,
         }
     }
+
+    fn button<T: UiMsg>(&self, msg: impl Into<T>, s: impl Into<String>) -> Node<T> {
+        let s = s.into();
+        let dims = self.font.measure_text(&s, self.font_size, 0.0);
+        let w = dims.x + 36.0;
+        let h = dims.y + 18.0;
+        Node::button(s, msg, w, h)
+    }
+}
+
+fn make_gui(font: &Font) -> Tree<UiMessage> {
+    let builder = UiBuilder::new(font);
+
+    let root: Node<UiMessage> = Node::root(Size::Fit, Size::Fit).with_children(
+        [
+            builder.button(UiMessage::Exit, "Exit to Desktop"),
+            builder.button(UiMessage::SaveFile, "Save Game"),
+            builder.button(UiMessage::OpenEditor, "Open Ship Editor"),
+            builder.button(UiMessage::AltMode, "Toggle Alt Mode"),
+            builder.button(UiMessage::DebugText, "Toggle Debug Text"),
+            builder.button(UiMessage::SimSpeed(0), "Toggle Pause"),
+            builder.button(UiMessage::SimSpeed(1), "Sim 1x"),
+            builder.button(UiMessage::SimSpeed(10), "Sim 10x"),
+            builder.button(UiMessage::SimSpeed(100), "Sim 100x"),
+            builder.button(UiMessage::SimSpeed(1000), "Sim 1000x"),
+        ]
+        .into_iter(),
+    );
+
+    Tree::new().with_layout(root, None)
+}
+
+const UI_FONT_SIZE: i32 = 22;
+
+fn draw_gui(
+    state: &UiInteractionState,
+    d: &mut RaylibDrawHandle,
+    gui: &Tree<UiMessage>,
+    font: &Font,
+) {
+    for node in gui.iter() {
+        if !node.is_visible() {
+            continue;
+        }
+
+        let color = node_color(node);
+
+        let is_clicked = state.active().as_ref() == node.on_click();
+
+        let scale = if is_clicked { 0.95 } else { 1.0 };
+
+        let color = if is_clicked {
+            color.lerp(Color::BLACK, 0.2)
+        } else {
+            color
+        };
+
+        let aabb = node.aabb().scale_about_center(scale);
+
+        if node.is_leaf() {
+            draw_ui_aabb(d, aabb, color, true);
+        } else {
+            draw_ui_aabb(d, aabb, Color::new(20, 20, 20, 230), true);
+        }
+
+        if let Some(text) = node.text_content() {
+            let p = glam_to_raylib(aabb.center);
+            let font_size = (UI_FONT_SIZE as f32 * scale) as i32;
+            draw_text_centered(d, font, &text.to_uppercase(), p, font_size, Color::BLACK);
+        }
+    }
+
+    // for node in gui.iter() {
+    //     draw_ui_aabb(d, node.aabb(), Color::BLACK, false);
+    // }
 }
 
 fn server_thread(args: Args) {
@@ -673,6 +779,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let audio = raylib::audio::RaylibAudio::init_audio_device()?;
     let mut active_sounds = Vec::new();
 
+    let mut ui_state = UiInteractionState::default();
+
     while !main_app.handle.window_should_close() && !main_app.should_exit {
         if !main_app.update_timer.tick() {
             continue;
@@ -682,14 +790,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // RUN PRE-PHYSICS, PHYSICS, AND POST-PHYSICS UPDATES
 
-        let mut sounds = SoundEffects::new();
-
         let deltas = pre_simulation_update(&main_app.world, &mut main_app.client);
 
         let post_delta = post_simulation_update(
             &main_app.world,
             &mut main_app.client,
-            &mut sounds,
+            &mut main_app.sounds,
             main_app.terminal.is_focused(),
         );
 
@@ -704,7 +810,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let gui = {
             let _timer = timers.scope("imgui");
 
-            imgui::imgui_pass(&mut main_app.client, &main_app.world, &mut sounds)
+            imgui::imgui_pass(&mut main_app.client, &main_app.world, &mut main_app.sounds)
         };
 
         // HANDLE RDEV EVENTS (DEPRECATED - USE INPUTSTATE)
@@ -715,9 +821,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             main_app.on_terminal_cmd(cmd);
         }
 
-        main_app.process_event(&mut sounds, gui.is_hovering_gui());
+        main_app.process_event(ui_state.is_on_gui());
 
         // AND DRAW IT ALL
+
+        let font = main_app.assets.fira_code.as_ref().unwrap();
+
+        let ui = make_gui(font);
+
+        let scrp = main_app.client.mouse_screen_position;
+
+        if let Some(c) = ui_state.update(&ui, scrp, &main_app.client.input) {
+            main_app.on_click_event(c);
+        }
+
+        let font = main_app.assets.fira_code.as_ref().unwrap();
 
         main_app
             .handle
@@ -732,54 +850,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &mut d,
                 );
 
-                let ui = example_layout(d.get_render_width() as f32, d.get_render_height() as f32);
+                draw_gui(&ui_state, &mut d, &ui, font);
 
-                draw_gui(
-                    &mut d,
-                    &ui,
-                    main_app.client.mouse_screen_position,
-                    &main_app.assets,
-                );
+                // if main_app.client.input.is_key_pressed(rdev::Key::BackSlash) {
+                //     let gui = generate_assets_ui(
+                //         &main_app.assets,
+                //         &main_app.client.input,
+                //         d.get_render_width() as f32,
+                //         d.get_render_height() as f32,
+                //     );
 
-                if main_app.client.input.is_key_pressed(rdev::Key::BackSlash) {
-                    let gui = generate_assets_ui(
-                        &main_app.assets,
-                        &main_app.client.input,
-                        d.get_render_width() as f32,
-                        d.get_render_height() as f32,
-                    );
-
-                    draw_gui(
-                        &mut d,
-                        &gui,
-                        main_app.client.mouse_screen_position,
-                        &main_app.assets,
-                    );
-                }
+                //     draw_gui(&ui_state, &mut d, &gui, main_app.client.mouse_screen_position, font);
+                // }
 
                 imgui::lame_old_imgui_entrypoint(
                     &mut d,
                     &mut main_app.client,
                     &main_app.world,
-                    &mut sounds,
+                    &mut main_app.sounds,
                     &main_app.assets,
                 );
 
                 draw_mouse_screen_position(&mut d, main_app.client.mouse_screen_position);
 
-                // draw_debug_info(
-                //     &main_app.world,
-                //     &main_app.client,
-                //     &main_app.assets,
-                //     &timers,
-                //     &main_app.node,
-                //     &main_app.update_timer,
-                //     &main_app.server_ping_timer,
-                //     &main_app.server_telemetry_timer,
-                //     &main_app.username,
-                //     main_app.client.player_id,
-                //     &mut d,
-                // );
+                if main_app.show_debug_text {
+                    draw_debug_info(
+                        &main_app.world,
+                        &main_app.client,
+                        &main_app.assets,
+                        &timers,
+                        &main_app.node,
+                        &main_app.update_timer,
+                        &main_app.server_ping_timer,
+                        &main_app.server_telemetry_timer,
+                        &main_app.username,
+                        main_app.client.player_id,
+                        &mut d,
+                    );
+                }
 
                 draw_terminal(
                     &mut d,
@@ -789,7 +897,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 );
             });
 
-        handle_sounds(sounds, &audio, &mut active_sounds);
+        handle_sounds(&main_app.sounds, &audio, &mut active_sounds);
+
+        main_app.sounds.clear();
 
         if main_app.client.input.just_pressed(rdev::Key::KeyC)
             && main_app.client.input.is_key_pressed(rdev::Key::ControlLeft)
