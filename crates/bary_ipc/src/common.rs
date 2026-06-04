@@ -1,6 +1,6 @@
-use bary_core::prelude::{Ent, Isometry2d, TableIdent};
+use bary_core::prelude::{Components, Ent, Isometry2d, TableIdent};
 use bary_parts::PartPrototype;
-use bary_sim::{Computer, Part, Thruster, WorldDelta};
+use bary_sim::{Computer, Part, Player, Thruster, WorldDelta};
 use crossbeam_queue::SegQueue;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -161,6 +161,7 @@ pub enum MessageKind {
     Driver {
         ticks: u64,
         deltas: Vec<WorldDelta>,
+        players: Components<Player>,
     },
     /// request by the client to perform a certain [`WorldDelta`]
     RequestDelta(WorldDelta),

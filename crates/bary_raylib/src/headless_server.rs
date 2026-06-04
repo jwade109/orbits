@@ -52,6 +52,7 @@ impl HeadlessServerApp {
         let msg = MessageKind::Driver {
             ticks: self.world.ticks,
             deltas,
+            players: self.world.players.clone(),
         };
         self.node.broadcast(msg.with_source(MessageSource::Server));
     }
@@ -152,7 +153,7 @@ impl HeadlessServerApp {
                 if let Err(e) = apply_delta(&mut self.world, delta.clone()) {
                     error!("Failed to apply delta: {e}");
                 } else {
-                    info!("Successfully applied delta: {delta:?}");
+                    debug!("Successfully applied delta: {delta:?}");
                     self.queued_deltas.push(delta.clone());
                 }
             }

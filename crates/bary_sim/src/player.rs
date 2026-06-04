@@ -20,6 +20,7 @@ impl std::fmt::Display for PlayerState {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Player {
     pub name: String,
+    pub cursor_world_position: Option<Vec2>,
     pub state: PlayerState,
 }
 

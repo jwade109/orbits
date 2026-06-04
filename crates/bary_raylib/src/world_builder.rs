@@ -237,6 +237,7 @@ impl WorldBuilder {
                 WorldBuilderCommand::SpawnPlayer(name, iso) => {
                     let player = Player {
                         name,
+                        cursor_world_position: None,
                         state: PlayerState::Flying(iso),
                     };
                     let id = world.spawner.spawn();

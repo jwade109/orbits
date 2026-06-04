@@ -441,6 +441,12 @@ fn draw_players(d: &mut RaylibDrawHandle, world: &World, camera: &Camera2D) {
                 _ = draw_player_piloting(d, world, camera, &player.name, *grid_id);
             }
         }
+
+        if let Some(pos) = player.cursor_world_position {
+            let p = glam_to_raylib_swap_y(pos);
+            let q = d.get_world_to_screen2D(p, camera);
+            d.draw_circle_lines_v(q, 8.0, Color::TEAL);
+        }
     }
 }
 

@@ -21,7 +21,7 @@ use std::time::Instant;
 
 #[must_use]
 pub fn apply_delta(world: &mut World, delta: WorldDelta) -> BaryResult<()> {
-    info!("Applying delta {:?} at tick {}", delta, world.ticks);
+    debug!("Applying delta {:?} at tick {}", delta, world.ticks);
     match delta {
         WorldDelta::ToggleTracking(grid_id) => {
             _ = toggle_tracking(world, grid_id);
@@ -179,6 +179,10 @@ pub fn apply_delta(world: &mut World, delta: WorldDelta) -> BaryResult<()> {
             set_player_position(world, id, iso)?;
             Ok(())
         }
+        WorldDelta::SetPlayerCursorPosition(id, pos) => {
+            set_player_cursor_position(world, id, pos)?;
+            Ok(())
+        }
     }
 }
 
@@ -191,6 +195,7 @@ fn spawn_player(world: &mut World, username: String, iso: Isometry2d) -> BaryRes
 
     let player = Player {
         name: username,
+        cursor_world_position: None,
         state: PlayerState::Flying(iso),
     };
     let id = world.spawner.spawn();
@@ -201,6 +206,16 @@ fn spawn_player(world: &mut World, username: String, iso: Isometry2d) -> BaryRes
 fn set_player_position(world: &mut World, player_id: Ent, iso: Isometry2d) -> BaryResult<()> {
     let player = world.players.try_get_mut(player_id)?;
     player.set_position(iso);
+    Ok(())
+}
+
+fn set_player_cursor_position(
+    world: &mut World,
+    player_id: Ent,
+    pos: Option<Vec2>,
+) -> BaryResult<()> {
+    let player = world.players.try_get_mut(player_id)?;
+    player.cursor_world_position = pos;
     Ok(())
 }
 

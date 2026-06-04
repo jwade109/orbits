@@ -14,6 +14,7 @@ use bary_raylib::utils::ActionSet;
 use bary_raylib::utils::Application;
 use bary_raylib::utils::glam_to_raylib;
 use bary_raylib::utils::raylib_to_glam;
+use bary_raylib::utils::screen_to_world;
 use bary_raylib::*;
 use bary_sim::*;
 use bary_terminal::Terminal;
@@ -153,6 +154,19 @@ impl ClientApp {
                 self.client.player_id = Some(id);
                 let delta = WorldDelta::SetPlayerPosition(id, self.client.camera.isometry);
                 self.node.send_command(MessageKind::RequestDelta(delta));
+
+                let world_pos = if let Some(screen_pos) = self.client.mouse_screen_position {
+                    Some(screen_to_world(
+                        &self.client.camera,
+                        screen_pos,
+                        self.client.screen_dims,
+                    ))
+                } else {
+                    None
+                };
+
+                let delta = WorldDelta::SetPlayerCursorPosition(id, world_pos);
+                self.node.send_command(MessageKind::RequestDelta(delta));
             } else {
                 warn!("Client with username {} isn't in the world", self.username);
                 let delta = WorldDelta::SpawnPlayer(self.username.clone(), Isometry2d::ZERO);
@@ -209,8 +223,16 @@ impl ClientApp {
         }
 
         match (msg.level, msg.kind) {
-            (MessageLevel::Telemetry, MessageKind::Driver { ticks, deltas }) => {
+            (
+                MessageLevel::Telemetry,
+                MessageKind::Driver {
+                    ticks,
+                    deltas,
+                    players,
+                },
+            ) => {
                 self.on_driver_packet(ticks, deltas);
+                self.world.players = players;
             }
             (MessageLevel::Response, MessageKind::BlobResponse(blob)) => {
                 self.on_rcv_blob(blob);
