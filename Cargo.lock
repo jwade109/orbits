@@ -557,6 +557,7 @@ dependencies = [
 name = "bary_sim"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bary_core",
  "bary_factory",
  "bary_orbital",

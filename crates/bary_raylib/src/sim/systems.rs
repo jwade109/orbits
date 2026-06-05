@@ -28,124 +28,6 @@ pub fn apparent_datetime(ticks: u64) -> NaiveDateTime {
     epoch + dur
 }
 
-pub fn spawn_grid_from_blueprint_c(
-    spawner: &mut EntitySpawner,
-    prototypes: &Components<PartPrototype>,
-    grids: &mut Components<VehicleGrid>,
-    parts: &mut Components<Part>,
-    thrusters: &mut Components<Thruster>,
-    computers: &mut Components<Computer>,
-    lights: &mut Components<Light>,
-    inventories: &mut Components<Inventory>,
-    machines: &mut Components<Machine>,
-    pipes: &mut Components<Pipe>,
-    debug_portals: &mut Components<DebugPortal>,
-    excavators: &mut Components<Excavator>,
-    grid_name: impl Into<String>,
-    bp_id: Option<BlueprintId>,
-    bp: &Blueprint,
-) -> BaryResult<Ent> {
-    let grid_name = grid_name.into();
-    info!(
-        "Spawning grid with name \"{}\" from blueprint {:?}",
-        grid_name, bp_id
-    );
-    let grid = VehicleGrid::with_name(grid_name, bp_id);
-    let grid_id = spawner.spawn();
-    grids.spawn(grid_id, grid.clone());
-    for (_id, proto) in bp.parts() {
-        insert_part_c(
-            grid_id,
-            spawner,
-            grids,
-            prototypes,
-            parts,
-            thrusters,
-            computers,
-            lights,
-            inventories,
-            machines,
-            debug_portals,
-            excavators,
-            proto,
-            false,
-        )?;
-    }
-
-    for (_id, pipe) in bp.pipes() {
-        if let Err(e) = insert_pipe_at_c(
-            grid_id,
-            pipe.start,
-            pipe.end,
-            spawner,
-            grids,
-            parts,
-            inventories,
-            pipes,
-        ) {
-            error!("Failed to insert pipe: {:?}", e);
-        }
-    }
-
-    let grid = grids.try_get_mut(grid_id)?;
-
-    update_grid_physical_props(grid, parts)?;
-
-    Ok(grid_id)
-}
-
-/// Updates the `body_frame_forces` field of a particular
-/// vehicle grid specified by the entity ID.
-pub fn update_single_grid_acceleration(
-    grid_id: Ent,
-    grids: &mut Components<VehicleGrid>,
-    thrusters: &Components<Thruster>,
-    parts: &Components<Part>,
-) -> BaryResult<()> {
-    let grid = grids.try_get_mut(grid_id)?;
-    grid.body_frame_forces = Isometry2d::ZERO;
-
-    if grid.is_anchored {
-        return Ok(());
-    }
-
-    for thruster_id in &grid.thrusters {
-        let thruster = thrusters.try_get(*thruster_id)?;
-
-        if !thruster.is_on {
-            continue;
-        }
-
-        let part = parts.try_get(*thruster_id)?;
-
-        let center_of_thrust = part.region.center_isometry().translation;
-        let rotation = part.region.rot();
-        let wrench = body_frame_wrench(
-            thruster.thrust,
-            center_of_thrust,
-            rotation,
-            grid.center_of_mass,
-        );
-        grid.body_frame_forces.translation += wrench.translation;
-        grid.body_frame_forces.rotation += wrench.rotation;
-    }
-
-    Ok(())
-}
-
-pub fn sys_update_grid_acceleration_c(
-    dirty_set: BTreeSet<Ent>,
-    grids: &mut Components<VehicleGrid>,
-    thrusters: &Components<Thruster>,
-    parts: &Components<Part>,
-) {
-    for grid_id in dirty_set {
-        if let Err(e) = update_single_grid_acceleration(grid_id, grids, thrusters, parts) {
-            error!("Failed to update grid accel: {e:?}");
-        }
-    }
-}
-
 /// Sets the waypoint field of the primary computer,
 /// if the provided grid has one. If it does, the ID of the primary
 /// computer will be returned.
@@ -176,12 +58,6 @@ pub fn set_primary_computer_state_c(
     let computer = computers.try_get_mut(primary_cpu_id)?;
     computer.on = new_state;
     Ok(primary_cpu_id)
-}
-
-/// Spawns an empty grid with the given name.
-/// Exclusive version of [`super::spawn_empty_grid`].
-pub fn spawn_empty_grid(world: &mut World, name: impl Into<String>) -> Ent {
-    spawn_empty_grid_c(&mut world.spawner, &mut world.grids, name)
 }
 
 /// Sets the waypoint field of the primary computer,
@@ -232,37 +108,38 @@ pub fn spawn_grid_from_blueprint(
     bp_id: Option<&BlueprintId>,
     bp: &Blueprint,
 ) -> BaryResult<Ent> {
-    spawn_grid_from_blueprint_c(
-        &mut world.spawner,
-        &mut world.prototypes,
-        &mut world.grids,
-        &mut world.parts,
-        &mut world.thrusters,
-        &mut world.computers,
-        &mut world.lights,
-        &mut world.inventories,
-        &mut world.machines,
-        &mut world.pipes,
-        &mut world.debug_portals,
-        &mut world.excavators,
-        grid_name,
-        bp_id.cloned(),
-        bp,
-    )
-}
+    let grid_name = grid_name.into();
+    info!(
+        "Spawning grid with name \"{}\" from blueprint {:?}",
+        grid_name, bp_id
+    );
+    let grid = VehicleGrid::with_name(grid_name, bp_id.cloned());
+    let grid_id = world.spawner.spawn();
+    world.grids.spawn(grid_id, grid.clone());
+    for (_id, instance) in bp.parts() {
+        insert_part(grid_id, world, instance, false)?;
+    }
 
-pub fn set_grid_pose(world: &mut World, grid_id: Ent, iso: Isometry2d) -> BaryResult<()> {
-    info!("Setting isometry of grid {} to {:?}", grid_id, iso);
-    let grid = world.grids.try_get_mut(grid_id)?;
-    grid.particle_location = iso;
-    Ok(())
-}
+    for (_id, pipe) in bp.pipes() {
+        if let Err(e) = insert_pipe_at_c(
+            grid_id,
+            pipe.start,
+            pipe.end,
+            &mut world.spawner,
+            &mut world.grids,
+            &mut world.parts,
+            &mut world.inventories,
+            &mut world.pipes,
+        ) {
+            error!("Failed to insert pipe: {:?}", e);
+        }
+    }
 
-pub fn set_grid_vel(world: &mut World, grid_id: Ent, vel: Isometry2d) -> BaryResult<()> {
-    info!("Setting velocity of grid {} to {:?}", grid_id, vel);
     let grid = world.grids.try_get_mut(grid_id)?;
-    grid.velocity = vel;
-    Ok(())
+
+    update_grid_physical_props(grid, &mut world.parts)?;
+
+    Ok(grid_id)
 }
 
 pub fn spawn_grid_with_random_name(
@@ -296,32 +173,6 @@ pub fn get_blueprint(world: &World, grid_id: Ent) -> BaryResult<Blueprint> {
     )
 }
 
-/// Inserts a part into an existing grid.
-/// Exclusive version of [`insert_part_c`].
-pub fn insert_part(
-    grid_id: Ent,
-    world: &mut World,
-    instance: &PartInstance,
-    update_props: bool,
-) -> BaryResult<Ent> {
-    insert_part_c(
-        grid_id,
-        &mut world.spawner,
-        &mut world.grids,
-        &mut world.prototypes,
-        &mut world.parts,
-        &mut world.thrusters,
-        &mut world.computers,
-        &mut world.lights,
-        &mut world.inventories,
-        &mut world.machines,
-        &mut world.debug_portals,
-        &mut world.excavators,
-        instance,
-        update_props,
-    )
-}
-
 pub fn can_insert_part_c(
     grid_id: Ent,
     pl: GridRegion,
@@ -330,109 +181,6 @@ pub fn can_insert_part_c(
 ) -> BaryResult<bool> {
     let grid = grids.try_get(grid_id)?;
     Ok(grid.can_insert_part(pl, layer))
-}
-
-pub fn insert_part_c(
-    grid_id: Ent,
-    spawner: &mut EntitySpawner,
-    grids: &mut Components<VehicleGrid>,
-    prototypes: &Components<PartPrototype>,
-    parts: &mut Components<Part>,
-    thrusters: &mut Components<Thruster>,
-    computers: &mut Components<Computer>,
-    lights: &mut Components<Light>,
-    inventories: &mut Components<Inventory>,
-    machines: &mut Components<Machine>,
-    debug_portals: &mut Components<DebugPortal>,
-    excavators: &mut Components<Excavator>,
-    instance: &PartInstance,
-    update_props: bool,
-) -> BaryResult<Ent> {
-    let grid = grids.try_get_mut(grid_id)?;
-
-    if !grid.can_insert_part(instance.region, instance.layer) {
-        warn!("Can't insert part!");
-        return Err(BaryError::GridSpaceOccupied);
-    }
-
-    let proto_id = get_proto_by_name(prototypes, &instance.name).ok_or(BaryError::BadPartName)?;
-    let proto = prototypes.try_get(proto_id)?;
-
-    let part = Part {
-        region: instance.region,
-        layer: instance.layer(),
-        mass: proto.mass,
-        prototype: proto_id,
-        grid_id,
-        classification: proto.classification(),
-    };
-
-    let part_id = spawner.spawn();
-
-    grid.parts.insert(part_id);
-    parts.spawn(part_id, part);
-
-    grid.mark_occupied(instance.region, instance.layer(), part_id);
-
-    if let Some(inv) = &proto.inventory_data {
-        let slots = inv
-            .slots
-            .iter()
-            .map(|data| {
-                InvSlot::new(
-                    Volume::liters_f32(data.volume_liters),
-                    data.filter.clone(),
-                    data.is_fluid.unwrap_or(false),
-                    (data.min.into(), data.max.into()),
-                )
-            })
-            .collect();
-
-        let inventory = Inventory::from_slots(slots);
-        inventories.spawn(part_id, inventory);
-    }
-    if let Some(data) = &proto.machine_data {
-        let machine = data.clone().into_machine();
-        machines.spawn(part_id, machine);
-    }
-    if let Some(data) = &proto.thruster_data {
-        let thruster = Thruster {
-            is_on: false,
-            is_rcs: data.is_rcs,
-            // TODO(gross)
-            thrust: data.thrust as f32,
-            last_controlled_by: None,
-        };
-        thrusters.spawn(part_id, thruster);
-        grid.thrusters.insert(part_id);
-    }
-    if let Some(_data) = &proto.computer_data {
-        let cpu = Computer::new(proto_id);
-        computers.spawn(part_id, cpu);
-        grid.computers.insert(part_id);
-    }
-    if let Some(data) = &proto.thruster_data {
-        if data.is_rcs {
-            let light_idx = lights.len();
-            let light = Light::new(light_idx as u32);
-            lights.spawn(part_id, light);
-            grid.lights.insert(part_id);
-        }
-    }
-    if let Some(debug) = &proto.debug_portal_data {
-        let portal = DebugPortal::from_proto(*debug);
-        debug_portals.spawn(part_id, portal);
-    }
-    if let Some(ex) = &proto.excavator_data {
-        let excavator = Excavator::from_proto(ex);
-        excavators.spawn(part_id, excavator);
-    }
-
-    if update_props {
-        update_grid_physical_props_by_id(grid_id, grids, parts)?;
-    }
-
-    Ok(part_id)
 }
 
 pub fn despawn_grid(world: &mut World, grid_id: Ent) -> BaryResult<()> {
@@ -444,61 +192,6 @@ pub fn despawn_grid(world: &mut World, grid_id: Ent) -> BaryResult<()> {
         &mut world.computers,
         &mut world.lights,
     )
-}
-
-pub fn despawn_all_vehicles(world: &mut World) -> usize {
-    let ret = world.grids.len();
-    world.grids.clear();
-    world.parts.clear();
-    world.lights.clear();
-    world.computers.clear();
-    world.thrusters.clear();
-    ret
-}
-
-pub fn despawn_grid_c(
-    grid_id: Ent,
-    grids: &mut Components<VehicleGrid>,
-    parts: &mut Components<Part>,
-    thrusters: &mut Components<Thruster>,
-    computers: &mut Components<Computer>,
-    lights: &mut Components<Light>,
-) -> BaryResult<()> {
-    let grid = grids.despawn(grid_id)?;
-    for id in grid.parts {
-        parts.despawn(id)?;
-    }
-    for id in grid.thrusters {
-        thrusters.despawn(id)?;
-    }
-    for id in grid.computers {
-        computers.despawn(id)?;
-    }
-    for id in grid.lights {
-        lights.despawn(id)?;
-    }
-    Ok(())
-}
-
-pub fn get_thruster_levels(
-    grid_id: Ent,
-    grids: &Components<VehicleGrid>,
-    thrusters: &Components<Thruster>,
-) -> BaryResult<Vec<(Ent, bool)>> {
-    let grid = grids.try_get(grid_id)?;
-    let mut results = Vec::new();
-    for thruster_id in &grid.thrusters {
-        let thruster = thrusters.try_get(*thruster_id)?;
-        results.push((*thruster_id, thruster.is_on));
-    }
-    Ok(results)
-}
-
-/// Produces the entity ID corresponding to a grid's primary CPU,
-/// which by convention is just the first element in the computer index.
-pub fn get_primary_cpu_id(grid_id: Ent, grids: &Components<VehicleGrid>) -> BaryResult<Ent> {
-    let grid = grids.try_get(grid_id)?;
-    Ok(*grid.computers.first().ok_or(BaryError::NoPrimaryComputer)?)
 }
 
 pub fn sum_part_masses(
@@ -538,14 +231,6 @@ pub fn get_blueprint_by_id<'a>(
     }
 
     result.map(|e| &e.blueprint)
-}
-
-/// Produces whatever prototype has the given name, if any.
-pub fn get_proto_by_name(prototypes: &Components<PartPrototype>, name: &str) -> Option<Ent> {
-    prototypes
-        .iter()
-        .find(|(_, proto)| proto.part_name() == name)
-        .map(|e| *e.0)
 }
 
 pub fn get_grid_origin(grids: &Components<VehicleGrid>, grid_id: Ent) -> Option<Isometry2d> {
@@ -711,28 +396,10 @@ pub fn get_sum_linear_forces(
     Ok(sum)
 }
 
-pub fn update_grid_physical_props_by_id(
-    grid_id: Ent,
-    grids: &mut Components<VehicleGrid>,
-    parts: &mut Components<Part>,
-) -> BaryResult<()> {
-    let grid = grids.try_get_mut(grid_id)?;
-    update_grid_physical_props(grid, parts)
-}
-
-pub fn get_grid_physical_props_by_id(
-    grid_id: Ent,
-    grids: &Components<VehicleGrid>,
-    parts: &Components<Part>,
-) -> BaryResult<(Mass, Vec2)> {
-    let grid = grids.try_get(grid_id)?;
-    get_grid_physical_props(grid, parts)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{tests::assert_world_is_consistent, world_builder::WorldBuilder};
+    use crate::world_builder::WorldBuilder;
 
     #[test]
     fn part_prototypes() {

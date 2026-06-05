@@ -2,8 +2,8 @@ use std::fs::File;
 use std::io::Write;
 
 use bary_core::prelude::*;
-use bary_raylib::{get_primary_cpu_id, sim::*, world_builder::WorldBuilder};
-use bary_sim::TimedInstruction;
+use bary_raylib::{sim::*, world_builder::WorldBuilder};
+use bary_sim::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

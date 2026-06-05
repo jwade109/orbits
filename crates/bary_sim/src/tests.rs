@@ -1,6 +1,5 @@
-use crate::sim::*;
+use crate::*;
 use anyhow::ensure;
-use bary_sim::World;
 
 pub fn computer_pointers_are_consistent(world: &World) -> Result<(), anyhow::Error> {
     for (_grid_id, grid) in world.grids.iter() {
@@ -75,51 +74,5 @@ pub fn assert_world_is_consistent(world: &World) {
             println!("Failed: {:?}", e);
             assert!(false);
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{sim::update_world, world_builder::WorldBuilder};
-    use bary_core::prelude::*;
-    use bary_sim::{load_world, save_world};
-
-    #[test]
-    fn world_persistence() {
-        let save_path = "../../saves/test_world";
-
-        if std::fs::exists(save_path).unwrap() {
-            std::fs::remove_dir_all(save_path).unwrap();
-        }
-
-        let mut world = WorldBuilder::new()
-            .test_assets()
-            .blueprint("pollux")
-            .blueprint("remora")
-            .blueprint("bellerophon")
-            .blueprint("foundation")
-            .spawn("pollux", "billy", (120.0, 43.0, 0.4))
-            .spawn("remora", "sally", (-30.0, 21.0, -0.1))
-            .spawn("bellerophon", "eisenhower", (50.0, 109.0, 1.4))
-            .waypoint("pollux", (50.0, 300.0, 0.2))
-            .build();
-
-        for _ in 0..1000 {
-            update_world(&mut world);
-        }
-
-        let r = save_world(save_path, &world, false);
-        assert_eq!(r, Ok(()));
-
-        let r = save_world(save_path, &world, false);
-        assert_eq!(r, Err(BaryError::SaveAlreadyExists));
-
-        let r = save_world(save_path, &world, true);
-        assert_eq!(r, Ok(()));
-
-        let world = load_world(save_path).expect("Expected successful load");
-
-        assert_eq!(world.grids.len(), 3);
-        assert_eq!(world.parts.len(), 374);
     }
 }
