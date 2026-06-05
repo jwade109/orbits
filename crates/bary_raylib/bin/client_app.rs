@@ -654,7 +654,7 @@ fn node_color<T: bary_ui::UiMsg>(node: &bary_ui::Node<T>) -> Color {
         NodeType::Text(_) => Color::RED,
         NodeType::Button(_, _) => Color::ORANGE,
         NodeType::Image(_) => Color::YELLOW,
-        NodeType::Spacer => Color::GRAY,
+        NodeType::Spacer => Color::TEAL,
         NodeType::Row(_) => Color::ORANGE,
         NodeType::Column(_) => Color::PURPLE,
     }
@@ -682,14 +682,13 @@ impl<'a> UiBuilder<'a> {
     }
 }
 
-fn make_gui(font: &Font) -> Tree<UiMessage> {
+fn make_gui(font: &Font, client: &ClientSpecificInfo) -> Tree<UiMessage> {
     let builder = UiBuilder::new(font);
 
-    let root: Node<UiMessage> = Node::root(Size::Fit, Size::Fit).with_children(
+    let mut root: Node<UiMessage> = Node::root(Size::Fit, Size::Fit).with_children(
         [
             builder.button(UiMessage::Exit, "Exit to Desktop"),
             builder.button(UiMessage::SaveFile, "Save Game"),
-            builder.button(UiMessage::OpenEditor, "Open Ship Editor"),
             builder.button(UiMessage::AltMode, "Toggle Alt Mode"),
             builder.button(UiMessage::DebugText, "Toggle Debug Text"),
             builder.button(UiMessage::SimSpeed(0), "Toggle Pause"),
@@ -700,6 +699,11 @@ fn make_gui(font: &Font) -> Tree<UiMessage> {
         ]
         .into_iter(),
     );
+
+    if client.selected_grid_loc().is_some() {
+        let b = builder.button(UiMessage::OpenEditor, "Open Ship Editor");
+        root.add_child(b);
+    }
 
     Tree::new().with_layout(root, None)
 }
@@ -718,24 +722,23 @@ fn draw_gui(
         }
 
         let color = node_color(node);
+        let aabb = node.aabb();
 
-        let is_clicked = state.active().as_ref() == node.on_click();
-
-        let scale = if is_clicked { 0.95 } else { 1.0 };
-
-        let color = if is_clicked {
-            color.lerp(Color::BLACK, 0.2)
-        } else {
-            color
-        };
-
-        let aabb = node.aabb().scale_about_center(scale);
-
-        if node.is_leaf() {
+        let scale = if node.is_button() {
+            let is_clicked = state.active().as_ref() == node.on_click();
+            let scale = if is_clicked { 0.95 } else { 1.0 };
+            let color = if is_clicked {
+                color.lerp(Color::BLACK, 0.2)
+            } else {
+                color
+            };
+            let aabb = aabb.scale_about_center(scale);
             draw_ui_aabb(d, aabb, color, true);
+            scale
         } else {
-            draw_ui_aabb(d, aabb, Color::new(20, 20, 20, 230), true);
-        }
+            draw_ui_aabb(d, aabb, color, true);
+            1.0
+        };
 
         if let Some(text) = node.text_content() {
             let p = glam_to_raylib(aabb.center);
@@ -827,7 +830,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let font = main_app.assets.fira_code.as_ref().unwrap();
 
-        let ui = make_gui(font);
+        let ui = make_gui(font, &main_app.client);
+
+        if main_app
+            .client
+            .input
+            .just_pressed_debounced(rdev::Key::KeyP)
+        {
+            println!("{}", ui);
+            println!("{:?}", ui_state);
+        }
 
         let scrp = main_app.client.mouse_screen_position;
 

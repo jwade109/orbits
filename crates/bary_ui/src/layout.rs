@@ -251,6 +251,10 @@ impl<T: UiMsg> Node<T> {
         }
     }
 
+    pub fn is_button(&self) -> bool {
+        matches!(self.node_type, NodeType::Button(_, _))
+    }
+
     pub fn with_layout(mut self, bary_ui: LayoutDir) -> Self {
         self.style.bary_ui = bary_ui;
         self
@@ -666,6 +670,52 @@ impl<T: UiMsg> Tree<T> {
             return candidates.last().map(|v| *v);
         }
         None
+    }
+}
+
+fn write_node<'a, T: UiMsg>(
+    f: &mut std::fmt::Formatter<'a>,
+    node: &Node<T>,
+    level: usize,
+) -> std::fmt::Result {
+    let spacer: String = (0..level * 2).map(|_| ' ').collect();
+    let repr = match &node.node_type {
+        NodeType::Text(_) => "Text",
+        NodeType::Button(_, _) => "Button",
+        NodeType::Image(_) => "Image",
+        NodeType::Spacer => "Spacer",
+        NodeType::Row(nodes) => "Row",
+        NodeType::Column(nodes) => "Column",
+    };
+    write!(
+        f,
+        "{}[{:?} pos={:?} dims={}]\n",
+        spacer,
+        repr,
+        node.calculated_position,
+        node.calculated_dims()
+    )?;
+
+    if let Some(children) = node.children() {
+        for c in children {
+            write_node(f, c, level + 1)?;
+        }
+    }
+    Ok(())
+}
+
+impl<T: UiMsg> std::fmt::Display for Node<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write_node(f, self, 0)
+    }
+}
+
+impl<T: UiMsg> std::fmt::Display for Tree<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for node in self.layouts() {
+            write_node(f, node, 0)?;
+        }
+        Ok(())
     }
 }
 

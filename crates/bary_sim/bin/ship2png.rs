@@ -5,7 +5,6 @@ use bary_parts::{
 };
 use clap::Parser;
 use image::{DynamicImage, Rgba, RgbaImage};
-use raylib::prelude::Color;
 use std::path::*;
 
 /// Converts ship file to PNG
@@ -37,18 +36,18 @@ pub fn read_image(path: &Path) -> Option<RgbaImage> {
     Some(image::open(path).ok()?.to_rgba8())
 }
 
-pub fn diagram_color(part: &PartPrototype) -> Color {
+pub fn diagram_color(part: &PartPrototype) -> BColor {
     let cl = part.classification();
     match cl {
-        PartClassification::Cargo => Color::GREEN,
-        PartClassification::Machine => Color::RED,
-        PartClassification::Thruster => Color::ORANGE,
-        PartClassification::Auxiliary => Color::TEAL,
-        PartClassification::DockingPort => Color::PURPLE,
-        PartClassification::Other => Color::GRAY,
-        PartClassification::Computer => Color::PINK,
-        PartClassification::Structure => Color::new(20, 20, 20, 255),
-        PartClassification::Decoration => Color::WHITE,
+        PartClassification::Cargo => BColor::GREEN,
+        PartClassification::Machine => BColor::RED,
+        PartClassification::Thruster => BColor::ORANGE,
+        PartClassification::Auxiliary => BColor::TEAL,
+        PartClassification::DockingPort => BColor::PURPLE,
+        PartClassification::Other => BColor::GRAY,
+        PartClassification::Computer => BColor::PINK,
+        PartClassification::Structure => BColor::gray(20),
+        PartClassification::Decoration => BColor::WHITE,
     }
 }
 
@@ -56,7 +55,7 @@ fn draw_pixel(
     image: &mut image::ImageBuffer<Rgba<u8>, Vec<u8>>,
     coord: PartCoord,
     lower: PartCoord,
-    color: Color,
+    color: BColor,
 ) {
     let delta = coord - lower;
     let mut p = delta.inner();
@@ -90,7 +89,7 @@ pub fn generate_image(vehicle: &Blueprint, parts: &PartDatabase) -> Option<Dynam
             let color = if let Some(proto) = parts.get(&instance.name) {
                 diagram_color(proto).into()
             } else {
-                Color::GRAY
+                BColor::GRAY
             };
 
             for coord in instance.region.cells() {
@@ -98,10 +97,10 @@ pub fn generate_image(vehicle: &Blueprint, parts: &PartDatabase) -> Option<Dynam
             }
         }
 
-        for pipe in vehicle.pipes() {
-            draw_pixel(to_export, pipe.1.start, pixel_min, Color::YELLOW);
-            draw_pixel(to_export, pipe.1.end, pixel_min, Color::YELLOW);
-        }
+        // for pipe in vehicle.pipes() {
+        //     draw_pixel(to_export, pipe.1.start, pixel_min, BColor::YELLOW);
+        //     draw_pixel(to_export, pipe.1.end, pixel_min, BColor::YELLOW);
+        // }
     }
 
     Some(output)
