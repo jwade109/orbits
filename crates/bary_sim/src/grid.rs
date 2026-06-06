@@ -20,7 +20,7 @@ pub struct VehicleGrid {
     /// Lower bound is inclusive; upper is exclusive.
     /// Extent is upper minus lower. An empty grid
     /// will have zero extent.
-    pub bounds: (IVec2, IVec2),
+    pub vehicle_bounds: (IVec2, IVec2),
 
     // TODO this is not tested in any way.
     pub occupancy: BTreeMap<(i32, i32), PartOccupancy>,
@@ -63,7 +63,7 @@ impl VehicleGrid {
             computers: BTreeSet::new(),
             lights: BTreeSet::new(),
             pipes: BTreeSet::new(),
-            bounds: (IVec2::ZERO, IVec2::ZERO),
+            vehicle_bounds: (IVec2::ZERO, IVec2::ZERO),
             occupancy: BTreeMap::new(),
             is_anchored: false,
         }
@@ -74,8 +74,8 @@ impl VehicleGrid {
     }
 
     pub fn centroid(&self) -> Vec2 {
-        let lower = PartCoord::new(self.bounds.0).to_meters();
-        let upper = PartCoord::new(self.bounds.1).to_meters();
+        let lower = PartCoord::new(self.vehicle_bounds.0).to_meters();
+        let upper = PartCoord::new(self.vehicle_bounds.1).to_meters();
         (upper + lower) / 2.0
     }
 
@@ -100,7 +100,7 @@ impl VehicleGrid {
     }
 
     pub fn dims(&self) -> PartCoord {
-        PartCoord::new(self.bounds.1 - self.bounds.0)
+        PartCoord::new(self.vehicle_bounds.1 - self.vehicle_bounds.0)
     }
 
     /// TODO test this.
@@ -123,7 +123,7 @@ impl VehicleGrid {
                 bounds = Some((lower, upper));
             }
         }
-        self.bounds = bounds.unwrap_or((IVec2::ZERO, IVec2::ZERO));
+        self.vehicle_bounds = bounds.unwrap_or((IVec2::ZERO, IVec2::ZERO));
     }
 
     pub fn mark_occupied(&mut self, region: GridRegion, layer: PartLayer, id: Ent) {

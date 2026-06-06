@@ -96,13 +96,11 @@ pub fn update_grid_physical_props(
     grid: &mut VehicleGrid,
     parts: &mut Components<Part>,
 ) -> BaryResult<()> {
-    let offset = -grid.bounds.0;
     grid.occupancy.clear();
     grid.update_bounds();
 
     for part_id in grid.parts.clone() {
         let part = parts.try_get_mut(part_id)?;
-        part.region.shift(offset.into());
         grid.mark_occupied(part.region, part.layer, part_id);
     }
 

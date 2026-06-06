@@ -74,7 +74,7 @@ fn build_ship_on_another_ship_then_navigate() {
     let grid_a = world.grids.try_get(grid_id).unwrap();
     let grid_b = world.grids.try_get(next_id).unwrap();
 
-    assert_eq!(grid_a.bounds, grid_b.bounds);
+    assert_eq!(grid_a.vehicle_bounds, grid_b.vehicle_bounds);
 
     _ = set_grid_pose(&mut world, next_id, (-10.0, -20.0, 0.3).into());
 
@@ -263,7 +263,7 @@ fn get_inventory_at_grid_location() {
         }
     }
 
-    assert_eq!(grid.bounds, ((0, 0).into(), (4, 6).into()));
+    assert_eq!(grid.vehicle_bounds, ((0, 0).into(), (4, 6).into()));
 
     // the part looks like this in the grid frame, with inventories
     // indicated by @, #, %

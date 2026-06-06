@@ -305,8 +305,6 @@ pub fn draw_world(
         assets,
     );
 
-    let is_holding_shift = client.input.is_key_pressed(rdev::Key::ShiftLeft);
-
     if client.viewport.is_real_view() {
         draw_selection_info(&mut c, &world.grids, &client);
 
@@ -328,12 +326,12 @@ pub fn draw_world(
             &client.camera,
         );
 
-        draw_trackers(&mut c, &world.tracking, is_holding_shift);
+        draw_trackers(&mut c, &world.tracking, client.alt_mode);
     } else if let Viewport::Editor(e) = &client.viewport {
         draw_grid_lines(&mut c, &world.grids, e);
     }
 
-    if is_holding_shift {
+    if client.alt_mode {
         draw_grid_outlines(&mut c, &world.grids);
         draw_thruster_classification(&mut c, &world.grids, &world.parts, &world.thrusters);
     }
@@ -919,8 +917,8 @@ pub fn draw_grid_outlines(d: &mut RaylibDrawHandle, grids: &Components<VehicleGr
         let origin = grid.origin();
         let pose = grid.particle_location;
         let centroid = grid.centroid_isometry();
-        let bottom_left = PartCoord::new(grid.bounds.0).to_meters();
-        let top_right = PartCoord::new(grid.bounds.1).to_meters();
+        let bottom_left = PartCoord::new(grid.vehicle_bounds.0).to_meters();
+        let top_right = PartCoord::new(grid.vehicle_bounds.1).to_meters();
         let bl_iso = origin.offset(bottom_left);
         let dims = top_right - bottom_left;
         draw_rectangle(d, bl_iso, dims, Color::WHITE, 0.03);
