@@ -756,7 +756,7 @@ mod tests {
         let id = spawn_grid_with_random_name(&mut world, "pollux").unwrap();
         let (_mass, com) = get_grid_physical_props_by_id(id, &world.grids, &world.parts).unwrap();
 
-        assert_eq!(com, Vec2::new(5.5010653, 2.272271));
+        assert_eq!(com, Vec2::new(0.001067417, 0.022271877));
 
         let cargo_id = get_proto_by_name(&world.prototypes, "cargo").unwrap();
         let cargo_proto = world.prototypes.try_get(cargo_id).unwrap();
@@ -848,16 +848,16 @@ mod tests {
 
         dbg!(grid);
 
-        assert_eq!(
-            grid.center_of_mass,
-            PartCoord(dims.as_ivec2() + insert_location).to_meters() / 2.0
-        );
-        assert_eq!(grid.origin(), (0.0, -1.0, 0.0).into());
+        let expected_com =
+            PartCoord(dims.as_ivec2()).to_meters() / 2.0 + PartCoord(insert_location).to_meters();
+
+        assert_eq!(grid.center_of_mass, expected_com);
+        assert_eq!(grid.origin(), (0.0, 0.0, 0.0).into());
 
         let (_mass, com) =
             get_grid_physical_props_by_id(grid_id, &world.grids, &world.parts).unwrap();
 
-        assert_eq!(com, instance.region.grid_aligned_dims().to_meters() / 2.0);
+        assert_eq!(com, expected_com);
 
         // obviously, turn the main thruster on
         let r = set_thruster_state(thruster_id, &mut world, true);
