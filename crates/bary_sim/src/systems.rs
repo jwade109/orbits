@@ -585,7 +585,7 @@ mod tests {
 
         let id = spawn_grid_with_random_name(&mut world, "pollux").unwrap();
 
-        let actual = get_blueprint_c(
+        let mut actual = get_blueprint_c(
             &world.grids,
             &world.parts,
             &world.pipes,
@@ -593,6 +593,8 @@ mod tests {
             id,
         )
         .unwrap();
+
+        actual.normalize_coordinates();
 
         assert_eq!(actual.part_count(), expected.part_count());
 
@@ -787,11 +789,13 @@ mod tests {
         assert_eq!(pose, Isometry2d::ZERO);
         assert_eq!(origin, Isometry2d::ZERO);
 
+        let insertion_point = PartCoord::new((1, 1));
+
         // insert a frame
         let instance = PartInstance {
             name: "frame".to_string(),
             layer: PartLayer::Structural,
-            region: GridRegion::new((1, 1), Rotation::East, (2, 2)),
+            region: GridRegion::new(insertion_point, Rotation::East, (2, 2)),
         };
 
         let result = insert_part(grid_id, &mut world, &instance, true);
@@ -803,7 +807,10 @@ mod tests {
 
         let pose = grid_pose(&world.grids, grid_id).unwrap();
         let origin = get_grid_origin(&world.grids, grid_id).unwrap();
-        assert_eq!(pose, (part_dims / 2.0, 0.0).into());
+
+        let expected_com = insertion_point.to_meters() + part_dims / 2.0;
+
+        assert_eq!(pose, expected_com.into());
         assert_eq!(origin, Isometry2d::ZERO);
 
         assert_world_is_consistent(&world);
@@ -827,16 +834,29 @@ mod tests {
 
         let grid_id = spawn_empty_grid(&mut world, "testbed");
 
+        let insert_location = IVec2::new(0, -1);
+
         let instance = PartInstance {
             name: "small-motor".to_string(),
             layer: PartLayer::Internal,
-            region: GridRegion::new((0, -1), Rotation::East, dims),
+            region: GridRegion::new(insert_location, Rotation::East, dims),
         };
 
         let thruster_id = insert_part(grid_id, &mut world, &instance, true).unwrap();
 
+        let grid = world.grids.try_get(grid_id).expect("Expected a grid");
+
+        dbg!(grid);
+
+        assert_eq!(
+            grid.center_of_mass,
+            PartCoord(dims.as_ivec2() + insert_location).to_meters() / 2.0
+        );
+        assert_eq!(grid.origin(), (0.0, -1.0, 0.0).into());
+
         let (_mass, com) =
             get_grid_physical_props_by_id(grid_id, &world.grids, &world.parts).unwrap();
+
         assert_eq!(com, instance.region.grid_aligned_dims().to_meters() / 2.0);
 
         // obviously, turn the main thruster on
@@ -1121,10 +1141,14 @@ mod tests {
         assert_eq!(grid.parts_mass, Mass::grams(35134000));
         assert_eq!(grid.parts.len(), 98);
 
+        let lower = grid.vehicle_bounds.0;
+
         // slice a thing down the middle of the ship
         let mut parts = BTreeSet::new();
         let x = 22;
         for y in 0..40 {
+            let x = x + lower.x;
+            let y = y + lower.y;
             if let Some(occ) = grid.occupancy.get(&(x, y)) {
                 for (_, id) in occ.iter() {
                     parts.insert(id);
@@ -1192,9 +1216,9 @@ mod tests {
         let op_b = destroy_part_without_integrity_check(&mut world, part_b, false);
         let op_c = destroy_part_without_integrity_check(&mut world, part_c, true);
 
-        let region_a = GridRegion::new((10, 0), Rotation::North, (1, 1));
-        let region_b = GridRegion::new((32, 4), Rotation::South, (2, 2));
-        let region_c = GridRegion::new((32, 12), Rotation::South, (2, 2));
+        let region_a = GridRegion::new((-12, -9), Rotation::North, (1, 1));
+        let region_b = GridRegion::new((10, -5), Rotation::South, (2, 2));
+        let region_c = GridRegion::new((10, 3), Rotation::South, (2, 2));
 
         let part_a = PartInstance::new("rcs", PartLayer::Internal, region_a);
         let part_b = PartInstance::new("plate", PartLayer::Exterior, region_b);
@@ -1235,10 +1259,14 @@ mod tests {
         assert_eq!(grid.parts_mass, Mass::grams(35134000));
         assert_eq!(grid.parts.len(), 98);
 
+        let lower = grid.vehicle_bounds.0;
+
         // slice a thing down the middle of the ship
         let mut parts = BTreeSet::new();
         let x = 25;
         for y in 0..40 {
+            let x = x + lower.x;
+            let y = y + lower.x;
             if let Some(occ) = grid.occupancy.get(&(x, y)) {
                 for (_, id) in occ.iter() {
                     parts.insert(id);
