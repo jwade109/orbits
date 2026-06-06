@@ -569,6 +569,7 @@ dependencies = [
  "image",
  "log",
  "serde",
+ "serde_yaml",
  "zstd",
 ]
 

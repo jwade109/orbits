@@ -3,8 +3,6 @@ use bary_parts::*;
 use bary_sim::*;
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{sim::*, world_builder::WorldBuilder};
-
 #[test]
 fn vehicle_pathing_is_deterministic() {
     let mut w1 = WorldBuilder::new()

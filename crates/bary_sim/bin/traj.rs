@@ -2,7 +2,6 @@ use std::fs::File;
 use std::io::Write;
 
 use bary_core::prelude::*;
-use bary_raylib::{sim::*, world_builder::WorldBuilder};
 use bary_sim::*;
 use serde::{Deserialize, Serialize};
 

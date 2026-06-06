@@ -1,6 +1,4 @@
-use crate::sim::apply_delta;
 use crate::utils::Application;
-use crate::*;
 use bary_core::prelude::*;
 use bary_ipc::*;
 use bary_sim::*;

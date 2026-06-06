@@ -1,6 +1,5 @@
 use bary_core::prelude::*;
 use bary_factory::*;
-use bary_raylib::world_builder::WorldBuilder;
 use bary_sim::*;
 
 fn scenario_a() -> BaryResult<()> {

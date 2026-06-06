@@ -52,10 +52,6 @@ name = "headless_server"
 path = "bin/headless_server.rs"
 
 [[bin]]
-name = "traj"
-path = "bin/traj.rs"
-
-[[bin]]
 name = "generate_worlds"
 path = "bin/generate_worlds.rs"
 
