@@ -175,7 +175,7 @@ impl<T: UiMsg> Node<T> {
     }
 
     pub fn column(width: impl Into<Size>, children: Vec<Node<T>>) -> Self {
-        let mut node = Node::new(width, Size::Grow).down();
+        let mut node = Node::new(Size::Fit, Size::Fit).down();
         node.node_type = NodeType::Column(children);
         node
     }
@@ -188,6 +188,7 @@ impl<T: UiMsg> Node<T> {
     pub fn text_content(&self) -> Option<&String> {
         match &self.node_type {
             NodeType::Button(s, _) => Some(s),
+            NodeType::Text(s) => Some(s),
             _ => None,
         }
     }

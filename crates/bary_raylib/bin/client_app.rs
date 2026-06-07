@@ -378,20 +378,43 @@ impl ClientApp {
         }
     }
 
-    pub fn on_click_event(&mut self, c: ClickInfo) {
+    pub fn on_drag(&mut self, id: UiMessage, delta: Vec2) {
+        match id {
+            UiMessage::DockingShiftX => {
+                if let Some(free) = self.client.viewport.free_mut() {
+                    let delta = delta.with_y(0.0) / 4.0;
+                    let off = PartCoord(vround(delta));
+                    free.offset += off;
+                }
+            }
+            UiMessage::DockingShiftY => {
+                if let Some(free) = self.client.viewport.free_mut() {
+                    let delta = Vec2::new(0.0, delta.x);
+                    let off = PartCoord(vround(delta));
+                    free.offset += off;
+                }
+            }
+            _ => (),
+        }
+    }
+
+    pub fn on_click_event(&mut self, c: UiEvent) {
         debug!("{:?}", c);
 
-        match c.msg {
-            UiMessage::Exit => self.exit(),
-            UiMessage::SaveFile => self.save(),
-            UiMessage::OpenEditor => self.editor(),
-            UiMessage::AltMode => self.client.alt_mode ^= true,
-            UiMessage::DebugText => self.show_debug_text ^= true,
-            UiMessage::SimSpeed(sp) => self.set_sim_speed(sp),
-            UiMessage::DockingRotate => self.docking_rotate(),
-            UiMessage::DockingShift(dir) => self.docking_shift(dir),
-            UiMessage::DockingActivate => self.docking_activate(),
-            _ => warn!("Unimplemented: {:?}", c.msg),
+        if let UiEventKind::Drag(delta) = c.kind {
+            self.on_drag(c.msg, delta);
+        } else {
+            match c.msg {
+                UiMessage::Exit => self.exit(),
+                UiMessage::SaveFile => self.save(),
+                UiMessage::OpenEditor => self.editor(),
+                UiMessage::AltMode => self.client.alt_mode ^= true,
+                UiMessage::DebugText => self.show_debug_text ^= true,
+                UiMessage::SimSpeed(sp) => self.set_sim_speed(sp),
+                UiMessage::DockingRotate => self.docking_rotate(),
+                UiMessage::DockingActivate => self.docking_activate(),
+                _ => (),
+            }
         }
     }
 
@@ -713,6 +736,14 @@ impl<'a> UiBuilder<'a> {
         }
     }
 
+    fn header<T: UiMsg>(&self, s: impl Into<String>) -> Node<T> {
+        let s = s.into();
+        let dims = self.font.measure_text(&s, self.font_size, 0.0);
+        let w = dims.x + 36.0;
+        let h = dims.y + 18.0;
+        Node::text(w, h, s)
+    }
+
     fn button<T: UiMsg>(&self, msg: impl Into<T>, s: impl Into<String>) -> Node<T> {
         let s = s.into();
         let dims = self.font.measure_text(&s, self.font_size, 0.0);
@@ -745,16 +776,23 @@ fn make_gui(font: &Font, client: &ClientSpecificInfo) -> Tree<UiMessage> {
         root.add_child(b);
     }
 
+    let mut tree = Tree::new().with_layout(root, None);
+
     if client.docking_interface().is_some() {
-        root.add_child(builder.button(UiMessage::DockingShift(Rotation::North), "N"));
-        root.add_child(builder.button(UiMessage::DockingShift(Rotation::South), "S"));
-        root.add_child(builder.button(UiMessage::DockingShift(Rotation::East), "E"));
-        root.add_child(builder.button(UiMessage::DockingShift(Rotation::West), "W"));
-        root.add_child(builder.button(UiMessage::DockingRotate, "R"));
-        root.add_child(builder.button(UiMessage::DockingActivate, "DOCK"));
+        let docking_ui = Node::column(
+            400,
+            vec![
+                builder.header("Docking Control Panel"),
+                builder.button(UiMessage::DockingShiftX, "Offset X"),
+                builder.button(UiMessage::DockingShiftY, "Offset Y"),
+                builder.button(UiMessage::DockingRotate, "Rotate"),
+                builder.button(UiMessage::DockingActivate, "Dock"),
+            ],
+        );
+        tree.add_layout(docking_ui, Vec2::new(100.0, 200.0))
     }
 
-    Tree::new().with_layout(root, None)
+    tree
 }
 
 const UI_FONT_SIZE: i32 = 22;

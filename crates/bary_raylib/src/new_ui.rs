@@ -11,7 +11,8 @@ pub enum UiMessage {
     AltMode,
     DebugText,
     SimSpeed(u32),
-    DockingShift(Rotation),
+    DockingShiftX,
+    DockingShiftY,
     DockingRotate,
     DockingActivate,
 }
@@ -20,14 +21,48 @@ pub enum UiMessage {
 pub struct UiInteractionState {
     is_on_gui: bool,
     screen_pos: Option<Vec2>,
-    hot: Option<ClickInfo>,
-    active: Option<ClickInfo>,
+    hot: Option<(UiMessage, Vec2)>,
+    active: Option<(UiMessage, Vec2)>,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct ClickInfo {
+pub enum UiEventKind {
+    Click,
+    Release,
+    Drag(Vec2),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct UiEvent {
     pub msg: UiMessage,
     pub pos: Vec2,
+    pub kind: UiEventKind,
+}
+
+impl UiEvent {
+    fn click(msg: UiMessage, pos: Vec2) -> Self {
+        Self {
+            msg,
+            pos,
+            kind: UiEventKind::Click,
+        }
+    }
+
+    fn release(msg: UiMessage, pos: Vec2) -> Self {
+        Self {
+            msg,
+            pos,
+            kind: UiEventKind::Click,
+        }
+    }
+
+    fn drag(msg: UiMessage, pos: Vec2, delta: Vec2) -> Self {
+        Self {
+            msg,
+            pos,
+            kind: UiEventKind::Drag(delta),
+        }
+    }
 }
 
 impl UiInteractionState {
@@ -36,7 +71,7 @@ impl UiInteractionState {
     }
 
     pub fn active(&self) -> Option<UiMessage> {
-        self.active.map(|e| e.msg)
+        self.active.map(|e| e.0)
     }
 
     pub fn update(
@@ -44,7 +79,7 @@ impl UiInteractionState {
         ui: &Tree<UiMessage>,
         screen_pos: Option<Vec2>,
         input: &InputState,
-    ) -> Option<ClickInfo> {
+    ) -> Option<UiEvent> {
         self.is_on_gui = false;
         self.hot = None;
         let last_pos = self.screen_pos;
@@ -64,10 +99,7 @@ impl UiInteractionState {
                 let relative = p - aabb.lower();
 
                 if contains {
-                    self.hot = Some(ClickInfo {
-                        msg: *onclick,
-                        pos: relative,
-                    });
+                    self.hot = Some((*onclick, relative));
 
                     if input.just_pressed(rdev::Button::Left) {
                         self.active = self.hot;
@@ -81,14 +113,17 @@ impl UiInteractionState {
         if input.is_key_pressed(rdev::Button::Left) {
             if let Some((last, (cur, active))) = last_pos.zip(self.screen_pos.zip(self.active)) {
                 if last != cur {
-                    info!("Drag! {} -> {} ({:?})", last, cur, active);
+                    let delta = cur - last;
+                    ret = Some(UiEvent::drag(active.0, active.1, delta));
                 }
             }
         }
 
         if input.just_released(rdev::Button::Left) {
-            if self.active.map(|e| e.msg) == self.hot.map(|e| e.msg) {
-                ret = self.active;
+            if let Some((active, hot)) = self.active.zip(self.hot) {
+                if active.0 == hot.0 {
+                    ret = Some(UiEvent::release(active.0, active.1));
+                }
             }
             self.active = None;
         }
