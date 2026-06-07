@@ -256,6 +256,9 @@ impl ClientApp {
                     self.on_rcv_blob(blob);
                 }
             }
+            (_, MessageKind::SyncFrame(frame)) => {
+                info!("Got frame: {:?}", frame);
+            }
             _ => (),
         }
     }

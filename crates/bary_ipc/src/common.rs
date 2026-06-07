@@ -96,6 +96,14 @@ pub struct ClientTelemetry {
     pub ticks: u64,
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct SyncFrame {
+    pub next_id: Ent,
+    pub tick: u64,
+    pub grids: [u8; 16],
+    pub inventories: [u8; 16],
+}
+
 /// clone of [`renet::NetworkInfo`]
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct NetworkInfo {
@@ -165,6 +173,8 @@ pub enum MessageKind {
     },
     /// request by the client to perform a certain [`WorldDelta`]
     RequestDelta(WorldDelta),
+    /// hashes of a few key tables to indicate desyncs
+    SyncFrame(SyncFrame),
 }
 
 impl MessageKind {

@@ -15,6 +15,7 @@ pub struct HeadlessServerApp {
     node: ServerNode,
     update_timer: WallTimer,
     print_timer: WallTimer,
+    md5_sync_timer: WallTimer,
     queued_deltas: Vec<WorldDelta>,
 }
 
@@ -31,6 +32,7 @@ impl HeadlessServerApp {
             node,
             update_timer: WallTimer::with_dur(Duration::from_millis(1000 / TICKS_PER_SECOND)),
             print_timer: WallTimer::with_dur(Duration::from_millis(1000)),
+            md5_sync_timer: WallTimer::hz(2),
             queued_deltas: Vec::new(),
         })
     }
@@ -84,6 +86,23 @@ impl HeadlessServerApp {
         self.node.broadcast(
             MessageKind::Text("Hello there!".to_string()).with_source(MessageSource::Server),
         );
+    }
+
+    fn send_md5_sync_packet(&mut self) {
+        let grid_bytes = bincode::serialize(&self.world.grids).unwrap();
+        let grid_hash = md5::compute(&grid_bytes).0;
+        let inv_bytes = bincode::serialize(&self.world.inventories).unwrap();
+        let inv_hash = md5::compute(&inv_bytes).0;
+        let frame = SyncFrame {
+            tick: self.world.ticks,
+            next_id: self.world.spawner.next(),
+            grids: grid_hash,
+            inventories: inv_hash,
+        };
+
+        let msg = MessageKind::SyncFrame(frame).with_source(MessageSource::Server);
+
+        self.node.broadcast(msg);
     }
 
     fn on_accept_tlm(&mut self, id: ClientId, kind: MessageKind) {
@@ -352,6 +371,10 @@ impl Application for HeadlessServerApp {
     fn update(&mut self) {
         if !self.update_timer.tick() {
             return;
+        }
+
+        if self.md5_sync_timer.tick() {
+            self.send_md5_sync_packet();
         }
 
         for msg in self.node.update() {

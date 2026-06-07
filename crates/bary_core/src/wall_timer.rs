@@ -26,6 +26,12 @@ impl std::fmt::Debug for WallTimer {
 }
 
 impl WallTimer {
+    pub fn hz(hz: u32) -> Self {
+        let micros = 1000000 / hz as u64;
+        let dur = Duration::from_micros(micros);
+        Self::with_dur(dur)
+    }
+
     pub fn with_dur(duration: Duration) -> Self {
         let now = Instant::now();
         Self {
