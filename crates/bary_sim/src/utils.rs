@@ -1346,7 +1346,9 @@ pub fn merge_grids(
 
     for cpu_id in &parent.computers {
         let computer = world.computers.try_get_mut(*cpu_id)?;
-        computer.on = false;
+        computer.command_queue.clear();
+        let instr = TimedInstruction::perp(Instruction::Drift);
+        computer.command_queue.push(instr);
     }
 
     Ok(())
