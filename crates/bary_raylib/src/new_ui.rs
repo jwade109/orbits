@@ -11,6 +11,9 @@ pub enum UiMessage {
     AltMode,
     DebugText,
     SimSpeed(u32),
+    DockingShift(Rotation),
+    DockingRotate,
+    DockingActivate,
 }
 
 #[derive(Debug, Clone, Copy, Default)]

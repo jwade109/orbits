@@ -348,6 +348,36 @@ impl ClientApp {
         self.node.send_command(MessageKind::SetSimSpeed(speed));
     }
 
+    fn docking_rotate(&mut self) {
+        if let Some(free) = self.client.viewport.free_mut() {
+            free.rotation = free.rotation.next();
+        }
+    }
+
+    fn docking_shift(&mut self, dir: Rotation) {
+        if let Some(free) = self.client.viewport.free_mut() {
+            let off = match dir {
+                Rotation::East => PartCoord::new((1, 0)),
+                Rotation::North => PartCoord::new((0, 1)),
+                Rotation::West => PartCoord::new((-1, 0)),
+                Rotation::South => PartCoord::new((0, -1)),
+            };
+            free.offset += off;
+        }
+    }
+
+    fn docking_activate(&mut self) {
+        if let Some(docking) = self.client.docking_interface() {
+            let delta = WorldDelta::MergeGrids(
+                docking.parent.grid_id,
+                docking.child.grid_id,
+                docking.offset,
+                docking.rotation,
+            );
+            self.node.send_command(MessageKind::RequestDelta(delta));
+        }
+    }
+
     pub fn on_click_event(&mut self, c: ClickInfo) {
         debug!("{:?}", c);
 
@@ -358,6 +388,10 @@ impl ClientApp {
             UiMessage::AltMode => self.client.alt_mode ^= true,
             UiMessage::DebugText => self.show_debug_text ^= true,
             UiMessage::SimSpeed(sp) => self.set_sim_speed(sp),
+            UiMessage::DockingRotate => self.docking_rotate(),
+            UiMessage::DockingShift(dir) => self.docking_shift(dir),
+            UiMessage::DockingActivate => self.docking_activate(),
+            _ => warn!("Unimplemented: {:?}", c.msg),
         }
     }
 
@@ -709,6 +743,15 @@ fn make_gui(font: &Font, client: &ClientSpecificInfo) -> Tree<UiMessage> {
     if client.selected_grid_loc().is_some() {
         let b = builder.button(UiMessage::OpenEditor, "Open Ship Editor");
         root.add_child(b);
+    }
+
+    if client.docking_interface().is_some() {
+        root.add_child(builder.button(UiMessage::DockingShift(Rotation::North), "N"));
+        root.add_child(builder.button(UiMessage::DockingShift(Rotation::South), "S"));
+        root.add_child(builder.button(UiMessage::DockingShift(Rotation::East), "E"));
+        root.add_child(builder.button(UiMessage::DockingShift(Rotation::West), "W"));
+        root.add_child(builder.button(UiMessage::DockingRotate, "R"));
+        root.add_child(builder.button(UiMessage::DockingActivate, "DOCK"));
     }
 
     Tree::new().with_layout(root, None)

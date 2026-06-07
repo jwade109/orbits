@@ -171,6 +171,8 @@ pub fn leave_ship_editor_on_escape(client: &mut ClientSpecificInfo, sounds: &mut
         selection_info: SelectionInfo::selecting(editor.vehicle),
         waypoint_widget: None,
         hovered_chunk: None,
+        offset: PartCoord::ZERO,
+        rotation: Rotation::East,
     });
 
     client.target_camera.zoom = 20.0;

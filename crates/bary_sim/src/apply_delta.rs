@@ -167,5 +167,8 @@ pub fn apply_delta(world: &mut World, delta: WorldDelta) -> BaryResult<()> {
             set_player_cursor_position(world, id, pos)?;
             Ok(())
         }
+        WorldDelta::MergeGrids(parent, child, offset, rotation) => {
+            merge_grids(world, parent, child, offset, rotation)
+        }
     }
 }

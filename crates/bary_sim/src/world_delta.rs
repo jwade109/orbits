@@ -78,4 +78,5 @@ pub enum WorldDelta {
     PlayerPilotingExitGrid(Ent),
     SetPlayerPosition(Ent, Isometry2d),
     SetPlayerCursorPosition(Ent, Option<Vec2>),
+    MergeGrids(Ent, Ent, PartCoord, Rotation),
 }

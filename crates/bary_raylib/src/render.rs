@@ -166,6 +166,31 @@ fn draw_inventories(
     }
 }
 
+fn draw_docking_interface(
+    d: &mut RaylibDrawHandle,
+    world: &World,
+    docking: &DockingInterface,
+) -> BaryResult<()> {
+    let parent = world.grids.try_get(docking.parent.grid_id)?;
+    let child = world.grids.try_get(docking.child.grid_id)?;
+
+    for (grid, color, is_child) in [(parent, Color::WHITE, false), (child, Color::ORANGE, true)] {
+        for part_id in &grid.parts {
+            let part = world.parts.try_get(*part_id)?;
+            let mut pl = part.region;
+
+            if is_child {
+                pl.rotate(docking.rotation);
+                pl.shift(docking.offset);
+            }
+
+            draw_grid_region(d, parent.origin(), pl, color.alpha(0.2), color, 1.0);
+        }
+    }
+
+    Ok(())
+}
+
 fn draw_grid_far_indicators(
     grids: &Components<VehicleGrid>,
     d: &mut RaylibDrawHandle,
@@ -365,6 +390,10 @@ pub fn draw_world(
         draw_inventories(&mut c, &world.grids, &world.parts, &world.inventories);
     } else {
         draw_hovered_inventory(&mut c, world, client);
+    }
+
+    if let Some(docking) = client.docking_interface() {
+        _ = draw_docking_interface(&mut c, world, &docking);
     }
 
     // draw_parts_zoo(&world.prototypes, &mut c);

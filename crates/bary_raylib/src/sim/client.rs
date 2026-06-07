@@ -39,6 +39,10 @@ pub struct FreeFlying {
     pub selection_info: SelectionInfo,
     pub hovered_chunk: Option<TerrainSelectionInfo>,
     pub waypoint_widget: Option<Vec2>,
+
+    // for docking
+    pub offset: PartCoord,
+    pub rotation: Rotation,
 }
 
 #[derive(Debug)]
@@ -94,6 +98,13 @@ impl Viewport {
     }
 }
 
+pub struct DockingInterface {
+    pub offset: PartCoord,
+    pub rotation: Rotation,
+    pub parent: GridLocation,
+    pub child: GridLocation,
+}
+
 /// Information that doesn't *in general* need to be synchronized across
 /// clients in multiplayer.
 pub struct ClientSpecificInfo {
@@ -134,6 +145,8 @@ impl ClientSpecificInfo {
                 selection_info: SelectionInfo::default(),
                 waypoint_widget: None,
                 hovered_chunk: None,
+                offset: PartCoord::ZERO,
+                rotation: Rotation::East,
             }),
             input: InputState::default(),
             alt_mode: false,
@@ -171,5 +184,17 @@ impl ClientSpecificInfo {
             Viewport::Editor(e) => Some(e.vehicle),
             Viewport::Free(f) => f.selection_info.first_selected_grid(),
         }
+    }
+
+    pub fn docking_interface(&self) -> Option<DockingInterface> {
+        let free = self.viewport.free()?;
+        let parent = *free.selection_info.selected.first()?;
+        let child = *free.selection_info.selected.get(1)?;
+        Some(DockingInterface {
+            parent,
+            child,
+            offset: free.offset,
+            rotation: free.rotation,
+        })
     }
 }

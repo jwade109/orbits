@@ -1314,3 +1314,69 @@ pub fn get_sum_linear_forces(
     }
     Ok(sum)
 }
+
+pub fn merge_grids(
+    world: &mut World,
+    parent_id: Ent,
+    child_id: Ent,
+    offset: PartCoord,
+    rotation: Rotation,
+) -> BaryResult<()> {
+    // TODO determine if the merge would violate part intersection constraints
+
+    let child = world.grids.despawn(child_id)?;
+
+    let parent = world.grids.try_get_mut(parent_id)?;
+
+    for part_id in &child.parts {
+        parent.parts.insert(*part_id);
+
+        let part = world.parts.try_get_mut(*part_id)?;
+        part.grid_id = parent_id;
+        part.region.rotate(rotation);
+        part.region.shift(offset);
+    }
+
+    parent.computers.extend(child.computers.into_iter());
+    parent.thrusters.extend(child.thrusters.into_iter());
+    parent.lights.extend(child.lights.into_iter());
+    parent.pipes.extend(child.pipes.into_iter());
+
+    update_grid_physical_props(parent, &mut world.parts)?;
+
+    for cpu_id in &parent.computers {
+        let computer = world.computers.try_get_mut(*cpu_id)?;
+        computer.on = false;
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::WorldBuilder;
+
+    #[test]
+    fn merging_pollux_and_remora() {
+        let mut world = WorldBuilder::new()
+            .test_assets()
+            .blueprint(("pollux", 2))
+            .blueprint(("remora", 0))
+            .spawn(("pollux", 2), "Bob", Isometry2d::ZERO)
+            .spawn(("remora", 0), "Holly", (200.0, 200.0, 0.0))
+            .build();
+
+        let parent_id = get_grid_by_name(&world.grids, "Bob").expect("Expected Bob's ID");
+        let child_id = get_grid_by_name(&world.grids, "Holly").expect("Expected Holly's ID");
+
+        let offset = PartCoord::new((0, 0));
+        let rotation = Rotation::East;
+
+        let res = merge_grids(&mut world, parent_id, child_id, offset, rotation);
+
+        assert_world_is_consistent(&world);
+
+        assert_eq!(res, Ok(()));
+    }
+}

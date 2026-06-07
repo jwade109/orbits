@@ -4,7 +4,7 @@ use anyhow::ensure;
 pub fn computer_pointers_are_consistent(world: &World) -> Result<(), anyhow::Error> {
     for (_grid_id, grid) in world.grids.iter() {
         for id in &grid.computers {
-            ensure!(world.computers.try_get(*id).is_ok());
+            ensure!(world.computers.try_get(*id).is_ok(), "Failed to lookup computer in this grid");
         }
     }
 
@@ -31,8 +31,8 @@ pub fn mass_of_grids_is_accurate(world: &World) -> Result<(), anyhow::Error> {
     for (grid_id, grid) in world.grids.iter() {
         let expected = get_grid_physical_props_by_id(*grid_id, &world.grids, &world.parts).unwrap();
         let actual = (grid.parts_mass, grid.center_of_mass);
-        ensure!(actual.0 == expected.0);
-        ensure!(actual.1 == expected.1);
+        ensure!(actual.0 == expected.0, "Mass is not as expected");
+        ensure!(actual.1 == expected.1, "COM is not as expected");
     }
 
     Ok(())
