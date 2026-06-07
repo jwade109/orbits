@@ -1,5 +1,7 @@
 use crate::camera::Camera;
 use bary_core::prelude::*;
+use bary_ipc::SyncFrame;
+use bary_sim::World;
 use raylib::prelude::*;
 
 pub fn glam_to_raylib(v: Vec2) -> Vector2 {
@@ -40,6 +42,22 @@ pub fn get_world_to_screen(camera: &Camera, world_pos: Vec2, screen_dims: Vec2) 
     let offset = screen_dims / 2.0;
     let p = (world_pos - camera.isometry.translation) * camera.zoom;
     rotate(p.with_y(-p.y), camera.isometry.rotation) + offset
+}
+
+pub fn sync_frame_from_world(world: &World) -> SyncFrame {
+    let grid_bytes = bincode::serialize(&world.grids).unwrap();
+    let grid_hash = u128::from_be_bytes(md5::compute(&grid_bytes).0);
+    let inv_bytes = bincode::serialize(&world.inventories).unwrap();
+    let inv_hash = u128::from_be_bytes(md5::compute(&inv_bytes).0);
+    let thr_bytes = bincode::serialize(&world.thrusters).unwrap();
+    let thr_hash = u128::from_be_bytes(md5::compute(&thr_bytes).0);
+    SyncFrame {
+        tick: world.ticks,
+        next_id: world.spawner.next(),
+        grids: grid_hash,
+        inventories: inv_hash,
+        thrusters: thr_hash,
+    }
 }
 
 #[cfg(test)]

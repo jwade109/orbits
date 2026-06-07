@@ -1,4 +1,4 @@
-use crate::utils::Application;
+use crate::utils::{Application, sync_frame_from_world};
 use bary_core::prelude::*;
 use bary_ipc::*;
 use bary_sim::*;
@@ -89,19 +89,8 @@ impl HeadlessServerApp {
     }
 
     fn send_md5_sync_packet(&mut self) {
-        let grid_bytes = bincode::serialize(&self.world.grids).unwrap();
-        let grid_hash = md5::compute(&grid_bytes).0;
-        let inv_bytes = bincode::serialize(&self.world.inventories).unwrap();
-        let inv_hash = md5::compute(&inv_bytes).0;
-        let frame = SyncFrame {
-            tick: self.world.ticks,
-            next_id: self.world.spawner.next(),
-            grids: grid_hash,
-            inventories: inv_hash,
-        };
-
+        let frame = sync_frame_from_world(&self.world);
         let msg = MessageKind::SyncFrame(frame).with_source(MessageSource::Server);
-
         self.node.broadcast(msg);
     }
 

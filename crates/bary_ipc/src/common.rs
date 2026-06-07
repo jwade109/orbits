@@ -100,8 +100,9 @@ pub struct ClientTelemetry {
 pub struct SyncFrame {
     pub next_id: Ent,
     pub tick: u64,
-    pub grids: [u8; 16],
-    pub inventories: [u8; 16],
+    pub grids: u128,
+    pub inventories: u128,
+    pub thrusters: u128,
 }
 
 /// clone of [`renet::NetworkInfo`]

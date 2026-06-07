@@ -15,6 +15,7 @@ use bary_raylib::utils::Application;
 use bary_raylib::utils::glam_to_raylib;
 use bary_raylib::utils::raylib_to_glam;
 use bary_raylib::utils::screen_to_world;
+use bary_raylib::utils::sync_frame_from_world;
 use bary_raylib::*;
 use bary_sim::*;
 use bary_terminal::Terminal;
@@ -258,6 +259,8 @@ impl ClientApp {
             }
             (_, MessageKind::SyncFrame(frame)) => {
                 info!("Got frame: {:?}", frame);
+                let our_frame = sync_frame_from_world(&self.world);
+                info!("Our frame: {:?}", our_frame);
             }
             _ => (),
         }

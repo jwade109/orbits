@@ -1017,7 +1017,7 @@ fn sys_update_pipes(inventories: &mut Components<Inventory>, pipes: &mut Compone
         }
 
         let mass = {
-            let mul = randint(140, 160);
+            let mul = 150;
             let m = src.mass() / mul as u64;
             if m.is_zero() { Mass::grams(1) } else { m }
         };
