@@ -1,6 +1,6 @@
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap};
 use std::hash::Hash;
 
 use crate::{PartInstance, PartPrototype, PipeGeometry};
@@ -34,7 +34,7 @@ pub struct Blueprint {
     next_part_id: PartId,
     parts: BTreeMap<PartId, PartInstance>,
     pipes: BTreeMap<PartId, PipeGeometry>,
-    occupied_map: HashMap<(PartCoord, PartLayer), PartId>,
+    occupied_map: BTreeMap<(PartCoord, PartLayer), PartId>,
 }
 
 impl Blueprint {
@@ -43,7 +43,7 @@ impl Blueprint {
             next_part_id: PartId(0),
             parts: BTreeMap::new(),
             pipes: BTreeMap::new(),
-            occupied_map: HashMap::new(),
+            occupied_map: BTreeMap::new(),
         }
     }
 

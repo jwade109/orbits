@@ -20,6 +20,10 @@ impl PartCoord {
         Self(p.into())
     }
 
+    pub fn to_tuple(&self) -> (i32, i32) {
+        (self.0.x, self.0.y)
+    }
+
     pub fn to_meters(&self) -> Vec2 {
         self.0.as_vec2() / GRID_CELLS_PER_METER
     }
@@ -72,6 +76,18 @@ impl PartCoord {
             Rotation::West => *self + IVec2::ONE.into(),
             Rotation::South => *self + IVec2::Y.into(),
         }
+    }
+}
+
+impl PartialOrd for PartCoord {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.to_tuple().partial_cmp(&other.to_tuple())
+    }
+}
+
+impl Ord for PartCoord {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.to_tuple().cmp(&other.to_tuple())
     }
 }
 

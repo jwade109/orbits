@@ -7,6 +7,7 @@ use bary_ipc::*;
 use bary_raylib::assets::*;
 use bary_raylib::headless_server::HeadlessServerApp;
 use bary_raylib::imgui;
+use bary_raylib::imgui::ImGui;
 use bary_raylib::render::*;
 use bary_raylib::sim::*;
 use bary_raylib::sounds::SoundEffect;
@@ -43,6 +44,7 @@ pub struct ClientApp {
     thread: RaylibThread,
     assets: Assets,
     node: ClientNode,
+    ui_state: UiInteractionState,
 
     update_timer: WallTimer,
     server_ping_timer: WallTimer,
@@ -101,6 +103,7 @@ impl ClientApp {
         let update_timer = WallTimer::with_dur(Duration::from_millis(20));
         let server_ping_timer = WallTimer::with_dur(Duration::from_millis(1000));
         let server_telemetry_timer = WallTimer::with_dur(Duration::from_millis(100));
+        let ui_state = UiInteractionState::default();
 
         Ok(ClientApp {
             username: args.username,
@@ -114,6 +117,7 @@ impl ClientApp {
             thread,
             assets,
             node,
+            ui_state,
             update_timer,
             server_ping_timer,
             server_telemetry_timer,
@@ -160,6 +164,18 @@ impl ClientApp {
     }
 
     fn update(&mut self) {
+        // GET SOME BASIC INPUT INFORMATION FROM RAYLIB
+
+        self.client.mouse_screen_position = self
+            .handle
+            .is_cursor_on_screen()
+            .then(|| raylib_to_glam(self.handle.get_mouse_position()));
+
+        self.client.screen_dims = Vec2::new(
+            self.handle.get_screen_width() as f32,
+            self.handle.get_screen_height() as f32,
+        );
+
         // HANDLE MESSAGES FROM NETWORK NODE
 
         while let Some(e) = self.input_queue.pop() {
@@ -194,20 +210,19 @@ impl ClientApp {
             self.send_telemetry_to_server();
         }
 
-        // GET SOME BASIC INPUT INFORMATION FROM RAYLIB
+        // HANDLE RDEV EVENTS (DEPRECATED - USE INPUTSTATE)
 
-        self.client.mouse_screen_position = self
-            .handle
-            .is_cursor_on_screen()
-            .then(|| raylib_to_glam(self.handle.get_mouse_position()));
+        let cmds = self.terminal.handle_input(&self.client.input);
 
-        self.client.screen_dims = Vec2::new(
-            self.handle.get_screen_width() as f32,
-            self.handle.get_screen_height() as f32,
-        );
+        for cmd in cmds {
+            self.on_terminal_cmd(cmd);
+        }
+
+        self.process_events();
     }
 
-    pub fn process_event(&mut self, on_gui: bool) {
+    pub fn process_events(&mut self) {
+        let on_gui = self.ui_state.is_on_gui();
         if !self.terminal.is_active() {
             process_event(&mut self.world, &mut self.client, &mut self.sounds, on_gui);
 
@@ -918,36 +933,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let audio = raylib::audio::RaylibAudio::init_audio_device()?;
     let mut active_sounds = Vec::new();
 
-    let mut ui_state = UiInteractionState::default();
-
     while !main_app.handle.window_should_close() && !main_app.should_exit {
         if !main_app.update_timer.tick() {
             continue;
         }
 
         main_app.update();
-
-        // RUN PRE-PHYSICS, PHYSICS, AND POST-PHYSICS UPDATES
-
-        let mut timers = DebugTimers::default();
-
-        // CONSTRUCT IMMEDIATE-MODE GUI
-
-        let gui = {
-            let _timer = timers.scope("imgui");
-
-            imgui::imgui_pass(&mut main_app.client, &main_app.world, &mut main_app.sounds)
-        };
-
-        // HANDLE RDEV EVENTS (DEPRECATED - USE INPUTSTATE)
-
-        let cmds = main_app.terminal.handle_input(&main_app.client.input);
-
-        for cmd in cmds {
-            main_app.on_terminal_cmd(cmd);
-        }
-
-        main_app.process_event(ui_state.is_on_gui());
 
         // AND DRAW IT ALL
 
@@ -961,16 +952,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .just_pressed_debounced(rdev::Key::KeyP)
         {
             println!("{}", ui);
-            println!("{:?}", ui_state);
+            println!("{:?}", main_app.ui_state);
         }
 
         let scrp = main_app.client.mouse_screen_position;
 
-        if let Some(c) = ui_state.update(&ui, scrp, &main_app.client.input) {
+        if let Some(c) = main_app.ui_state.update(&ui, scrp, &main_app.client.input) {
             main_app.on_ui_event(c);
         }
 
         let font = main_app.assets.fira_code.as_ref().unwrap();
+
+        let timers = DebugTimers::default();
+
+        // CONSTRUCT IMMEDIATE-MODE GUI
+
+        let gui = imgui::imgui_pass(&mut main_app.client, &main_app.world, &mut main_app.sounds);
 
         main_app
             .handle
@@ -985,7 +982,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &mut d,
                 );
 
-                draw_gui(&ui_state, &mut d, &ui, font);
+                draw_gui(&main_app.ui_state, &mut d, &ui, font);
 
                 imgui::lame_old_imgui_entrypoint(
                     &mut d,
