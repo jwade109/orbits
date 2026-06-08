@@ -22,27 +22,6 @@ fn camera_zooms_with_plus_minus(input: &InputState, target: &mut Camera) {
     }
 }
 
-fn editor_offset_moves_with_wasd(input: &InputState, offset: &mut Vec2, zoom: f32) {
-    let speed = 40.0 / zoom;
-
-    if input.is_key_pressed(Key::ControlLeft) {
-        return;
-    }
-
-    if input.is_key_pressed(Key::KeyS) {
-        offset.y -= speed;
-    }
-    if input.is_key_pressed(Key::KeyW) {
-        offset.y += speed;
-    }
-    if input.is_key_pressed(Key::KeyD) {
-        offset.x += speed;
-    }
-    if input.is_key_pressed(Key::KeyA) {
-        offset.x -= speed;
-    }
-}
-
 fn camera_moves_with_wasd(
     input: &InputState,
     target: &mut Camera,
@@ -251,18 +230,16 @@ pub fn process_event(
     for event in events {
         match event.event_type {
             rdev::EventType::KeyPress(key) => match key {
-                Key::KeyS => input_handlers::save_on_ctrl_s(world, client),
+                Key::KeyS => {
+                    if client.input.is_key_pressed(Key::ControlLeft) {
+                        input_handlers::save_world_and_alert_chat(world, client);
+                    }
+                }
                 Key::KeyF => input_handlers::toggle_following_on_key_f(client, sounds),
                 Key::KeyR => {
                     input_handlers::reset_camera_on_ctrl_r(client);
                     input_handlers::lock_rotation_on_key_r(client);
-                    input_handlers::rotate_editor_part_on_key_r(client);
                 }
-                Key::DownArrow => input_handlers::editor_layer_shift_on_page_key(client, false),
-                Key::UpArrow => input_handlers::editor_layer_shift_on_page_key(client, true),
-                Key::KeyE => input_handlers::editor_layer_shift_on_page_key(client, true),
-                Key::KeyQ => input_handlers::pipette_part_if_in_editor_on_q(world, client),
-                Key::Escape => input_handlers::leave_ship_editor_on_escape(client, sounds),
                 Key::KeyC => {
                     input_handlers::editor_copy_on_control_c(world, client);
                 }
@@ -392,18 +369,6 @@ pub fn pre_simulation_update(world: &World, client: &mut ClientSpecificInfo) -> 
         }
     }
 
-    if client.input.just_pressed(Button::Left) {
-        if let Some(d) = editor_on_left_click(world, client) {
-            deltas.push(d);
-        }
-    }
-
-    if client.input.just_released(Button::Left) {
-        if let Some(d) = editor_on_release_left_click(client) {
-            deltas.push(d);
-        }
-    }
-
     if client.input.just_pressed(Button::Right) {
         if let Some(d) = destroy_top_layer_part_at_mouseover(client) {
             deltas.push(d);
@@ -481,16 +446,30 @@ pub fn post_simulation_update(
     client: &mut ClientSpecificInfo,
     sounds: &mut SoundEffects,
     is_terminal_focused: bool,
-) -> Option<WorldDelta> {
+) -> Vec<WorldDelta> {
     client.chat.drop_old_messages();
 
     zoom_in_on_key_v(client);
 
-    let mut delta = None;
+    let mut deltas = Vec::new();
 
     if client.focused_grid_id().is_none() {
         if client.input.is_key_pressed(rdev::Button::Left) {
-            delta = do_terrain_tile_under_mouse(world, client);
+            if let Some(delta) = do_terrain_tile_under_mouse(world, client) {
+                deltas.push(delta);
+            }
+        }
+    }
+
+    if client.input.just_pressed(Button::Left) {
+        if let Some(d) = editor_on_left_click(world, client) {
+            deltas.push(d);
+        }
+    }
+
+    if client.input.just_released(Button::Left) {
+        if let Some(d) = editor_on_release_left_click(client) {
+            deltas.push(d);
         }
     }
 
@@ -519,12 +498,6 @@ pub fn post_simulation_update(
         Viewport::Editor(editor) => {
             if !is_terminal_focused {
                 camera_zooms_with_plus_minus(&client.input, &mut client.target_camera);
-
-                editor_offset_moves_with_wasd(
-                    &client.input,
-                    &mut editor.target_offset,
-                    client.camera.zoom,
-                );
             }
 
             editor_actual_offset_smooth_animation(editor.target_offset, &mut editor.actual_offset);
@@ -545,7 +518,7 @@ pub fn post_simulation_update(
 
     animate_camera_towards_target(&client.target_camera, &mut client.camera);
 
-    delta
+    deltas
 }
 
 fn set_cams_to_grid_pose(

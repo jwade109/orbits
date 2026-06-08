@@ -9,6 +9,7 @@ use bary_raylib::headless_server::HeadlessServerApp;
 use bary_raylib::imgui;
 use bary_raylib::render::*;
 use bary_raylib::sim::*;
+use bary_raylib::sounds::SoundEffect;
 use bary_raylib::sounds::SoundEffects;
 use bary_raylib::utils::ActionSet;
 use bary_raylib::utils::Application;
@@ -33,8 +34,6 @@ pub struct ClientApp {
     #[allow(unused)]
     debug: DebugInfo,
 
-    incoming_network_queue: MessageQueue<Message>,
-
     _input_thread: JoinHandle<()>,
     input_queue: MessageQueue<rdev::Event>,
 
@@ -58,8 +57,6 @@ pub struct ClientApp {
 
 impl ClientApp {
     fn new(args: Args, log_level: log::LevelFilter) -> Result<Self, Box<dyn std::error::Error>> {
-        let incoming_network_queue = new_message_queue();
-
         let input_queue = new_message_queue();
         let thread_copy = input_queue.clone();
         let _input_thread = std::thread::spawn(|| {
@@ -110,7 +107,6 @@ impl ClientApp {
             world,
             client: ClientSpecificInfo::new(),
             debug: DebugInfo::default(),
-            incoming_network_queue,
             _input_thread,
             input_queue,
             terminal,
@@ -127,58 +123,75 @@ impl ClientApp {
         })
     }
 
+    fn send_telemetry_to_server(&mut self) {
+        let tlm = ClientTelemetry {
+            ticks: self.world.ticks,
+        };
+        self.node.send_telemetry(MessageKind::ClientTelemetry(tlm));
+
+        let id = self
+            .world
+            .players
+            .iter()
+            .find_map(|(id, player)| (player.name == self.username).then(|| *id));
+
+        if let Some(id) = id {
+            self.client.player_id = Some(id);
+            let delta = WorldDelta::SetPlayerPosition(id, self.client.camera.isometry);
+            self.node.send_command(MessageKind::RequestDelta(delta));
+
+            let world_pos = if let Some(screen_pos) = self.client.mouse_screen_position {
+                Some(screen_to_world(
+                    &self.client.camera,
+                    screen_pos,
+                    self.client.screen_dims,
+                ))
+            } else {
+                None
+            };
+
+            let delta = WorldDelta::SetPlayerCursorPosition(id, world_pos);
+            self.node.send_command(MessageKind::RequestDelta(delta));
+        } else {
+            warn!("Client with username {} isn't in the world", self.username);
+            let delta = WorldDelta::SpawnPlayer(self.username.clone(), Isometry2d::ZERO);
+            self.node.send_command(MessageKind::RequestDelta(delta));
+        }
+    }
+
     fn update(&mut self) {
         // HANDLE MESSAGES FROM NETWORK NODE
-
-        for msg in self.node.update() {
-            self.on_rcv_server_msg(msg);
-        }
-
-        // HANDLE INPUTS FROM RDEV LISTENER THREAD
 
         while let Some(e) = self.input_queue.pop() {
             let focused = self.handle.is_window_focused();
             self.client.input.process_rdev_event(&e, focused);
         }
 
+        let deltas = pre_simulation_update(&self.world, &mut self.client);
+
+        for msg in self.node.update() {
+            self.on_rcv_server_msg(msg);
+        }
+
+        let post_deltas = post_simulation_update(
+            &self.world,
+            &mut self.client,
+            &mut self.sounds,
+            self.terminal.is_focused(),
+        );
+
+        for delta in deltas.into_iter().chain(post_deltas) {
+            self.node.send_command(MessageKind::RequestDelta(delta));
+        }
+
+        // HANDLE INPUTS FROM RDEV LISTENER THREAD
+
         if self.server_ping_timer.tick() {
             self.node.send_telemetry(MessageKind::Ping)
         }
 
         if self.server_telemetry_timer.tick() {
-            let tlm = ClientTelemetry {
-                ticks: self.world.ticks,
-            };
-            self.node.send_telemetry(MessageKind::ClientTelemetry(tlm));
-
-            let id = self
-                .world
-                .players
-                .iter()
-                .find_map(|(id, player)| (player.name == self.username).then(|| *id));
-
-            if let Some(id) = id {
-                self.client.player_id = Some(id);
-                let delta = WorldDelta::SetPlayerPosition(id, self.client.camera.isometry);
-                self.node.send_command(MessageKind::RequestDelta(delta));
-
-                let world_pos = if let Some(screen_pos) = self.client.mouse_screen_position {
-                    Some(screen_to_world(
-                        &self.client.camera,
-                        screen_pos,
-                        self.client.screen_dims,
-                    ))
-                } else {
-                    None
-                };
-
-                let delta = WorldDelta::SetPlayerCursorPosition(id, world_pos);
-                self.node.send_command(MessageKind::RequestDelta(delta));
-            } else {
-                warn!("Client with username {} isn't in the world", self.username);
-                let delta = WorldDelta::SpawnPlayer(self.username.clone(), Isometry2d::ZERO);
-                self.node.send_command(MessageKind::RequestDelta(delta));
-            }
+            self.send_telemetry_to_server();
         }
 
         // GET SOME BASIC INPUT INFORMATION FROM RAYLIB
@@ -187,21 +200,23 @@ impl ClientApp {
             .handle
             .is_cursor_on_screen()
             .then(|| raylib_to_glam(self.handle.get_mouse_position()));
+
         self.client.screen_dims = Vec2::new(
             self.handle.get_screen_width() as f32,
             self.handle.get_screen_height() as f32,
         );
-
-        // GET COMMANDS FROM THE MULTIPLAYER SERVER
-
-        while let Some(n) = self.incoming_network_queue.pop() {
-            info!("Got message: {n:?}")
-        }
     }
 
     pub fn process_event(&mut self, on_gui: bool) {
         if !self.terminal.is_active() {
             process_event(&mut self.world, &mut self.client, &mut self.sounds, on_gui);
+
+            if let Some(editor) = self.client.viewport.editor_mut() {
+                let zoom = self.client.camera.zoom;
+                if let Some(delta) = editor.handle_keys(&self.client.input, &self.world, zoom) {
+                    self.node.send_command(MessageKind::RequestDelta(delta));
+                }
+            }
         }
     }
 
@@ -258,9 +273,9 @@ impl ClientApp {
                 }
             }
             (_, MessageKind::SyncFrame(frame)) => {
-                info!("Got frame: {:?}", frame);
+                debug!("Got frame: {:?}", frame);
                 let our_frame = sync_frame_from_world(&self.world);
-                info!("Our frame: {:?}", our_frame);
+                debug!("Our frame: {:?}", our_frame);
             }
             _ => (),
         }
@@ -327,21 +342,17 @@ impl ClientApp {
     }
 
     fn save(&mut self) {
-        let path = "/tmp/autosave";
-        match save_world(&path, &self.world, true) {
-            Ok(()) => {
-                self.client.chat.log(format!("Saved to {}", path));
-            }
-            Err(e) => {
-                self.client
-                    .chat
-                    .log(format!("Failed to save to {}: {:?}", path, e));
-            }
-        }
+        save_world_and_alert_chat(&self.world, &mut self.client);
     }
 
-    fn editor(&mut self) {
+    fn open_editor(&mut self) {
         enter_ship_editor(&self.world, &mut self.client, &mut self.sounds)
+    }
+
+    fn leave_editor(&mut self) {
+        if self.client.leave_editor() {
+            self.sounds.push(SoundEffect::LeaveEditor);
+        }
     }
 
     fn set_sim_speed(&mut self, speed: u32) {
@@ -354,15 +365,17 @@ impl ClientApp {
         }
     }
 
-    fn docking_shift(&mut self, dir: Rotation) {
+    fn docking_shift(&mut self, delta: Vec2, is_x: bool) {
         if let Some(free) = self.client.viewport.free_mut() {
-            let off = match dir {
-                Rotation::East => PartCoord::new((1, 0)),
-                Rotation::North => PartCoord::new((0, 1)),
-                Rotation::West => PartCoord::new((-1, 0)),
-                Rotation::South => PartCoord::new((0, -1)),
-            };
-            free.offset += off;
+            if is_x {
+                let delta = delta.with_y(0.0) / 4.0;
+                let off = PartCoord(vround(delta));
+                free.offset += off;
+            } else {
+                let delta = Vec2::new(0.0, delta.x);
+                let off = PartCoord(vround(delta));
+                free.offset += off;
+            }
         }
     }
 
@@ -381,39 +394,39 @@ impl ClientApp {
     pub fn on_drag(&mut self, id: UiMessage, delta: Vec2) {
         match id {
             UiMessage::DockingShiftX => {
-                if let Some(free) = self.client.viewport.free_mut() {
-                    let delta = delta.with_y(0.0) / 4.0;
-                    let off = PartCoord(vround(delta));
-                    free.offset += off;
-                }
+                self.docking_shift(delta, true);
             }
             UiMessage::DockingShiftY => {
-                if let Some(free) = self.client.viewport.free_mut() {
-                    let delta = Vec2::new(0.0, delta.x);
-                    let off = PartCoord(vround(delta));
-                    free.offset += off;
-                }
+                self.docking_shift(delta, false);
             }
             _ => (),
         }
     }
 
-    pub fn on_click_event(&mut self, c: UiEvent) {
+    pub fn on_ui_event(&mut self, c: UiEvent) {
         debug!("{:?}", c);
 
-        if let UiEventKind::Drag(delta) = c.kind {
-            self.on_drag(c.msg, delta);
-        } else {
-            match c.msg {
-                UiMessage::Exit => self.exit(),
-                UiMessage::SaveFile => self.save(),
-                UiMessage::OpenEditor => self.editor(),
-                UiMessage::AltMode => self.client.alt_mode ^= true,
-                UiMessage::DebugText => self.show_debug_text ^= true,
-                UiMessage::SimSpeed(sp) => self.set_sim_speed(sp),
-                UiMessage::DockingRotate => self.docking_rotate(),
-                UiMessage::DockingActivate => self.docking_activate(),
-                _ => (),
+        match c.kind {
+            UiEventKind::Drag(delta) => {
+                self.on_drag(c.msg, delta);
+            }
+            UiEventKind::Release => {
+                self.sounds.push(sounds::SoundEffect::ButtonUp);
+            }
+            UiEventKind::Click => {
+                self.sounds.push(sounds::SoundEffect::ButtonDown);
+                match c.msg {
+                    UiMessage::Exit => self.exit(),
+                    UiMessage::SaveFile => self.save(),
+                    UiMessage::OpenEditor => self.open_editor(),
+                    UiMessage::LeaveEditor => self.leave_editor(),
+                    UiMessage::AltMode => self.client.alt_mode ^= true,
+                    UiMessage::DebugText => self.show_debug_text ^= true,
+                    UiMessage::SimSpeed(sp) => self.set_sim_speed(sp),
+                    UiMessage::DockingRotate => self.docking_rotate(),
+                    UiMessage::DockingActivate => self.docking_activate(),
+                    _ => (),
+                }
             }
         }
     }
@@ -667,6 +680,7 @@ fn draw_ui_aabb(d: &mut RaylibDrawHandle, aabb: AABB, color: Color, fill: bool) 
     }
 }
 
+#[allow(unused)]
 fn generate_assets_ui(assets: &Assets, input: &InputState, width: f32, height: f32) -> Tree<()> {
     let mut root = Node::new(width, Size::Fit);
 
@@ -712,14 +726,18 @@ fn generate_assets_ui(assets: &Assets, input: &InputState, width: f32, height: f
     Tree::new().with_layout(root, None)
 }
 
+fn bary_to_raylib(c: BColor) -> Color {
+    Color::new(c.r, c.g, c.b, c.a)
+}
+
 fn node_color<T: bary_ui::UiMsg>(node: &bary_ui::Node<T>) -> Color {
     match node.kind() {
-        NodeType::Text(_) => Color::RED,
+        NodeType::Text(_) => Color::TEAL.alpha(0.3),
         NodeType::Button(_, _) => Color::ORANGE,
         NodeType::Image(_) => Color::YELLOW,
         NodeType::Spacer => Color::TEAL,
         NodeType::Row(_) => Color::ORANGE,
-        NodeType::Column(_) => Color::PURPLE,
+        NodeType::Column(_) => bary_to_raylib(BColor::gray(40)).alpha(0.9),
     }
 }
 
@@ -739,8 +757,8 @@ impl<'a> UiBuilder<'a> {
     fn header<T: UiMsg>(&self, s: impl Into<String>) -> Node<T> {
         let s = s.into();
         let dims = self.font.measure_text(&s, self.font_size, 0.0);
-        let w = dims.x + 36.0;
-        let h = dims.y + 18.0;
+        let w = dims.x;
+        let h = dims.y;
         Node::text(w, h, s)
     }
 
@@ -753,7 +771,31 @@ impl<'a> UiBuilder<'a> {
     }
 }
 
-fn make_gui(font: &Font, client: &ClientSpecificInfo) -> Tree<UiMessage> {
+fn make_docking_ui(
+    builder: &UiBuilder,
+    docking: &DockingInterface,
+    world: &World,
+) -> Option<Node<UiMessage>> {
+    let parent = world.grids.try_get(docking.parent.grid_id).ok()?;
+    let child = world.grids.try_get(docking.child.grid_id).ok()?;
+
+    let docking_ui = Node::column(
+        400,
+        vec![
+            builder.header("Docking Control Panel"),
+            builder.header(format!("Parent: {}", parent.name)),
+            builder.header(format!("Child: {}", child.name)),
+            builder.button(UiMessage::DockingShiftX, "Offset X"),
+            builder.button(UiMessage::DockingShiftY, "Offset Y"),
+            builder.button(UiMessage::DockingRotate, "Rotate"),
+            builder.button(UiMessage::DockingActivate, "Dock"),
+        ],
+    );
+
+    Some(docking_ui)
+}
+
+fn make_gui(font: &Font, client: &ClientSpecificInfo, world: &World) -> Tree<UiMessage> {
     let builder = UiBuilder::new(font);
 
     let mut root: Node<UiMessage> = Node::root(Size::Fit, Size::Fit).with_children(
@@ -771,31 +813,69 @@ fn make_gui(font: &Font, client: &ClientSpecificInfo) -> Tree<UiMessage> {
         .into_iter(),
     );
 
-    if client.selected_grid_loc().is_some() {
+    if client.selected_grid_loc().is_some() && client.viewport.editor().is_none() {
         let b = builder.button(UiMessage::OpenEditor, "Open Ship Editor");
         root.add_child(b);
     }
 
+    if client.viewport.editor().is_some() {
+        root.add_child(builder.button(UiMessage::LeaveEditor, "Leave Ship Editor"));
+    }
+
     let mut tree = Tree::new().with_layout(root, None);
 
-    if client.docking_interface().is_some() {
-        let docking_ui = Node::column(
-            400,
-            vec![
-                builder.header("Docking Control Panel"),
-                builder.button(UiMessage::DockingShiftX, "Offset X"),
-                builder.button(UiMessage::DockingShiftY, "Offset Y"),
-                builder.button(UiMessage::DockingRotate, "Rotate"),
-                builder.button(UiMessage::DockingActivate, "Dock"),
-            ],
-        );
-        tree.add_layout(docking_ui, Vec2::new(100.0, 200.0))
+    if let Some(docking) = client.docking_interface() {
+        if let Some(ui) = make_docking_ui(&builder, &docking, world) {
+            tree.add_layout(ui, Vec2::new(100.0, 200.0))
+        }
     }
 
     tree
 }
 
 const UI_FONT_SIZE: i32 = 22;
+
+fn draw_node(
+    state: &UiInteractionState,
+    d: &mut RaylibDrawHandle,
+    node: &Node<UiMessage>,
+    font: &Font,
+) {
+    if !node.is_visible() {
+        return;
+    }
+
+    let color = node_color(node);
+    let aabb = node.aabb();
+
+    match node.kind() {
+        NodeType::Button(text, _msg) => {
+            let is_clicked = state.active().as_ref() == node.on_click();
+            let is_hovered = state.hot().as_ref() == node.on_click();
+            let scale = if is_clicked { 0.95 } else { 1.0 };
+            let color = if is_clicked {
+                color.lerp(Color::BLACK, 0.2)
+            } else if is_hovered {
+                color.lerp(Color::WHITE, 0.3)
+            } else {
+                color
+            };
+            let aabb = aabb.scale_about_center(scale);
+            draw_ui_aabb(d, aabb, color, true);
+
+            let p = glam_to_raylib(aabb.center);
+            let font_size = (UI_FONT_SIZE as f32 * scale) as i32;
+            draw_text_centered(d, font, &text, p, font_size, Color::BLACK);
+        }
+        NodeType::Text(text) => {
+            let p = glam_to_raylib(aabb.center);
+            draw_text_centered(d, font, &text, p, UI_FONT_SIZE, Color::WHITE);
+        }
+        _ => {
+            draw_ui_aabb(d, aabb, color, true);
+        }
+    };
+}
 
 fn draw_gui(
     state: &UiInteractionState,
@@ -804,39 +884,8 @@ fn draw_gui(
     font: &Font,
 ) {
     for node in gui.iter() {
-        if !node.is_visible() {
-            continue;
-        }
-
-        let color = node_color(node);
-        let aabb = node.aabb();
-
-        let scale = if node.is_button() {
-            let is_clicked = state.active().as_ref() == node.on_click();
-            let scale = if is_clicked { 0.95 } else { 1.0 };
-            let color = if is_clicked {
-                color.lerp(Color::BLACK, 0.2)
-            } else {
-                color
-            };
-            let aabb = aabb.scale_about_center(scale);
-            draw_ui_aabb(d, aabb, color, true);
-            scale
-        } else {
-            draw_ui_aabb(d, aabb, color, true);
-            1.0
-        };
-
-        if let Some(text) = node.text_content() {
-            let p = glam_to_raylib(aabb.center);
-            let font_size = (UI_FONT_SIZE as f32 * scale) as i32;
-            draw_text_centered(d, font, &text.to_uppercase(), p, font_size, Color::BLACK);
-        }
+        draw_node(state, d, node, font);
     }
-
-    // for node in gui.iter() {
-    //     draw_ui_aabb(d, node.aabb(), Color::BLACK, false);
-    // }
 }
 
 fn server_thread(args: Args) {
@@ -880,19 +929,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // RUN PRE-PHYSICS, PHYSICS, AND POST-PHYSICS UPDATES
 
-        let deltas = pre_simulation_update(&main_app.world, &mut main_app.client);
-
-        let post_delta = post_simulation_update(
-            &main_app.world,
-            &mut main_app.client,
-            &mut main_app.sounds,
-            main_app.terminal.is_focused(),
-        );
-
-        for delta in deltas.into_iter().chain(post_delta) {
-            main_app.node.send_command(MessageKind::RequestDelta(delta));
-        }
-
         let mut timers = DebugTimers::default();
 
         // CONSTRUCT IMMEDIATE-MODE GUI
@@ -917,7 +953,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let font = main_app.assets.fira_code.as_ref().unwrap();
 
-        let ui = make_gui(font, &main_app.client);
+        let ui = make_gui(font, &main_app.client, &main_app.world);
 
         if main_app
             .client
@@ -931,7 +967,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let scrp = main_app.client.mouse_screen_position;
 
         if let Some(c) = ui_state.update(&ui, scrp, &main_app.client.input) {
-            main_app.on_click_event(c);
+            main_app.on_ui_event(c);
         }
 
         let font = main_app.assets.fira_code.as_ref().unwrap();
@@ -950,17 +986,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 );
 
                 draw_gui(&ui_state, &mut d, &ui, font);
-
-                // if main_app.client.input.is_key_pressed(rdev::Key::BackSlash) {
-                //     let gui = generate_assets_ui(
-                //         &main_app.assets,
-                //         &main_app.client.input,
-                //         d.get_render_width() as f32,
-                //         d.get_render_height() as f32,
-                //     );
-
-                //     draw_gui(&ui_state, &mut d, &gui, main_app.client.mouse_screen_position, font);
-                // }
 
                 imgui::lame_old_imgui_entrypoint(
                     &mut d,

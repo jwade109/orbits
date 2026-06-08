@@ -1,4 +1,7 @@
 use bary_core::prelude::*;
+use bary_input::InputState;
+use bary_sim::{World, WorldDelta};
+use early_returns::*;
 
 #[derive(Debug)]
 pub struct EditorState {
@@ -11,4 +14,163 @@ pub struct EditorState {
     pub layer: Option<PartLayer>,
     pub select_start: Option<PartCoord>,
     pub hovered: Option<PartCoord>,
+
+    pub vehicle_name_field: Option<EditableText>,
+}
+
+fn editor_offset_moves_with_wasd(input: &InputState, offset: &mut Vec2, zoom: f32) {
+    let speed = 40.0 / zoom;
+
+    if input.is_key_pressed(rdev::Key::ControlLeft) {
+        return;
+    }
+
+    if input.is_key_pressed(rdev::Key::KeyS) {
+        offset.y -= speed;
+    }
+    if input.is_key_pressed(rdev::Key::KeyW) {
+        offset.y += speed;
+    }
+    if input.is_key_pressed(rdev::Key::KeyD) {
+        offset.x += speed;
+    }
+    if input.is_key_pressed(rdev::Key::KeyA) {
+        offset.x -= speed;
+    }
+}
+
+impl EditorState {
+    #[must_use]
+    pub fn handle_keys(
+        &mut self,
+        input: &InputState,
+        world: &World,
+        camera_zoom: f32,
+    ) -> Option<WorldDelta> {
+        let mut ret = None;
+
+        if input.just_pressed_debounced(rdev::Key::Return) && self.vehicle_name_field.is_some() {
+            if let Some(field) = self.vehicle_name_field.take() {
+                let delta = WorldDelta::RenameGrid(self.vehicle, field.contents().to_string());
+                ret = Some(delta);
+            }
+        }
+
+        if let Some(field) = &mut self.vehicle_name_field {
+            field.handle_keys(input);
+        } else {
+            if input.just_pressed_debounced(rdev::Key::KeyR) {
+                self.rotate_part();
+            }
+
+            if input.just_pressed_debounced(rdev::Key::KeyQ) {
+                self.pipette(world);
+            }
+
+            if input.just_pressed_debounced(rdev::Key::KeyE) {
+                self.next_layer(true);
+            }
+
+            editor_offset_moves_with_wasd(input, &mut self.target_offset, camera_zoom);
+        }
+
+        if input.just_pressed_debounced(rdev::Key::KeyN) && self.vehicle_name_field.is_none() {
+            self.vehicle_name_field = Some(EditableText::empty());
+        }
+
+        if input.just_pressed_debounced(rdev::Key::Escape) && self.vehicle_name_field.is_some() {
+            self.vehicle_name_field = None;
+        }
+
+        ret
+    }
+
+    pub fn next_layer(&mut self, is_up: bool) {
+        self.layer = if is_up {
+            enum_iterator::next_cycle(&self.layer)
+        } else {
+            enum_iterator::previous_cycle(&self.layer)
+        };
+    }
+
+    pub fn rotate_part(&mut self) {
+        if self.prototype_id.is_some() {
+            self.part_rotation = self.part_rotation.next();
+        } else {
+            self.camera_rotation = self.camera_rotation.next();
+        }
+    }
+
+    pub fn pipette(&mut self, world: &World) {
+        if self.prototype_id.is_some() {
+            self.prototype_id = None;
+            return;
+        }
+        self.prototype_id = None;
+
+        let coord = some_or_return!(self.hovered);
+
+        let grid = ok_or_return!(world.grids.try_get(self.vehicle));
+        let Some(occ) = grid.get_parts_at(coord) else {
+            self.layer = None;
+            return;
+        };
+
+        // use the focus layer to pipette if it's available; otherwise, use the top one
+        let part_id = if let Some(layer) = self.layer {
+            occ.at_layer(layer)
+        } else {
+            occ.top()
+        };
+
+        let part_id = some_or_return!(part_id);
+        let part = ok_or_return!(world.parts.try_get(part_id));
+
+        self.prototype_id = Some(part.prototype);
+        self.part_rotation = part.region.rot();
+        self.layer = Some(part.layer);
+    }
+}
+
+#[derive(Debug)]
+pub struct EditableText {
+    inner: String,
+}
+
+impl EditableText {
+    pub fn empty() -> Self {
+        Self {
+            inner: String::new(),
+        }
+    }
+
+    pub fn contents(&self) -> &str {
+        &self.inner
+    }
+
+    fn clear(&mut self) {
+        self.inner.clear();
+    }
+
+    fn on_backspace(&mut self) {
+        self.inner.pop();
+    }
+
+    pub fn handle_keys(&mut self, input: &InputState) {
+        for event in input.events() {
+            if let rdev::EventType::KeyPress(k) = &event.event_type {
+                match k {
+                    rdev::Key::Backspace => self.on_backspace(),
+                    rdev::Key::Return => self.clear(),
+                    _ => {
+                        if let Some(s) = &event.name {
+                            if s.is_ascii() {
+                                self.inner += s;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

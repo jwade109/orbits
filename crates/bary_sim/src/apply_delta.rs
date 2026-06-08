@@ -170,5 +170,10 @@ pub fn apply_delta(world: &mut World, delta: WorldDelta) -> BaryResult<()> {
         WorldDelta::MergeGrids(parent, child, offset, rotation) => {
             merge_grids(world, parent, child, offset, rotation)
         }
+        WorldDelta::RenameGrid(grid_id, name) => {
+            rename_grid(world, grid_id, name)?;
+            Ok(())
+        }
+        WorldDelta::SetGridBlueprint(_, _) => todo!(),
     }
 }

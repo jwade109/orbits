@@ -408,6 +408,8 @@ pub fn draw_world(
 
     draw_selected_grid_info(d, &client, &world.grids, client.screen_dims, assets);
 
+    draw_editor_rename_field(d, client, assets);
+
     draw_chat(d, &client.chat, client.screen_dims, assets);
 
     draw_imgui(d, gui, assets);
@@ -665,7 +667,7 @@ pub fn draw_text_centered(
         return;
     }
 
-    let spacing = 1.0;
+    let spacing = 0.0;
     let dims = font.measure_text(&text, font_size as f32, spacing);
     let text_origin = Vector2::new(pos.x - dims.x / 2.0, pos.y - dims.y / 2.0);
 
@@ -867,8 +869,8 @@ fn draw_selected_grid_info(
     let hx = screen_dims.x / 2.0;
 
     let labels = [
-        (title_label, hx, 20.0),
-        (parts_label, hx, 50.0),
+        (title_label, hx, 120.0),
+        (parts_label, hx, 160.0),
         (pos_label, hx, screen_dims.y - 50.0),
         (vel_label, hx + 300.0, screen_dims.y - 50.0),
         (acc_label, hx - 300.0, screen_dims.y - 50.0),
@@ -990,6 +992,41 @@ pub fn draw_editor_part(d: &mut RaylibDrawHandle, world: &World, client: &Client
     let pl = GridRegion::new(coord, editor.part_rotation, proto.dims);
     draw_part(d, pl, cl, grid_pose, false, false);
     draw_part_arrow(d, pl, grid_pose);
+}
+
+pub fn draw_editor_rename_field(
+    d: &mut RaylibDrawHandle,
+    client: &ClientSpecificInfo,
+    assets: &Assets,
+) {
+    let font = assets.consolas.as_ref().unwrap();
+    let editor = some_or_return!(client.viewport.editor());
+    let field = some_or_return!(&editor.vehicle_name_field);
+
+    let pos = glam_to_raylib(client.screen_dims / 2.0);
+
+    let font_size = 48;
+    let spacing = 0.0;
+    let padding = 20;
+
+    let (text, text_color) = if field.contents().is_empty() {
+        ("(type here to rename ship)".to_string(), Color::GRAY)
+    } else {
+        (field.contents().to_string(), Color::WHITE)
+    };
+
+    let dims = font.measure_text(&text, font_size as f32, spacing)
+        + Vector2::new(padding as f32, padding as f32) * 2.0;
+
+    let width = d.get_render_width() + padding * 2;
+    let height = dims.y as i32;
+
+    let x = -padding;
+    let y = pos.y as i32 - height / 2;
+
+    d.draw_rectangle(x, y, width, height, Color::BLACK.alpha(0.8));
+    d.draw_rectangle_lines(x, y, width, height, Color::WHITE);
+    draw_text_centered(d, font, &text, pos, font_size, text_color);
 }
 
 pub fn get_hovered_prototype(client: &ClientSpecificInfo, world: &World) -> Option<Ent> {

@@ -8,6 +8,7 @@ pub enum UiMessage {
     Exit,
     SaveFile,
     OpenEditor,
+    LeaveEditor,
     AltMode,
     DebugText,
     SimSpeed(u32),
@@ -74,6 +75,10 @@ impl UiInteractionState {
         self.active.map(|e| e.0)
     }
 
+    pub fn hot(&self) -> Option<UiMessage> {
+        self.hot.map(|e| e.0)
+    }
+
     pub fn update(
         &mut self,
         ui: &Tree<UiMessage>,
@@ -118,6 +123,12 @@ impl UiInteractionState {
                 }
             }
         }
+
+        // if input.just_pressed(rdev::Button::Left) {
+        //     if let Some(active) = self.active {
+        //         ret = Some(UiEvent::click(active.0, active.1));
+        //     }
+        // }
 
         if input.just_released(rdev::Button::Left) {
             if let Some((active, hot)) = self.active.zip(self.hot) {

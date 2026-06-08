@@ -3,7 +3,7 @@ use bary_factory::*;
 use bary_parts::BlueprintId;
 use serde::{Deserialize, Serialize};
 
-use crate::{GlobalTileIndex, Player};
+use crate::GlobalTileIndex;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum WorldDelta {
@@ -79,4 +79,6 @@ pub enum WorldDelta {
     SetPlayerPosition(Ent, Isometry2d),
     SetPlayerCursorPosition(Ent, Option<Vec2>),
     MergeGrids(Ent, Ent, PartCoord, Rotation),
+    RenameGrid(Ent, String),
+    SetGridBlueprint(Ent, Option<BlueprintId>),
 }

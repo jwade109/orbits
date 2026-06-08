@@ -1,4 +1,5 @@
 use crate::camera::Camera;
+use crate::editor_state::EditableText;
 use crate::editor_state::EditorState;
 use crate::sim::*;
 use crate::sounds::*;
@@ -78,34 +79,10 @@ pub fn apply_scroll_wheel_to_camera_target(delta_y: i64, target: &mut Camera) {
     }
 }
 
-pub fn editor_layer_shift_on_page_key(client: &mut ClientSpecificInfo, is_up: bool) {
-    let Viewport::Editor(editor) = &mut client.viewport else {
-        return;
-    };
-
-    editor.layer = if is_up {
-        enum_iterator::next_cycle(&editor.layer)
-    } else {
-        enum_iterator::previous_cycle(&editor.layer)
-    };
-}
-
-pub fn save_on_ctrl_s(world: &World, client: &mut ClientSpecificInfo) {
-    let pressed_ctrl = client.input.is_key_pressed(Key::ControlLeft);
-
-    if !pressed_ctrl {
-        return;
-    }
-
+pub fn save_world_and_alert_chat(world: &World, client: &mut ClientSpecificInfo) {
     let now = chrono::offset::Local::now();
 
-    let home = std::env::var("HOME").unwrap();
-
-    let filename = format!(
-        "{}/.barycenter/saves/world-{}/",
-        home,
-        now.format("%Y-%m-%d-%H-%M-%S")
-    );
+    let filename = format!("saves/world-{}/", now.format("%Y-%m-%d-%H-%M-%S"));
     match save_world(&filename, world, true) {
         Ok(_) => {
             let s = format!("Saved to {}", filename);
@@ -147,41 +124,6 @@ pub fn lock_rotation_on_key_r(client: &mut ClientSpecificInfo) {
     }
 }
 
-pub fn rotate_editor_part_on_key_r(client: &mut ClientSpecificInfo) {
-    if client.input.is_key_pressed(Key::ControlLeft) {
-        return;
-    }
-    if let Viewport::Editor(editor) = &mut client.viewport {
-        if editor.prototype_id.is_some() {
-            editor.part_rotation = editor.part_rotation.next();
-        } else {
-            editor.camera_rotation = editor.camera_rotation.next();
-        }
-    }
-}
-
-pub fn leave_ship_editor_on_escape(client: &mut ClientSpecificInfo, sounds: &mut SoundEffects) {
-    let Viewport::Editor(editor) = &client.viewport else {
-        return;
-    };
-
-    client.viewport = Viewport::Free(FreeFlying {
-        follow_vehicle: Some(editor.vehicle),
-        lock_rotation: false,
-        selection_info: SelectionInfo::selecting(editor.vehicle),
-        waypoint_widget: None,
-        hovered_chunk: None,
-        offset: PartCoord::ZERO,
-        rotation: Rotation::East,
-    });
-
-    client.target_camera.zoom = 20.0;
-    client.target_camera.isometry.rotation = 0.0;
-
-    client.chat.log("Left ship editor");
-    sounds.push(SoundEffect::LeaveEditor);
-}
-
 pub fn enter_ship_editor(
     world: &World,
     client: &mut ClientSpecificInfo,
@@ -203,42 +145,11 @@ pub fn enter_ship_editor(
         layer: Some(PartLayer::Internal),
         select_start: None,
         hovered: None,
+        vehicle_name_field: None,
     });
 
     client.target_camera.zoom = client.target_camera.zoom.max(40.0);
 
     client.chat.log("Switched to ship editor");
     sounds.push(SoundEffect::OpenEditor);
-}
-
-pub fn pipette_part_if_in_editor_on_q(world: &World, client: &mut ClientSpecificInfo) {
-    let editor = some_or_return!(client.viewport.editor_mut());
-
-    if editor.prototype_id.is_some() {
-        editor.prototype_id = None;
-        return;
-    }
-    editor.prototype_id = None;
-
-    let coord = some_or_return!(editor.hovered);
-
-    let grid = ok_or_return!(world.grids.try_get(editor.vehicle));
-    let Some(occ) = grid.get_parts_at(coord) else {
-        editor.layer = None;
-        return;
-    };
-
-    // use the focus layer to pipette if it's available; otherwise, use the top one
-    let part_id = if let Some(layer) = editor.layer {
-        occ.at_layer(layer)
-    } else {
-        occ.top()
-    };
-
-    let part_id = some_or_return!(part_id);
-    let part = ok_or_return!(world.parts.try_get(part_id));
-
-    editor.prototype_id = Some(part.prototype);
-    editor.part_rotation = part.region.rot();
-    editor.layer = Some(part.layer);
 }

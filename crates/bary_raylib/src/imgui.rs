@@ -236,11 +236,6 @@ pub fn imgui_test(
         client.chat.log("Hovered!");
     }
 
-    layout.button("Settings");
-    if layout.button("Exit Editor").clicked() {
-        leave_ship_editor_on_escape(client, sounds);
-    }
-
     for portal in world.debug_portals.values_mut() {
         if let PortalState::Source(item) = &mut portal.state {
             let s = format!("{:?}", item);
@@ -615,26 +610,6 @@ fn save_editor_vehicle_as_blueprint(client: &mut ClientSpecificInfo, world: &Wor
     }
 }
 
-fn editor_gui(
-    gui: &mut ImGui,
-    world: &World,
-    client: &mut ClientSpecificInfo,
-    sounds: &mut SoundEffects,
-) {
-    let editor = some_or_return!(client.viewport.editor());
-
-    let mut layout = gui.layout(IVec2::new(100, 20), LayoutDirection::Right);
-
-    layout.button(format!("Editing {}", editor.vehicle));
-
-    if layout.button("Save").clicked() {
-        save_editor_vehicle_as_blueprint(client, world);
-    };
-    if layout.button("Exit Editor").clicked() {
-        leave_ship_editor_on_escape(client, sounds);
-    }
-}
-
 pub fn selectable_ui<T>(layout: &mut LayoutHandle, value: &mut T)
 where
     T: Sequence + std::fmt::Debug,
@@ -663,8 +638,6 @@ pub fn imgui_pass(
         client.mouse_screen_position,
         client.input.clone(),
     );
-
-    editor_gui(&mut gui, world, client, sounds);
 
     gui
 }

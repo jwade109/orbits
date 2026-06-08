@@ -153,6 +153,28 @@ impl ClientSpecificInfo {
         }
     }
 
+    pub fn leave_editor(&mut self) -> bool {
+        let Viewport::Editor(editor) = &self.viewport else {
+            return false;
+        };
+
+        self.viewport = Viewport::Free(FreeFlying {
+            follow_vehicle: Some(editor.vehicle),
+            lock_rotation: false,
+            selection_info: SelectionInfo::selecting(editor.vehicle),
+            waypoint_widget: None,
+            hovered_chunk: None,
+            offset: PartCoord::ZERO,
+            rotation: Rotation::East,
+        });
+
+        self.target_camera.zoom = 20.0;
+        self.target_camera.isometry.rotation = 0.0;
+
+        self.chat.log("Left ship editor");
+        true
+    }
+
     pub fn selected_grid_loc(&self) -> Option<GridLocation> {
         match &self.viewport {
             Viewport::Editor(e) => {

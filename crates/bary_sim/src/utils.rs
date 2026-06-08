@@ -1354,10 +1354,34 @@ pub fn merge_grids(
     Ok(())
 }
 
+pub fn rename_grid(world: &mut World, grid_id: Ent, name: impl Into<String>) -> BaryResult<String> {
+    let mut name = name.into();
+    let grid = world.grids.try_get_mut(grid_id)?;
+    std::mem::swap(&mut grid.name, &mut name);
+    Ok(name)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::WorldBuilder;
+
+    #[test]
+    fn renaming_grid() {
+        let mut world = WorldBuilder::new()
+            .test_assets()
+            .blueprint(("pollux", 2))
+            .spawn(("pollux", 2), "Bob", Isometry2d::ZERO)
+            .build();
+
+        let parent_id = get_grid_by_name(&world.grids, "Bob").expect("Expected Bob's ID");
+
+        assert_eq!(parent_id, Ent(35));
+
+        let name = rename_grid(&mut world, parent_id, "Kathmandu");
+
+        assert_eq!(name, Ok("Bob".to_string()));
+    }
 
     #[test]
     fn merging_pollux_and_remora() {

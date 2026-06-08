@@ -33,15 +33,15 @@ pub fn load_assets(
     assets.circle_texture = rl.load_texture(thread, "assets/parts/frame2/skin.png").ok();
 
     assets.lato_regular = rl
-        .load_font_ex(thread, "assets/fonts/Lato-Regular.ttf", 1024, None)
+        .load_font_ex(thread, "assets/fonts/Lato-Regular.ttf", 32, None)
         .ok();
 
     assets.fira_code = rl
-        .load_font_ex(thread, "assets/fonts/FiraCode-Bold.ttf", 1024, None)
+        .load_font_ex(thread, "assets/fonts/FiraCode-Bold.ttf", 32, None)
         .ok();
 
     assets.consolas = rl
-        .load_font_ex(thread, "assets/fonts/Consolas-Regular.ttf", 1024, None)
+        .load_font_ex(thread, "assets/fonts/Consolas-Regular.ttf", 32, None)
         .ok();
 
     assets.ship_names = load_names_from_file("assets/ship_names.txt").unwrap_or(vec![]);
