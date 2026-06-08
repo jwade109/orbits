@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 use bary_core::prelude::*;
 use image::RgbaImage;
 use noise::{NoiseFn, Perlin};
@@ -13,25 +15,25 @@ struct AsteroidShapeParameter {
     phase: f32,
 }
 
+/// Structure representing an Asteroid or large body of solid terrain.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Asteroid {
-    seed: u64,
+    seed: u32,
     base_radius: f32,
     parameters: Vec<AsteroidShapeParameter>,
     deposits: Vec<(Vec2, f32, u8)>,
     craters: Vec<(Vec2, f32)>,
-    #[serde(skip)]
-    noise: Perlin,
+    // #[serde(skip)]
+    // noise: Perlin,
     deleted_zones: HashSet<Zone>,
     changes: HashSet<Zone>,
 }
 
 impl Asteroid {
-    pub fn random(base_radius: f32, seed: Option<u64>) -> Self {
-        let seed = seed.unwrap_or(randint(1000, 1000000) as u64);
-        let mut rng = StdRng::seed_from_u64(seed);
-
-        let noise = Perlin::new(rng.random());
+    /// Produces a random asteroid given a base radius and seed.
+    pub fn random(base_radius: f32, seed: Option<u32>) -> Self {
+        let seed = seed.unwrap_or(randint(1000, 1000000) as u32);
+        let mut rng = StdRng::seed_from_u64(seed as u64);
         let n_params = rng.random_range(5..=8);
         let mut frequency = 1;
         let parameters = (0..n_params)
@@ -56,7 +58,7 @@ impl Asteroid {
             base_radius,
             parameters,
             deposits: Vec::new(),
-            noise,
+            // noise,
             craters: Vec::new(),
             deleted_zones: HashSet::new(),
             changes: HashSet::new(),
@@ -88,10 +90,13 @@ impl Asteroid {
         s
     }
 
-    pub fn seed(&self) -> u64 {
+    /// The seed that this asteroid was generated with.
+    pub fn seed(&self) -> u32 {
         self.seed
     }
 
+    /// The direction of the surface normal vector at a particular
+    /// point on this Asteroid.
     pub fn face_dir(&self, p: Vec2) -> Vec3 {
         let theta = p.to_angle();
         let r = self.base_radius;
@@ -102,10 +107,13 @@ impl Asteroid {
         xy.extend(z).normalize_or_zero()
     }
 
+    /// The base radius of the asteroid. Terrain height is generated
+    /// as a deviation from this radius.
     pub fn base_radius(&self) -> f32 {
         self.base_radius
     }
 
+    /// Gets the radius of this asteroid at a particular CCW angle from +X.
     pub fn radius_at(&self, theta: f32) -> f32 {
         let mut r = 1.0;
         for param in &self.parameters {
@@ -114,6 +122,8 @@ impl Asteroid {
         r * self.base_radius
     }
 
+    /// Gets the largest possible radius of this asteroid
+    /// given its shape parameters.
     pub fn max_radius(&self) -> f32 {
         let mut r = 1.0;
         for param in &self.parameters {
@@ -122,6 +132,8 @@ impl Asteroid {
         r * self.base_radius
     }
 
+    /// Gets the smallest possible radius of this asteroid
+    /// given its shape parameters.
     pub fn min_radius(&self) -> f32 {
         let mut r = 1.0;
         for param in &self.parameters {
@@ -130,10 +142,15 @@ impl Asteroid {
         r * self.base_radius
     }
 
+    /// Determines whether the given point is "inside" the
+    /// terrain defined by this asteroid.
     pub fn contains(&self, p: Vec2) -> bool {
         self.signed_distance(p) >= 0.0 && self.deleted_zones().all(|z| !z.aabb().contains(p))
     }
 
+    /// Definition for an SDF that returns a positive distance if
+    /// inside the asteroid, a negative distance if outside, and
+    /// zero if directly on the asteroid's undisturbed surface.
     pub fn signed_distance(&self, p: Vec2) -> f32 {
         let theta = p.to_angle();
         let r = p.length();
@@ -141,6 +158,8 @@ impl Asteroid {
         r_ast - r
     }
 
+    /// Gets the material value of the deposit in this location,
+    /// if any exists.
     pub fn get_deposit(&self, p: Vec2) -> Option<u8> {
         if self.noise_c(p) > 0.0 {
             return None;
@@ -158,29 +177,43 @@ impl Asteroid {
         })
     }
 
+    fn perlin(&self) -> Perlin {
+        // TODO(gross) this is probably pretty expensive,
+        // so it would be great to cache this somehow.
+        // Perlin can't be serialized however, and probably shouldn't be.
+        Perlin::new(self.seed)
+    }
+
+    /// Noise expression A. Lowest frequency.
     pub fn noise_a(&self, p: Vec2) -> f32 {
         let scale_1 = 1000.0;
-        self.noise
+        self.perlin()
             .get([p.x as f64 / scale_1, p.y as f64 / scale_1, 0.0]) as f32
     }
 
+    /// Noise expression B. Highest frequency.
     pub fn noise_b(&self, p: Vec2) -> f32 {
         let scale_2 = 30.0;
-        self.noise
+        self.perlin()
             .get([p.x as f64 / scale_2, p.y as f64 / scale_2, 0.0]) as f32
     }
 
+    /// Noise expression C. Medium frequency.
     pub fn noise_c(&self, p: Vec2) -> f32 {
-        self.noise.get([p.x as f64 / 60.0, p.y as f64 / 60.0, 0.0]) as f32
+        let scale = 60.0;
+        self.perlin()
+            .get([p.x as f64 / scale, p.y as f64 / scale, 0.0]) as f32
     }
 
+    /// A sum of Noise A and Noise B.
     pub fn noise(&self, p: Vec2) -> f32 {
         let n1 = self.noise_a(p);
         let n2 = self.noise_b(p);
         n1 + n2
     }
 
-    pub fn sample_color(&self, p: Vec2, highlight_deposits: bool) -> Option<[u8; 4]> {
+    /// Gets the color of the surface at the given point.
+    pub fn sample_color(&self, p: Vec2, highlight_deposits: bool) -> Option<BColor> {
         if !self.contains(p) {
             return None;
         }
@@ -221,16 +254,10 @@ impl Asteroid {
             }
         }
 
-        Some(c)
+        Some(BColor::from_u8(c))
     }
 
-    pub fn sprite_name(&self, zone: Zone) -> String {
-        format!(
-            "ast-{}-{:0.4}-{}-{}",
-            self.seed, self.base_radius, zone.index, zone.size
-        )
-    }
-
+    /// Mark zones in this asteroid as deleted.
     pub fn delete_terrain(&mut self, p: DVec2) {
         let z = get_zone(p, 10);
         let before = self.deleted_zones.len();
@@ -246,14 +273,17 @@ impl Asteroid {
         }
     }
 
+    /// Get an iterator over the deleted zones of this asteroid.
     pub fn deleted_zones(&self) -> impl Iterator<Item = &Zone> + use<'_> {
         self.deleted_zones.iter()
     }
 
+    /// Check whether this asteroid contains a particular zone.
     pub fn contains_zone(&self, z: Zone) -> bool {
         self.zones().find(|o| *o == z).is_some()
     }
 
+    /// Get an iterator over the zones in this asteroid.
     pub fn zones(&self) -> impl Iterator<Item = Zone> + use<'_> {
         let size = 100;
         let max_r = self.max_radius();
@@ -266,19 +296,23 @@ impl Asteroid {
         })
     }
 
+    /// Checks whether this asteroid has been marked as changed in a given zone.
     pub fn is_changed(&self, z: Zone) -> bool {
         self.changes.contains(&z)
     }
 
+    /// Clears any change flags in this asteroid for the given zone.
     pub fn clear_changed(&mut self, z: Zone) {
         self.changes.remove(&z);
     }
 
+    /// Get an iterator over all changed zones.
     pub fn changed_zones(&self) -> impl Iterator<Item = &Zone> + use<'_> {
         self.changes.iter()
     }
 }
 
+/// A portion of an asteroid.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Zone {
     size: u32,
@@ -286,6 +320,7 @@ pub struct Zone {
 }
 
 impl Zone {
+    /// Get the axis-aligned bounding box for this zone.
     pub fn aabb(&self) -> AABB {
         let lower = self.size as f64 * self.index.as_dvec2();
         let upper = self.size as f64 * (self.index + IVec2::ONE).as_dvec2();
@@ -296,33 +331,37 @@ impl Zone {
     }
 }
 
+/// Get the zone corresponding with a given location and scale factor.
 pub fn get_zone(pos: DVec2, size: u32) -> Zone {
     let index = vfloor_f64(pos / size as f64);
     Zone { size, index }
 }
 
-fn write_pixel(img: &mut RgbaImage, p: IVec2, color: [u8; 4]) {
+fn write_pixel(img: &mut RgbaImage, p: IVec2, color: BColor) {
     if p.x < 0 || p.y < 0 || p.x >= img.width() as i32 || p.y >= img.height() as i32 {
         return;
     }
+    let c = color.to_u8();
     if let Some(pixel) =
         img.get_pixel_mut_checked(p.x as u32, (img.height() as i32 - p.y - 1) as u32)
     {
-        pixel.0 = color;
+        pixel.0 = c;
     }
 }
 
-fn attenuate_light(mut color: [u8; 4], dot: f32) -> [u8; 4] {
+fn attenuate_light(color: BColor, dot: f32) -> BColor {
+    let mut c = color.to_u8();
     let dot = dot.max(0.04);
     for i in 0..3 {
         // if dot < 0.8 {
-        let new_color = (color[i] as f32 * dot).clamp(0.0, 255.0);
-        color[i] = new_color as u8;
+        let new_color = (c[i] as f32 * dot).clamp(0.0, 255.0);
+        c[i] = new_color as u8;
         // }
     }
-    color
+    BColor::from_u8(c)
 }
 
+/// Construct an image representation of the given asteroid.
 pub fn make_asteroid_image(
     ast: &Asteroid,
     viewport: AABB,
@@ -371,7 +410,7 @@ pub fn make_asteroid_image(
                 let p = Vec2::new(x, 0.0);
                 if ast.contains(p) {
                     let q = world_to_img(p);
-                    write_pixel(&mut img, q, [70, 255, 70, 255]);
+                    write_pixel(&mut img, q, BColor::from_u8([70, 255, 70, 255]));
                 }
             }
         }
@@ -381,7 +420,7 @@ pub fn make_asteroid_image(
                 let p = Vec2::new(0.0, y);
                 if ast.contains(p) {
                     let q = world_to_img(p);
-                    write_pixel(&mut img, q, [70, 255, 70, 255]);
+                    write_pixel(&mut img, q, BColor::from_u8([70, 255, 70, 255]));
                 }
             }
         }
@@ -389,16 +428,16 @@ pub fn make_asteroid_image(
         for theta in linspace(0.0, 2.0 * PI, 100) {
             let p = rotate(Vec2::X * max_r, theta);
             let q = world_to_img(p);
-            write_pixel(&mut img, q, [255, 50, 50, 255]);
+            write_pixel(&mut img, q, BColor::from_u8([255, 50, 50, 255]));
 
             let p = rotate(Vec2::X * min_r, theta);
             let q = world_to_img(p);
-            write_pixel(&mut img, q, [255, 50, 50, 255]);
+            write_pixel(&mut img, q, BColor::from_u8([255, 50, 50, 255]));
 
             let r = ast.radius_at(theta);
             let p = rotate(Vec2::X * r, theta);
             let q = world_to_img(p);
-            write_pixel(&mut img, q, [50, 255, 255, 255]);
+            write_pixel(&mut img, q, BColor::from_u8([50, 255, 255, 255]));
         }
     }
 

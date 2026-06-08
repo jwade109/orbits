@@ -49,7 +49,7 @@ pub enum WorldDelta {
     SpawnAsteroid {
         iso: Isometry2d,
         radius: f32,
-        seed: u64,
+        seed: u32,
     },
     Explode(GridLocation),
     ToggleTracking(Ent),

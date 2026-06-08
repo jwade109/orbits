@@ -9,7 +9,7 @@ use std::path::PathBuf;
 pub struct Args {
     /// Asteroid seed
     #[arg(long, short)]
-    seed: Option<u64>,
+    seed: Option<u32>,
 
     /// Render image with this width
     #[arg(long, short)]

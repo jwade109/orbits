@@ -76,7 +76,7 @@ pub fn spawn_asteroid(world: &mut World, ast: Asteroid, iso: Isometry2d) -> Ent 
     parent
 }
 
-pub fn spawn_random_asteroid(world: &mut World, iso: Isometry2d, radius: f32, seed: u64) {
+pub fn spawn_random_asteroid(world: &mut World, iso: Isometry2d, radius: f32, seed: u32) {
     let ast = Asteroid::random(radius, Some(seed));
     spawn_asteroid(world, ast, iso);
 }

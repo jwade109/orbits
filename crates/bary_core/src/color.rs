@@ -157,6 +157,10 @@ impl BColor {
         Self { r, g, b, a }
     }
 
+    pub const fn from_u8(c: [u8; 4]) -> Self {
+        Self::new(c[0], c[1], c[2], c[3])
+    }
+
     pub fn to_u8(&self) -> [u8; 4] {
         [self.r, self.g, self.b, self.a]
     }

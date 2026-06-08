@@ -13,7 +13,7 @@ enum WorldBuilderCommand {
     InsertDebugSource(PartCoord, Item),
     InsertPipe(PartCoord, PartCoord),
     SetRecipe(PartCoord, RecipeListing),
-    SpawnAsteroid(Isometry2d, f32, u64),
+    SpawnAsteroid(Isometry2d, f32, u32),
     SetAnchored(bool),
     SpawnPlayer(String, Isometry2d),
     EnterPiloting,
@@ -99,7 +99,7 @@ impl WorldBuilder {
         self
     }
 
-    pub fn asteroid(mut self, p: impl Into<Isometry2d>, r: f32, seed: u64) -> Self {
+    pub fn asteroid(mut self, p: impl Into<Isometry2d>, r: f32, seed: u32) -> Self {
         let cmd = WorldBuilderCommand::SpawnAsteroid(p.into(), r, seed);
         self.commands.push(cmd);
         self
