@@ -1,5 +1,6 @@
+use bary_core::prelude::*;
+use bary_orbital::{Asteroid, make_asteroid_image};
 use clap::Parser;
-use crate::prelude::*;
 use std::path::PathBuf;
 
 /// Converts ship file to PNG

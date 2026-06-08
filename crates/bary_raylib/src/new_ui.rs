@@ -16,6 +16,7 @@ pub enum UiMessage {
     DockingShiftY,
     DockingRotate,
     DockingActivate,
+    Dummy(u32),
 }
 
 #[derive(Debug, Clone, Copy, Default)]

@@ -810,6 +810,18 @@ fn make_docking_ui(
     Some(docking_ui)
 }
 
+fn make_main_menu(ui: &UiBuilder) -> Node<UiMessage> {
+    Node::column(
+        800,
+        vec![
+            ui.button(UiMessage::Dummy(0), "Load Single Player"),
+            ui.button(UiMessage::Dummy(1), "Join Multiplayer"),
+            ui.button(UiMessage::Dummy(2), "Host Multiplayer"),
+            ui.button(UiMessage::Dummy(3), "Settings"),
+        ],
+    )
+}
+
 fn make_gui(font: &Font, client: &ClientSpecificInfo, world: &World) -> Tree<UiMessage> {
     let builder = UiBuilder::new(font);
 
@@ -844,6 +856,8 @@ fn make_gui(font: &Font, client: &ClientSpecificInfo, world: &World) -> Tree<UiM
             tree.add_layout(ui, Vec2::new(100.0, 200.0))
         }
     }
+
+    tree.add_layout(make_main_menu(&builder), Vec2::splat(400.0));
 
     tree
 }

@@ -1,8 +1,8 @@
+use bary_core::prelude::*;
 use clap::{Parser, ValueEnum};
-use crate::prelude::*;
-use std::collections::HashSet;
-use std::path::PathBuf;
 use image::*;
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 
 #[derive(ValueEnum, Debug, Default, Clone, Copy)]
 enum Direction {
@@ -107,6 +107,10 @@ fn visit_pixels(
     }
 }
 
+pub fn read_image(path: &Path) -> Option<RgbaImage> {
+    Some(image::open(path).ok()?.to_rgba8())
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
@@ -114,7 +118,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let img = read_image(&args.input).ok_or("Bad image")?;
 
-    let mut out= img.clone();
+    let mut out = img.clone();
     for p in out.pixels_mut() {
         if p.0[3] > 0 {
             p.0 = [0, 0, 0, 0];

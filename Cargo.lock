@@ -496,6 +496,7 @@ dependencies = [
  "approx",
  "assert_float_eq",
  "bary_core",
+ "clap 4.6.1",
  "image",
  "lazy_static",
  "more-asserts",
@@ -515,6 +516,14 @@ dependencies = [
  "enum-iterator",
  "serde",
  "serde_yaml",
+]
+
+[[package]]
+name = "bary_propsim"
+version = "0.1.0"
+dependencies = [
+ "bary_core",
+ "image",
 ]
 
 [[package]]
@@ -570,6 +579,7 @@ dependencies = [
  "log",
  "serde",
  "serde_yaml",
+ "simple_logger",
  "zstd",
 ]
 

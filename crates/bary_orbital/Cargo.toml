@@ -7,6 +7,7 @@ edition = "2024"
 approx = "0.5.1"
 assert_float_eq = "1.2.0"
 bary_core = { path = "../bary_core" }
+clap = { version = "4.6.1", features = ["derive"] }
 image = "0.25.10"
 lazy_static = "1.5.0"
 more-asserts = "0.3.1"
@@ -15,3 +16,11 @@ rand = "0.10.1"
 rootfinder = "0.5.1"
 serde = { version = "1.0.228", features = ["derive"] }
 splines = "5.0.0"
+
+[[bin]]
+name = "ast2png"
+path = "bin/ast2png.rs"
+
+[[bin]]
+name = "part2ss"
+path = "bin/part2ss.rs"

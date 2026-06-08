@@ -40,20 +40,12 @@ name = "client_app"
 path = "bin/client_app.rs"
 
 [[bin]]
-name = "kb"
-path = "bin/kb.rs"
-
-[[bin]]
 name = "steam"
 path = "bin/steam.rs"
 
 [[bin]]
 name = "headless_server"
 path = "bin/headless_server.rs"
-
-[[bin]]
-name = "generate_worlds"
-path = "bin/generate_worlds.rs"
 
 [dev-dependencies]
 criterion = "0.5.1"

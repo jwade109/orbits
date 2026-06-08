@@ -1,0 +1,9 @@
+[package]
+name = "bary_propsim"
+version = "0.1.0"
+edition = "2024"
+rust-version.workspace = true
+
+[dependencies]
+bary_core = { path = "../bary_core" }
+image = "0.25.10"

@@ -5,3 +5,7 @@ edition = "2024"
 
 [dependencies]
 rdev = { version = "0.5.3", features = ["serde"] }
+
+[[bin]]
+name = "kb"
+path = "bin/kb.rs"
