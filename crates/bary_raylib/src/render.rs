@@ -7,7 +7,7 @@ use crate::utils::*;
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use bary_factory::*;
-use bary_orbital::VehicleControl;
+use bary_orbital::{TerrainMaterial, VehicleControl};
 use bary_parts::*;
 use bary_sim::*;
 use bary_terminal::*;
@@ -501,7 +501,7 @@ fn draw_excavator(
 
     for tile in tiles {
         let o = tile.origin_isometry();
-        fill_rectangle(d, ast.iso * o, tile_dims, Color::TEAL.alpha(0.5));
+        draw_rectangle(d, ast.iso * o, tile_dims, Color::TEAL.alpha(0.5), 0.1);
     }
 
     Ok(())
@@ -1223,21 +1223,33 @@ fn draw_test_isos(d: &mut RaylibDrawHandle) {
     }
 }
 
-fn draw_ping_particles(d: &mut RaylibDrawHandle, particles: &Vec<PingParticle>, current_tick: u64) {
+fn draw_ping_particles(d: &mut RaylibDrawHandle, particles: &Vec<Particle>, current_tick: u64) {
     for particle in particles {
-        let wavelength = 1.0;
-        let ticks_per_wave = 25;
-        let n_waves = 10;
-        let vel = wavelength / ticks_per_wave as f32;
-        let init_offset = (current_tick - particle.start_tick()) % ticks_per_wave;
+        match particle {
+            Particle::Dust(dust) => {
+                fill_circle(
+                    d,
+                    dust.pos(current_tick),
+                    0.11,
+                    Color::GRAY.alpha(0.6 * dust.alpha(current_tick)),
+                );
+            }
+            Particle::Ping(ping) => {
+                let wavelength = 1.0;
+                let ticks_per_wave = 25;
+                let n_waves = 10;
+                let vel = wavelength / ticks_per_wave as f32;
+                let init_offset = (current_tick - ping.start_tick()) % ticks_per_wave;
 
-        let r0 = init_offset as f32 * vel;
+                let r0 = init_offset as f32 * vel;
 
-        let rmax = wavelength * n_waves as f32;
+                let rmax = wavelength * n_waves as f32;
 
-        for r in linspace(r0, r0 + rmax, n_waves) {
-            let a = (1.0 - r / rmax).clamp(0.0, 1.0);
-            draw_circle(d, particle.pos(), r, Color::ORANGE.alpha(a));
+                for r in linspace(r0, r0 + rmax, n_waves) {
+                    let a = (1.0 - r / rmax).clamp(0.0, 1.0);
+                    draw_circle(d, ping.pos(), r, Color::ORANGE.alpha(a));
+                }
+            }
         }
     }
 }

@@ -21,7 +21,7 @@ pub fn apply_delta(world: &mut World, delta: WorldDelta) -> BaryResult<()> {
         }
         WorldDelta::Ping(pos) => {
             let particle = PingParticle::new(pos, world.ticks);
-            world.particles.push(particle);
+            world.particles.push(Particle::Ping(particle));
             Ok(())
         }
         WorldDelta::SpawnShipAt(name, bp_id, iso) => {
@@ -131,8 +131,12 @@ pub fn apply_delta(world: &mut World, delta: WorldDelta) -> BaryResult<()> {
             remove_terrain_tile(world, asteroid, tile)?;
             Ok(())
         }
-        WorldDelta::AddTerrainTile { asteroid, tile } => {
-            add_terrain_tile(world, asteroid, tile)?;
+        WorldDelta::AddTerrainTile {
+            asteroid,
+            tile,
+            material,
+        } => {
+            add_terrain_tile(world, asteroid, tile, material)?;
             Ok(())
         }
         WorldDelta::FullyRevealTerrainTile { asteroid, tile } => {

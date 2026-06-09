@@ -5,7 +5,7 @@ use bary_orbital::*;
 use std::collections::BTreeSet;
 
 /// Updates ring particles.
-pub fn sys_update_ring_particles(particles: &mut Vec<PingParticle>, current_tick: u64) {
+pub fn sys_update_ring_particles(particles: &mut Vec<Particle>, current_tick: u64) {
     particles.retain(|p| p.is_alive(current_tick));
 }
 

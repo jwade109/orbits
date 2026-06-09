@@ -1,6 +1,6 @@
 use crate::*;
 use bary_core::prelude::*;
-use bary_orbital::Asteroid;
+use bary_orbital::{Asteroid, TerrainMaterial};
 use early_returns::{ok_or_continue, some_or_continue};
 use std::collections::BTreeMap;
 
@@ -32,16 +32,18 @@ pub fn spawn_asteroid(world: &mut World, ast: Asteroid, iso: Isometry2d) -> Ent 
                 for k in 0..TILES_PER_CHUNK_SIDE {
                     let index = LocalTileIndex(I8Vec2::new(j as i8, k as i8));
                     let iso = chunk_index.origin_isometry() * index.center_isometry();
-                    if !ast.contains(iso.translation) {
+
+                    let Some(material) = ast.material_at(iso.translation) else {
                         continue;
-                    }
+                    };
 
                     let is_edge = !index.bb().corners().iter().all(|c| {
                         let c = chunk_index.origin_isometry() * Isometry2d::from_pos(*c);
                         ast.contains(c.translation)
                     });
 
-                    let tile = TerrainTile::new(parent, TerrainMaterial::random());
+                    let mut tile = TerrainTile::new(parent, material);
+                    tile.set_light_level(10);
 
                     let tile_id = world.spawner.spawn();
                     world.terrain_tiles.spawn(tile_id, tile);
@@ -104,7 +106,12 @@ pub fn remove_terrain_tile(world: &mut World, ast_id: Ent, t: GlobalTileIndex) -
     Ok(tile_id)
 }
 
-pub fn add_terrain_tile(world: &mut World, ast_id: Ent, t: GlobalTileIndex) -> BaryResult<Ent> {
+pub fn add_terrain_tile(
+    world: &mut World,
+    ast_id: Ent,
+    t: GlobalTileIndex,
+    material: TerrainMaterial,
+) -> BaryResult<Ent> {
     let (c, l) = t.to_cl();
     let rock = world.asteroids.try_get_mut(ast_id)?;
     let chunk_id = *rock.chunks.get(&c).ok_or(BaryError::NoChunk)?;
@@ -115,7 +122,7 @@ pub fn add_terrain_tile(world: &mut World, ast_id: Ent, t: GlobalTileIndex) -> B
     }
 
     let tile_id = world.spawner.spawn();
-    let tile = TerrainTile::new(chunk_id, TerrainMaterial::random());
+    let tile = TerrainTile::new(chunk_id, material);
     chunk.tiles.insert(l, tile_id);
     if tile.is_visible() {
         chunk.visible_count += 1;
@@ -155,6 +162,18 @@ pub fn fully_reveal_terrain_tile(
                 chunk.visible_count += 1;
             }
         }
+    }
+
+    Ok(())
+}
+
+pub fn mine_terrain_tile(world: &mut World, ast_id: Ent, t: GlobalTileIndex) -> BaryResult<()> {
+    let rock = world.asteroids.try_get_mut(ast_id)?;
+    let iso = rock.iso * t.center_isometry();
+
+    if chance(0.01) {
+        let dust = DustParticle::new(iso.translation, world.ticks);
+        world.particles.push(Particle::Dust(dust));
     }
 
     Ok(())

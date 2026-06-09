@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use bary_core::prelude::*;
-use bary_orbital::Asteroid;
+use bary_orbital::{Asteroid, TerrainMaterial};
 use serde::{Deserialize, Serialize};
 
 pub const TERRAIN_TILE_WIDTH_METERS: f32 = 0.5;
@@ -9,29 +9,6 @@ pub const PIXELS_IN_TERRAIN_TILE: u8 = 10;
 pub const TILES_PER_CHUNK_SIDE: u8 = 32;
 pub const TERRAIN_CHUNK_WIDTH_METERS: f32 = TERRAIN_TILE_WIDTH_METERS * TILES_PER_CHUNK_SIDE as f32;
 pub const TERRAIN_VARIANTS: u8 = 8;
-
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
-pub enum TerrainMaterial {
-    Rock,
-    Dirt,
-    Ice,
-    Silicon,
-    Iron,
-}
-
-impl TerrainMaterial {
-    pub fn random() -> Self {
-        let n = randint(0, 9);
-        match n {
-            0..5 => TerrainMaterial::Rock,
-            5 => TerrainMaterial::Dirt,
-            6 => TerrainMaterial::Ice,
-            7 => TerrainMaterial::Silicon,
-            8 => TerrainMaterial::Iron,
-            _ => unreachable!(),
-        }
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LocalTileIndex(pub I8Vec2);

@@ -6,7 +6,46 @@ use noise::{NoiseFn, Perlin};
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+
+/// Enumeration of different material types
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+pub enum TerrainMaterial {
+    /// rock
+    Rock,
+    /// dirt
+    Dirt,
+    /// ice
+    Ice,
+    /// silicon
+    Silicon,
+    /// iron
+    Iron,
+}
+
+impl TerrainMaterial {
+    fn to_color(&self) -> BColor {
+        match self {
+            TerrainMaterial::Rock => BColor::gray(120),
+            TerrainMaterial::Dirt => BColor::DARKBROWN,
+            TerrainMaterial::Ice => BColor::RAYWHITE,
+            TerrainMaterial::Silicon => BColor::SILVER,
+            TerrainMaterial::Iron => BColor::gray(170),
+        }
+    }
+
+    /// Produces a randomly selected terrain material (not uniform)
+    pub fn random() -> Self {
+        let n = randint(0, 9);
+        match n {
+            0..5 => TerrainMaterial::Rock,
+            5 => TerrainMaterial::Dirt,
+            6 => TerrainMaterial::Ice,
+            7 => TerrainMaterial::Silicon,
+            8 => TerrainMaterial::Iron,
+            _ => unreachable!(),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 struct AsteroidShapeParameter {
@@ -21,12 +60,8 @@ pub struct Asteroid {
     seed: u32,
     base_radius: f32,
     parameters: Vec<AsteroidShapeParameter>,
-    deposits: Vec<(Vec2, f32, u8)>,
+    deposits: Vec<(Vec2, f32, TerrainMaterial)>,
     craters: Vec<(Vec2, f32)>,
-    // #[serde(skip)]
-    // noise: Perlin,
-    deleted_zones: HashSet<Zone>,
-    changes: HashSet<Zone>,
 }
 
 impl Asteroid {
@@ -58,10 +93,7 @@ impl Asteroid {
             base_radius,
             parameters,
             deposits: Vec::new(),
-            // noise,
             craters: Vec::new(),
-            deleted_zones: HashSet::new(),
-            changes: HashSet::new(),
         };
 
         let max_r = s.max_radius();
@@ -81,7 +113,15 @@ impl Asteroid {
                 let r = rng.random_range(2.0..=r_max - 1.0);
                 let size = rng.random_range(3.0..=base_radius * 0.3);
                 let p = rotate(Vec2::X * r, theta);
-                (p, size, rng.random_range(120..240))
+
+                let idx = rng.random_range(0..4);
+                let mat = match idx {
+                    0 => TerrainMaterial::Dirt,
+                    1 => TerrainMaterial::Ice,
+                    2 => TerrainMaterial::Silicon,
+                    _ => TerrainMaterial::Iron,
+                };
+                (p, size, mat)
             })
             .collect();
 
@@ -145,7 +185,7 @@ impl Asteroid {
     /// Determines whether the given point is "inside" the
     /// terrain defined by this asteroid.
     pub fn contains(&self, p: Vec2) -> bool {
-        self.signed_distance(p) >= 0.0 && self.deleted_zones().all(|z| !z.aabb().contains(p))
+        self.signed_distance(p) >= 0.0
     }
 
     /// Definition for an SDF that returns a positive distance if
@@ -158,22 +198,24 @@ impl Asteroid {
         r_ast - r
     }
 
+    /// Get the material present at this location on the asteroid.
+    pub fn material_at(&self, p: Vec2) -> Option<TerrainMaterial> {
+        if let Some(deposit) = self.get_deposit(p) {
+            return Some(deposit);
+        }
+
+        self.contains(p).then(|| TerrainMaterial::Rock)
+    }
+
     /// Gets the material value of the deposit in this location,
     /// if any exists.
-    pub fn get_deposit(&self, p: Vec2) -> Option<u8> {
+    pub fn get_deposit(&self, p: Vec2) -> Option<TerrainMaterial> {
         if self.noise_c(p) > 0.0 {
             return None;
         }
         self.deposits.iter().find_map(|(c, r, value)| {
             let p = p - c;
             (p.length() < *r).then(|| *value)
-            // let k = Vec3::new(-0.866025404, 0.5, 0.577350269);
-            // let kxy = Vec2::new(k.x, k.y);
-            // let mut p = p.abs();
-            // p -= 2.0 * kxy.dot(p).min(0.0) * kxy;
-            // p -= Vec2::new(p.x.clamp(-k.z * r, k.z * r), *r);
-            // let sd = p.length() * p.y.signum();
-            // (sd < 0.0).then(|| *value)
         })
     }
 
@@ -224,7 +266,7 @@ impl Asteroid {
                 if highlight_deposits {
                     [255, 100, 0, 255]
                 } else {
-                    [v, v, v, 255]
+                    v.to_color().to_u8()
                 }
             } else {
                 [105, 105, 105, 255]
@@ -257,27 +299,6 @@ impl Asteroid {
         Some(BColor::from_u8(c))
     }
 
-    /// Mark zones in this asteroid as deleted.
-    pub fn delete_terrain(&mut self, p: DVec2) {
-        let z = get_zone(p, 10);
-        let before = self.deleted_zones.len();
-        if self.contains(z.aabb().center) {
-            self.deleted_zones.insert(z);
-        }
-        let after = self.deleted_zones.len();
-        if before != after {
-            let z = get_zone(p, 100);
-            if self.contains_zone(z) {
-                self.changes.insert(z);
-            }
-        }
-    }
-
-    /// Get an iterator over the deleted zones of this asteroid.
-    pub fn deleted_zones(&self) -> impl Iterator<Item = &Zone> + use<'_> {
-        self.deleted_zones.iter()
-    }
-
     /// Check whether this asteroid contains a particular zone.
     pub fn contains_zone(&self, z: Zone) -> bool {
         self.zones().find(|o| *o == z).is_some()
@@ -294,21 +315,6 @@ impl Asteroid {
                 index: IVec2 { x, y },
             })
         })
-    }
-
-    /// Checks whether this asteroid has been marked as changed in a given zone.
-    pub fn is_changed(&self, z: Zone) -> bool {
-        self.changes.contains(&z)
-    }
-
-    /// Clears any change flags in this asteroid for the given zone.
-    pub fn clear_changed(&mut self, z: Zone) {
-        self.changes.remove(&z);
-    }
-
-    /// Get an iterator over all changed zones.
-    pub fn changed_zones(&self) -> impl Iterator<Item = &Zone> + use<'_> {
-        self.changes.iter()
     }
 }
 

@@ -1,5 +1,6 @@
 use bary_core::prelude::*;
 use bary_factory::*;
+use bary_orbital::TerrainMaterial;
 use bary_parts::BlueprintId;
 use serde::{Deserialize, Serialize};
 
@@ -60,6 +61,7 @@ pub enum WorldDelta {
     AddTerrainTile {
         asteroid: Ent,
         tile: GlobalTileIndex,
+        material: TerrainMaterial,
     },
     FullyRevealTerrainTile {
         asteroid: Ent,

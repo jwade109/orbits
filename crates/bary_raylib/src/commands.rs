@@ -1,4 +1,5 @@
 use bary_core::prelude::*;
+use bary_orbital::TerrainMaterial;
 use bary_parts::BlueprintId;
 use bary_sim::*;
 use bary_terminal::*;
@@ -181,6 +182,7 @@ pub fn world_delta_commands() -> Vec<Command<TermCmd>> {
             Ok(TermCmd::World(WorldDelta::AddTerrainTile {
                 asteroid: ast_id,
                 tile: GlobalTileIndex((x, y).into()),
+                material: TerrainMaterial::Rock,
             }))
         }),
         Command::new("sim.ast.reveal", vec!["ast_id", "x", "y"], |args| {

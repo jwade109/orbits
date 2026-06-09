@@ -13,7 +13,7 @@ pub struct World {
 
     // components - to be synchronized between clients
     pub spawner: EntitySpawner,
-    pub particles: Vec<PingParticle>,
+    pub particles: Vec<Particle>,
     pub players: Components<Player>,
     pub blueprints: Components<NamedBlueprint>,
     pub prototypes: Components<PartPrototype>,

@@ -1117,7 +1117,7 @@ fn sys_mine_tiles(world: &mut World) {
 
     for (ast_id, tiles) in to_remove {
         for t in tiles {
-            _ = remove_terrain_tile(world, ast_id, t);
+            _ = mine_terrain_tile(world, ast_id, t);
         }
     }
 }
