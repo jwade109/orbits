@@ -129,30 +129,6 @@ pub fn despawn_all_vehicles(world: &mut World) -> usize {
     ret
 }
 
-pub fn despawn_grid_c(
-    grid_id: Ent,
-    grids: &mut Components<VehicleGrid>,
-    parts: &mut Components<Part>,
-    thrusters: &mut Components<Thruster>,
-    computers: &mut Components<Computer>,
-    lights: &mut Components<Light>,
-) -> BaryResult<()> {
-    let grid = grids.despawn(grid_id)?;
-    for id in grid.parts {
-        parts.despawn(id)?;
-    }
-    for id in grid.thrusters {
-        thrusters.despawn(id)?;
-    }
-    for id in grid.computers {
-        computers.despawn(id)?;
-    }
-    for id in grid.lights {
-        lights.despawn(id)?;
-    }
-    Ok(())
-}
-
 /// Produces the entity ID corresponding to a grid's primary CPU,
 /// which by convention is just the first element in the computer index.
 pub fn get_primary_cpu_id(grid_id: Ent, grids: &Components<VehicleGrid>) -> BaryResult<Ent> {
@@ -394,6 +370,10 @@ pub fn destroy_part_without_integrity_check(
     if grid.lights.contains(&part_id) {
         world.lights.despawn(part_id)?;
     }
+
+    world
+        .pipes
+        .retain(|_id, pipe| pipe.src.part_id != part_id && pipe.dst.part_id != part_id);
 
     grid.remove_from_index(part_id);
     grid.parts_mass -= part.mass;
@@ -731,14 +711,23 @@ pub fn gridloc_pose(grids: &Components<VehicleGrid>, loc: GridLocation) -> BaryR
 }
 
 pub fn despawn_grid(world: &mut World, grid_id: Ent) -> BaryResult<()> {
-    despawn_grid_c(
-        grid_id,
-        &mut world.grids,
-        &mut world.parts,
-        &mut world.thrusters,
-        &mut world.computers,
-        &mut world.lights,
-    )
+    let grid = world.grids.despawn(grid_id)?;
+    for id in grid.parts {
+        world.parts.despawn(id)?;
+    }
+    for id in grid.thrusters {
+        world.thrusters.despawn(id)?;
+    }
+    for id in grid.computers {
+        world.computers.despawn(id)?;
+    }
+    for id in grid.lights {
+        world.lights.despawn(id)?;
+    }
+    for id in grid.pipes {
+        world.pipes.despawn(id)?;
+    }
+    Ok(())
 }
 
 pub fn sum_part_masses(
@@ -867,7 +856,7 @@ pub fn insert_pipe_at_c(
     parts: &Components<Part>,
     inventories: &Components<Inventory>,
     pipes: &mut Components<Pipe>,
-) -> BaryResult<(Pipe, Ent)> {
+) -> BaryResult<Ent> {
     if src == dst {
         return Err(BaryError::ZeroPipeExtent);
     }
@@ -895,7 +884,7 @@ pub fn insert_pipe_at_c(
 
     grid.pipes.insert(id);
 
-    Ok((pipe, id))
+    Ok(id)
 }
 
 pub fn insert_pipe(
@@ -903,7 +892,7 @@ pub fn insert_pipe(
     src: PartCoord,
     dst: PartCoord,
     world: &mut World,
-) -> BaryResult<(Pipe, Ent)> {
+) -> BaryResult<Ent> {
     insert_pipe_at_c(
         grid_id,
         src,
@@ -1447,5 +1436,57 @@ mod tests {
         assert_world_is_consistent(&world);
 
         assert_eq!(res, Ok(()));
+    }
+
+    #[test]
+    fn splitting_ships_breaks_pipe_connections() {
+        let mut world = WorldBuilder::new()
+            .test_assets()
+            .blueprint(("pollux", 2))
+            .spawn(("pollux", 2), "Bob", Isometry2d::ZERO)
+            .build();
+
+        world.pipes.clear();
+
+        let grid_id = get_grid_by_name(&world.grids, "Bob").expect("Expected Bob's ID");
+
+        let next_id = world.spawner.next();
+
+        let pipe = insert_pipe(
+            grid_id,
+            PartCoord::new((14, 8)),
+            PartCoord::new((29, 8)),
+            &mut world,
+        );
+
+        assert_eq!(pipe, Ok(next_id));
+        assert_eq!(world.pipes.len(), 1);
+
+        assert_world_is_consistent(&world);
+
+        let grid = world.grids.try_get(grid_id).expect("Expected a grid");
+
+        let mut parts_to_destroy = BTreeSet::new();
+        for y in 0..100 {
+            let c = PartCoord::new((20, y));
+            let occ = grid.get_parts_at(c).unwrap_or(&PartOccupancy::EMPTY);
+            for (_layer, id) in occ.iter() {
+                parts_to_destroy.insert(id);
+            }
+        }
+
+        assert_eq!(parts_to_destroy.len(), 11);
+
+        for part_id in parts_to_destroy {
+            let part = world.parts.try_get(part_id).unwrap();
+            let proto = world.prototypes.try_get(part.prototype).unwrap();
+            println!("Destroying {}: {:?}", part_id, proto.name);
+            let result = destroy_part(&mut world, part_id);
+            assert!(result.is_ok());
+        }
+
+        assert_eq!(world.grids.len(), 2);
+
+        assert_world_is_consistent(&world);
     }
 }

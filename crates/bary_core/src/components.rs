@@ -118,6 +118,13 @@ impl<E> Components<E> {
             .get_mut(&id)
             .ok_or(BaryError::EntityNotFound(id))
     }
+
+    pub fn retain<F>(&mut self, func: F)
+    where
+        F: FnMut(&Ent, &mut E) -> bool,
+    {
+        self.values.retain(func);
+    }
 }
 
 impl<E> std::fmt::Debug for Components<E> {

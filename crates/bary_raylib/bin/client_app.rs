@@ -530,8 +530,8 @@ fn draw_debug_info(
     let size = size_in_bytes(world);
     let mut s = "Barycenter Client".to_string();
 
-    // let consist = is_world_consistent(world);
-    // s += &format!("\nOK: {:?}", consist.is_ok());
+    let consist = is_world_consistent(world);
+    s += &format!("\nOK: {:?}", consist);
 
     let fmt_time = |d: std::time::Duration, t: std::time::Duration| {
         let p = d.as_secs_f64() / t.as_secs_f64();

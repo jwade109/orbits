@@ -4,7 +4,10 @@ use anyhow::ensure;
 pub fn computer_pointers_are_consistent(world: &World) -> Result<(), anyhow::Error> {
     for (_grid_id, grid) in world.grids.iter() {
         for id in &grid.computers {
-            ensure!(world.computers.try_get(*id).is_ok(), "Failed to lookup computer in this grid");
+            ensure!(
+                world.computers.try_get(*id).is_ok(),
+                "Failed to lookup computer in this grid"
+            );
         }
     }
 
@@ -58,11 +61,30 @@ pub fn grid_parts_do_not_intersect(world: &World) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+fn pipe_invariants(world: &World) -> Result<(), anyhow::Error> {
+    for (id, pipe) in world.pipes.iter() {
+        let part_a = world.parts.try_get(pipe.src.part_id);
+        let part_b = world.parts.try_get(pipe.dst.part_id);
+        ensure!(part_a.is_ok());
+        ensure!(part_b.is_ok());
+        let part_a = part_a?;
+        let part_b = part_b?;
+        ensure!(part_a.grid_id == part_b.grid_id);
+        let grid = world.grids.try_get(part_a.grid_id);
+        ensure!(grid.is_ok());
+        let grid = grid?;
+        ensure!(grid.pipes.contains(id));
+    }
+
+    Ok(())
+}
+
 pub fn is_world_consistent(world: &World) -> Result<(), anyhow::Error> {
     mass_of_grids_is_accurate(world)?;
     computer_pointers_are_consistent(world)?;
     part_bidirectional_pointers_are_consistent(world)?;
     grid_parts_do_not_intersect(world)?;
+    pipe_invariants(world)?;
 
     Ok(())
 }

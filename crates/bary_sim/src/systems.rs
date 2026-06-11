@@ -406,12 +406,12 @@ mod tests {
             .expect("Expected a blueprint")
             .clone();
 
+        let expected_grid_id = world.spawner.next();
+
         // spawn that vehicle using its blueprint
         let grid_id =
             spawn_grid_from_blueprint(&mut world, name.to_string(), Some(&name.into()), &bp)
                 .expect("Expected the grid ID");
-
-        let expected_grid_id = Ent(37);
 
         // this entity should be the same every time
         assert_eq!(grid_id, expected_grid_id);
@@ -430,7 +430,7 @@ mod tests {
         let (id, cpu) = world.computers.iter().next().unwrap();
 
         // these entities should be the same every time
-        assert_eq!(*id, Ent(61));
+        assert_eq!(*id, Ent(62));
         assert_eq!(cpu.prototype, Ent(6));
 
         // get the prototype definition for the computer
@@ -471,8 +471,9 @@ mod tests {
         assert!(get_closest_grid(&world.grids, Vec2::new(100.0, 200.0), None).is_none());
 
         let bp_id: BlueprintId = "remora".into();
+        let expected_id = world.spawner.next();
         let id = spawn_grid_with_random_name(&mut world, bp_id).unwrap();
-        assert_eq!(id, Ent(37));
+        assert_eq!(id, expected_id);
 
         let grid = world.grids.try_get_mut(id).unwrap();
         grid.particle_location.translation = Vec2::new(40.0, 156.0);
@@ -484,7 +485,7 @@ mod tests {
             update_world(&mut world);
             let test_pos = centroid.offset(Vec2::new(100.0, 200.0)).translation;
             let e = get_closest_grid(&world.grids, test_pos, None);
-            assert_eq!(e, Some((Ent(37), Vec2::new(99.99999, 199.99998))));
+            assert_eq!(e, Some((expected_id, Vec2::new(99.99999, 199.99998))));
         }
 
         assert_world_is_consistent(&world);
@@ -521,11 +522,13 @@ mod tests {
             GridRegion::new((2, 20), Rotation::East, dims),
         );
 
+        let expected_id = world.spawner.next();
+
         let id = insert_part(grid_id, &mut world, &instance, true).unwrap();
 
         assert_world_is_consistent(&world);
 
-        assert_eq!(id, Ent(169));
+        assert_eq!(id, expected_id);
 
         let part = world.parts.get(id).unwrap();
 
@@ -648,6 +651,8 @@ mod tests {
     fn setting_thruster_state() {
         let mut world = WorldBuilder::new().test_assets().build();
 
+        let expected_id = world.spawner.next();
+
         let grid_id = spawn_empty_grid(&mut world, "whatever");
 
         let grid = world.grids.try_get(grid_id).unwrap();
@@ -655,7 +660,7 @@ mod tests {
         assert_eq!(grid.parts.len(), 0);
         assert_eq!(grid.parts_mass, Mass::ZERO);
 
-        assert_eq!(grid_id, Ent(33));
+        assert_eq!(grid_id, expected_id);
 
         let instance_a = PartInstance::new(
             "motor",
@@ -679,8 +684,8 @@ mod tests {
         assert_eq!(grid.thrusters, [a_id, b_id].into());
         assert_eq!(grid.parts_mass, Mass::grams(870000));
 
-        assert_eq!(a_id, Ent(34));
-        assert_eq!(b_id, Ent(35));
+        assert_eq!(a_id, expected_id + 1);
+        assert_eq!(b_id, expected_id + 2);
 
         let r1 = set_thruster_state(a_id, &mut world, true);
         let r2 = set_thruster_state(b_id, &mut world, true);
@@ -1211,9 +1216,9 @@ mod tests {
         let part_b = *parts[20];
         let part_c = *parts[37];
 
-        assert_eq!(part_a, Ent(47));
-        assert_eq!(part_b, Ent(55));
-        assert_eq!(part_c, Ent(72));
+        assert_eq!(part_a, Ent(48));
+        assert_eq!(part_b, Ent(56));
+        assert_eq!(part_c, Ent(73));
 
         let op_a = destroy_part_without_integrity_check(&mut world, part_a, false);
         let op_b = destroy_part_without_integrity_check(&mut world, part_b, false);
@@ -1284,7 +1289,7 @@ mod tests {
             assert!(r.is_ok());
         }
 
-        let sec_grid_id = Ent(169);
+        let sec_grid_id = world.spawner.next();
 
         let result = split_grid_if_necessary(&mut world, grid_id);
 
