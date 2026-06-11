@@ -1,20 +1,28 @@
+#![deny(missing_docs)]
+
 use bary_core::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{Item, ItemFilter, MachineStatus};
 
+/// An ordered list of 0 or more inventory slots. See [InvSlot]
+/// for more information about semantics.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Inventory(Vec<InvSlot>);
 
 impl Inventory {
+    /// An inventory containing zero slots, which can store nothing.
     pub fn zero_slots() -> Self {
         Self(Vec::new())
     }
 
+    /// Constructs a new Inventory with the given slots.
     pub fn from_slots(slots: Vec<InvSlot>) -> Self {
         Self(slots)
     }
 
+    /// Constructs a new Inventory with a single slot containing
+    /// none of the given [Item] and some [Volume].
     pub fn single(item: Item, capacity: Volume) -> Self {
         let slot = InvSlot::new(
             capacity,
@@ -26,34 +34,27 @@ impl Inventory {
         Self(vec![slot])
     }
 
+    /// Clear the contents off all slots.
     pub fn clear(&mut self) {
         self.0.iter_mut().for_each(|s| s.empty());
     }
 
-    pub fn add_slot(&mut self, slot: InvSlot) {
-        self.0.push(slot);
-    }
-
+    /// Gets a reference to the slot at the given index, if it exists.
     pub fn get_slot(&self, idx: usize) -> Option<&InvSlot> {
         self.0.get(idx)
     }
 
+    /// Get a mutable reference to the slot at the given index, if it exists.
     pub fn get_slot_mut(&mut self, idx: usize) -> Option<&mut InvSlot> {
         self.0.get_mut(idx)
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
+    /// Get an iterator over the slots in this inventory.
     pub fn iter(&self) -> impl Iterator<Item = &InvSlot> {
         self.0.iter()
     }
 
+    /// Get the slot at the given coordinate.
     pub fn get_slot_at(&self, p: PartCoord) -> Option<usize> {
         for (i, slot) in self.slots().enumerate() {
             let offset = (p - slot.location.0).inner();
@@ -65,12 +66,21 @@ impl Inventory {
         None
     }
 
+    /// Returns true if any individual slot can store the given [Item] and
+    /// quantity.
+    /// 
+    /// TODO(feature) this should sum over all of the
+    /// slots in the inventory and see if their available space together
+    /// can store the requested amount.
     pub fn can_store(&self, item: Item, count: u64) -> bool {
         // TODO this doesn't cover the case where multiple slots
         // combined can store the given amount
         self.0.iter().any(|s| s.can_store(item, count).is_ok())
     }
 
+    /// Stores the given [Item] and quantity, if possible.
+    /// Returns true if successful. If not successful,
+    /// the [Inventory] is not modified.
     pub fn store(&mut self, item: Item, count: u64) -> bool {
         for slot in &mut self.0 {
             if slot.store(item, count) {
@@ -80,19 +90,31 @@ impl Inventory {
         return false;
     }
 
-    // fills all available space with whatever the slots are set to
+    /// Fills all slots with whatever item the slot is set to.
+    /// If a slot doesn't have an item (even if it's empty),
+    /// nothing is done to that slot.
     pub fn fill(&mut self) {
         for slot in &mut self.0 {
             slot.fill();
         }
     }
 
+    /// Checks to see if this inventory can provide the
+    /// given [Item] and quantity.
+    /// 
+    /// TODO(feature) currently only returns true if a single
+    /// slot can provide the given amount. This function should
+    /// sum over all slots to see if this inventory can provide
+    /// the amount from multiple slots.
     pub fn can_take(&self, item: Item, count: u64) -> bool {
         // TODO this doesn't cover the case where multiple slots
         // combined can provide the given amount
         self.0.iter().any(|s| s.can_take(item, count))
     }
 
+    /// Remove the given quantity of [Item], if possible.
+    /// Returns true if successful. If not successful,
+    /// this inventory is not modified.
     pub fn take(&mut self, item: Item, count: u64) -> bool {
         for slot in &mut self.0 {
             if slot.take(item, count) {
@@ -102,22 +124,27 @@ impl Inventory {
         return false;
     }
 
+    /// Gets the number of slots in this inventory.
     pub fn slot_count(&self) -> usize {
         self.0.len()
     }
 
+    /// Get an iterator over the slots in this inventory.
     pub fn slots(&self) -> impl Iterator<Item = &InvSlot> + use<'_> {
         self.0.iter()
     }
 
+    /// Get a mutable iterator over the slots in this inventory.
     pub fn slots_mut(&mut self) -> impl Iterator<Item = &mut InvSlot> + use<'_> {
         self.0.iter_mut()
     }
 
+    /// Sum up the mass of items in this inventory.
     pub fn mass(&self) -> Mass {
         self.0.iter().map(|s| s.mass()).sum()
     }
 
+    /// Sums the mass of all slots which contain the given item.
     pub fn mass_of(&self, item: Item) -> Mass {
         self.0
             .iter()
@@ -125,18 +152,22 @@ impl Inventory {
             .sum()
     }
 
+    /// Gets the total capacity of the inventory over all slots.
     pub fn capacity(&self) -> Volume {
         self.0.iter().map(|s| s.capacity()).sum()
     }
 
+    /// Gets the sum of occupied volume over all slots.
     pub fn occupied_volume(&self) -> Volume {
         self.0.iter().map(|s| s.occupied_volume()).sum()
     }
 
+    /// Gets the total available volume over all slots.
     pub fn available_volume(&self) -> Volume {
         self.capacity() - self.occupied_volume()
     }
 
+    /// Gets the total volume which is occupied by the given item.
     pub fn occupied_volume_of(&self, item: Item) -> Volume {
         self.0
             .iter()

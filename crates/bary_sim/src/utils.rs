@@ -1100,13 +1100,13 @@ fn sys_update_machines(world: &mut World) {
 
 /// Iterates over all active excavators and removes tiles accordingly
 fn sys_mine_tiles(world: &mut World) {
-    let mut to_remove: BTreeMap<Ent, BTreeSet<GlobalTileIndex>> = BTreeMap::new();
-    for (id, ex) in world.excavators.iter() {
-        let Ok(Some((ast_id, tiles))) = get_excavator_tiles(*id, ex, world) else {
+    let mut to_remove: BTreeMap<(Ent, Ent), BTreeSet<GlobalTileIndex>> = BTreeMap::new();
+    for (ex_id, ex) in world.excavators.iter() {
+        let Ok(Some((ast_id, tiles))) = get_excavator_tiles(*ex_id, ex, world) else {
             continue;
         };
         to_remove
-            .entry(ast_id)
+            .entry((ast_id, *ex_id))
             .and_modify(|e| {
                 for t in &tiles {
                     e.insert(*t);
@@ -1115,9 +1115,14 @@ fn sys_mine_tiles(world: &mut World) {
             .or_insert(BTreeSet::from_iter(tiles));
     }
 
-    for (ast_id, tiles) in to_remove {
+    for ((ast_id, ex_id), tiles) in to_remove {
         for t in tiles {
-            _ = mine_terrain_tile(world, ast_id, t);
+            let success = mine_terrain_tile(world, ast_id, t).is_ok();
+            if let Ok(inv) = world.inventories.try_get_mut(ex_id)
+                && success
+            {
+                inv.store(Item::Stone, 1);
+            }
         }
     }
 }
