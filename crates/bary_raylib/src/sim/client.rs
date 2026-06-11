@@ -168,9 +168,6 @@ impl ClientSpecificInfo {
             rotation: Rotation::East,
         });
 
-        self.target_camera.zoom = 20.0;
-        self.target_camera.isometry.rotation = 0.0;
-
         self.chat.log("Left ship editor");
         true
     }
@@ -212,6 +209,11 @@ impl ClientSpecificInfo {
         let free = self.viewport.free()?;
         let parent = *free.selection_info.selected.first()?;
         let child = *free.selection_info.selected.get(1)?;
+
+        if parent.grid_id == child.grid_id {
+            return None;
+        }
+
         Some(DockingInterface {
             parent,
             child,

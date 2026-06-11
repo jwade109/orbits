@@ -1,5 +1,6 @@
 use bary_core::prelude::*;
 use bary_input::InputState;
+use bary_parts::BlueprintId;
 use bary_sim::{World, WorldDelta};
 use early_returns::*;
 
@@ -15,7 +16,7 @@ pub struct EditorState {
     pub select_start: Option<PartCoord>,
     pub hovered: Option<PartCoord>,
 
-    pub vehicle_name_field: Option<EditableText>,
+    pub vehicle_name_field: Option<(EditableText, bool)>,
 }
 
 fn editor_offset_moves_with_wasd(input: &InputState, offset: &mut Vec2, zoom: f32) {
@@ -50,13 +51,19 @@ impl EditorState {
         let mut ret = None;
 
         if input.just_pressed_debounced(rdev::Key::Return) && self.vehicle_name_field.is_some() {
-            if let Some(field) = self.vehicle_name_field.take() {
-                let delta = WorldDelta::RenameGrid(self.vehicle, field.contents().to_string());
+            if let Some((field, is_name)) = self.vehicle_name_field.take() {
+                let delta = if is_name {
+                    WorldDelta::RenameGrid(self.vehicle, field.contents().to_string())
+                } else {
+                    let bp = BlueprintId(field.contents().to_string(), 0);
+                    WorldDelta::SetGridBlueprint(self.vehicle, Some(bp))
+                };
                 ret = Some(delta);
+                self.vehicle_name_field = None;
             }
         }
 
-        if let Some(field) = &mut self.vehicle_name_field {
+        if let Some((field, _is_name)) = &mut self.vehicle_name_field {
             field.handle_keys(input);
         } else {
             if input.just_pressed_debounced(rdev::Key::KeyR) {
@@ -75,7 +82,11 @@ impl EditorState {
         }
 
         if input.just_pressed_debounced(rdev::Key::KeyN) && self.vehicle_name_field.is_none() {
-            self.vehicle_name_field = Some(EditableText::empty());
+            self.vehicle_name_field = Some((EditableText::empty(), true));
+        }
+
+        if input.just_pressed_debounced(rdev::Key::KeyB) && self.vehicle_name_field.is_none() {
+            self.vehicle_name_field = Some((EditableText::empty(), false));
         }
 
         if input.just_pressed_debounced(rdev::Key::Escape) && self.vehicle_name_field.is_some() {

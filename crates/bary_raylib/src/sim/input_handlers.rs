@@ -1,5 +1,4 @@
 use crate::camera::Camera;
-use crate::editor_state::EditableText;
 use crate::editor_state::EditorState;
 use crate::sim::*;
 use crate::sounds::*;

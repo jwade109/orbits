@@ -1394,6 +1394,16 @@ pub fn rename_grid(world: &mut World, grid_id: Ent, name: impl Into<String>) -> 
     Ok(name)
 }
 
+pub fn set_grid_blueprint_id(
+    world: &mut World,
+    grid_id: Ent,
+    bp_id: Option<BlueprintId>,
+) -> BaryResult<()> {
+    let grid = world.grids.try_get_mut(grid_id)?;
+    grid.blueprint = bp_id;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

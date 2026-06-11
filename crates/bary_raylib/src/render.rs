@@ -7,7 +7,7 @@ use crate::utils::*;
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use bary_factory::*;
-use bary_orbital::{TerrainMaterial, VehicleControl};
+use bary_orbital::TerrainMaterial;
 use bary_parts::*;
 use bary_sim::*;
 use bary_terminal::*;
@@ -1001,7 +1001,7 @@ pub fn draw_editor_rename_field(
 ) {
     let font = assets.consolas.as_ref().unwrap();
     let editor = some_or_return!(client.viewport.editor());
-    let field = some_or_return!(&editor.vehicle_name_field);
+    let (field, is_name) = some_or_return!(&editor.vehicle_name_field);
 
     let pos = glam_to_raylib(client.screen_dims / 2.0);
 
@@ -1010,7 +1010,11 @@ pub fn draw_editor_rename_field(
     let padding = 20;
 
     let (text, text_color) = if field.contents().is_empty() {
-        ("(type here to rename ship)".to_string(), Color::GRAY)
+        if *is_name {
+            ("(type here to rename ship)".to_string(), Color::GRAY)
+        } else {
+            ("(type here to rename blueprint)".to_string(), Color::GRAY)
+        }
     } else {
         (field.contents().to_string(), Color::WHITE)
     };

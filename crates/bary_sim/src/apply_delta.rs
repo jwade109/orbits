@@ -178,6 +178,9 @@ pub fn apply_delta(world: &mut World, delta: WorldDelta) -> BaryResult<()> {
             rename_grid(world, grid_id, name)?;
             Ok(())
         }
-        WorldDelta::SetGridBlueprint(_, _) => todo!(),
+        WorldDelta::SetGridBlueprint(grid_id, bp_id) => {
+            set_grid_blueprint_id(world, grid_id, bp_id)?;
+            Ok(())
+        }
     }
 }
