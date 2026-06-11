@@ -102,7 +102,7 @@ impl Asteroid {
         for _ in 0..n_craters {
             let x = rng.random_range(-max_r..=max_r);
             let y = rng.random_range(-max_r..=max_r);
-            let r = rng.random_range(10.0..max_r / 3.0);
+            let r = rng.random_range(10.0..(max_r / 3.0).max(12.0));
             s.craters.push((Vec2::new(x, y), r))
         }
 

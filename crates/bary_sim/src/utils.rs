@@ -1,7 +1,7 @@
 use crate::*;
 use bary_core::prelude::*;
 use bary_factory::*;
-use bary_orbital::VehicleControl;
+use bary_orbital::{TerrainMaterial, VehicleControl};
 use bary_parts::*;
 use early_returns::*;
 use log::*;
@@ -576,6 +576,14 @@ pub fn set_grid_anchored(world: &mut World, grid_id: Ent, anchored: bool) -> Bar
     let grid = world.grids.try_get_mut(grid_id)?;
     grid.is_anchored = anchored;
     grid.velocity = Isometry2d::ZERO;
+
+    if anchored {
+        set_all_thrusters(grid_id, false, world)?;
+        set_primary_computer_state(grid_id, false, world)?;
+    } else {
+        set_primary_computer_state(grid_id, true, world)?;
+    }
+
     Ok(())
 }
 
@@ -1101,10 +1109,20 @@ fn sys_update_machines(world: &mut World) {
 /// Iterates over all active excavators and removes tiles accordingly
 fn sys_mine_tiles(world: &mut World) {
     let mut to_remove: BTreeMap<(Ent, Ent), BTreeSet<GlobalTileIndex>> = BTreeMap::new();
+
+    for ex in world.excavators.values_mut() {
+        ex.tick();
+    }
+
     for (ex_id, ex) in world.excavators.iter() {
+        if !ex.mined_this_tick() {
+            continue;
+        }
+
         let Ok(Some((ast_id, tiles))) = get_excavator_tiles(*ex_id, ex, world) else {
             continue;
         };
+
         to_remove
             .entry((ast_id, *ex_id))
             .and_modify(|e| {
@@ -1117,11 +1135,21 @@ fn sys_mine_tiles(world: &mut World) {
 
     for ((ast_id, ex_id), tiles) in to_remove {
         for t in tiles {
-            let success = mine_terrain_tile(world, ast_id, t).is_ok();
-            if let Ok(inv) = world.inventories.try_get_mut(ex_id)
-                && success
-            {
-                inv.store(Item::Stone, 1);
+            if chance(0.5) {
+                continue;
+            }
+
+            let mat = mine_terrain_tile(world, ast_id, t).ok();
+            let inv = world.inventories.try_get_mut(ex_id).ok();
+            if let Some((mat, inv)) = mat.zip(inv) {
+                let item = match mat {
+                    TerrainMaterial::Rock => continue,
+                    TerrainMaterial::Dirt => continue,
+                    TerrainMaterial::Ice => Item::Ice,
+                    TerrainMaterial::Silicon => Item::Silicon,
+                    TerrainMaterial::Iron => Item::Iron,
+                };
+                inv.store(item, 100);
             }
         }
     }

@@ -1,2 +1,4 @@
 pub const EDITOR_MINIMUM_ZOOM: f32 = 70.0;
-pub const EDITOR_MAXIMUM_ZOOM: f32 = 250.0;
+pub const EDITOR_MAXIMUM_ZOOM: f32 = 350.0;
+
+pub const VIEWPORT_MAX_ZOOM: f32 = 350.0;

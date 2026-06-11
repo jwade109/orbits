@@ -197,6 +197,16 @@ fn editor_on_release_left_click(client: &mut ClientSpecificInfo) -> Option<World
     Some(delta)
 }
 
+fn lock_ship(world: &World, client: &ClientSpecificInfo) -> Option<WorldDelta> {
+    let primary_grid = client
+        .viewport
+        .free()?
+        .selection_info
+        .first_selected_grid()?;
+    let grid = world.grids.try_get(primary_grid).ok()?;
+    Some(WorldDelta::SetAnchored(primary_grid, !grid.is_anchored))
+}
+
 fn editor_on_left_click(world: &World, client: &mut ClientSpecificInfo) -> Option<WorldDelta> {
     let e = client.viewport.editor_mut()?;
     let coord = e.hovered?;
@@ -467,6 +477,12 @@ pub fn post_simulation_update(
         }
     }
 
+    if client.input.just_pressed(Key::KeyX) {
+        if let Some(d) = lock_ship(world, client) {
+            deltas.push(d);
+        }
+    }
+
     if client.input.just_released(Button::Left) {
         if let Some(d) = editor_on_release_left_click(client) {
             deltas.push(d);
@@ -512,8 +528,8 @@ pub fn post_simulation_update(
         }
     }
 
-    if client.target_camera.zoom > 140.0 {
-        client.target_camera.zoom = 140.0;
+    if client.target_camera.zoom > VIEWPORT_MAX_ZOOM {
+        client.target_camera.zoom = VIEWPORT_MAX_ZOOM;
     }
 
     animate_camera_towards_target(&client.target_camera, &mut client.camera);

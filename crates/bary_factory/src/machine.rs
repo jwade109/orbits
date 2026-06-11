@@ -93,7 +93,7 @@ impl Machine {
             let Some(slot) = inv.get_slot_mut(*slot_index) else {
                 return false;
             };
-            if !slot.store(item, count) {
+            if slot.store(item, count).is_err() {
                 return false;
             }
         }

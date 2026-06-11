@@ -167,14 +167,24 @@ pub fn fully_reveal_terrain_tile(
     Ok(())
 }
 
-pub fn mine_terrain_tile(world: &mut World, ast_id: Ent, t: GlobalTileIndex) -> BaryResult<()> {
+pub fn mine_terrain_tile(
+    world: &mut World,
+    ast_id: Ent,
+    t: GlobalTileIndex,
+) -> BaryResult<TerrainMaterial> {
     let rock = world.asteroids.try_get_mut(ast_id)?;
+
+    let (c, l) = t.to_cl();
+
+    let chunk_id = *rock.chunks.get(&c).ok_or(BaryError::NoChunk)?;
+    let chunk = world.terrain_chunks.try_get(chunk_id)?;
+    let tile_id = *chunk.tiles.get(&l).ok_or(BaryError::NoTile)?;
+    let tile = world.terrain_tiles.try_get(tile_id)?;
+
     let iso = rock.iso * t.center_isometry();
 
-    if chance(0.01) {
-        let dust = DustParticle::new(iso.translation, world.ticks);
-        world.particles.push(Particle::Dust(dust));
-    }
+    let dust = DustParticle::new(iso.translation, world.ticks);
+    world.particles.push(Particle::Dust(dust));
 
-    Ok(())
+    Ok(tile.material())
 }

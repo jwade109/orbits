@@ -41,6 +41,10 @@ pub fn sys_update_thrusters(
             continue;
         }
 
+        if grid.is_anchored {
+            continue;
+        }
+
         let Some(cpu_id) = grid.computers.first() else {
             continue;
         };

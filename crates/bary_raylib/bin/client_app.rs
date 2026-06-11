@@ -296,12 +296,23 @@ impl ClientApp {
         }
     }
 
+    fn log_world_delta(&mut self, delta: &WorldDelta) {
+        match delta {
+            WorldDelta::SetPlayerPosition(_, _) => return,
+            WorldDelta::SetPlayerCursorPosition(_, _) => return,
+            _ => {
+                self.client.chat.log(format!("{:?}", delta));
+            }
+        }
+    }
+
     fn on_driver_packet(&mut self, ticks: u64, deltas: Vec<WorldDelta>) {
         while self.world.ticks + 1 < ticks {
             update_world(&mut self.world);
         }
 
         for delta in deltas {
+            self.log_world_delta(&delta);
             if let Err(e) = apply_delta(&mut self.world, delta.clone()) {
                 error!("Failed to apply delta {:?}: {:?}", delta, e);
             }
@@ -857,7 +868,7 @@ fn make_gui(font: &Font, client: &ClientSpecificInfo, world: &World) -> Tree<UiM
         }
     }
 
-    tree.add_layout(make_main_menu(&builder), Vec2::splat(400.0));
+    // tree.add_layout(make_main_menu(&builder), Vec2::splat(400.0));
 
     tree
 }

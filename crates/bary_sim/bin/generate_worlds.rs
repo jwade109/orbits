@@ -31,7 +31,7 @@ fn scenario_a() -> BaryResult<()> {
         .spawn("bellerophon", "", (130.0, 50.0, 0.1))
         .command(WorldDelta::Ping(Vec2::ZERO))
         .command(WorldDelta::Ping(Vec2::splat(10.0)))
-        .asteroid((-80.0, 30.0, 0.1), 20.0, 391)
+        .asteroid((-80.0, 30.0, 0.1), 20.0, 632)
         .asteroid((60.0, 300.0, 0.7), 50.0, 2384)
         // .asteroid((400.0, -2000.0, 0.7), 500.0, 9312)
         .build();
