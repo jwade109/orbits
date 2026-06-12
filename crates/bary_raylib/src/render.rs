@@ -320,15 +320,7 @@ pub fn draw_world(
 
     draw_excavators(&mut c, world);
 
-    draw_parts(
-        &mut c,
-        &world.grids,
-        &world.parts,
-        &world.prototypes,
-        &raylib_camera,
-        &client.viewport,
-        assets,
-    );
+    draw_parts(&mut c, world, &raylib_camera, &client.viewport, assets);
 
     if client.viewport.is_real_view() {
         draw_selection_info(&mut c, &world.grids, &client);
@@ -1093,9 +1085,7 @@ pub fn draw_part_arrow(d: &mut RaylibDrawHandle, pl: GridRegion, grid_isometry: 
 
 pub fn draw_parts(
     d: &mut RaylibDrawHandle,
-    grids: &Components<VehicleGrid>,
-    parts: &Components<Part>,
-    protos: &Components<PartPrototype>,
+    world: &World,
     camera: &Camera2D,
     viewport: &Viewport,
     assets: &Assets,
@@ -1110,16 +1100,16 @@ pub fn draw_parts(
         (None, None)
     };
 
-    for (grid_id, grid) in grids.iter() {
+    for (grid_id, grid) in world.grids.iter() {
         let is_focus_vehicle = focus_vehicle == Some(*grid_id) || focus_vehicle.is_none();
 
         for draw_layer in PartLayer::draw_order() {
             for part_id in &grid.parts {
-                let Ok(part) = parts.try_get(*part_id) else {
+                let Ok(part) = world.parts.try_get(*part_id) else {
                     continue;
                 };
 
-                let Ok(proto) = protos.try_get(part.prototype) else {
+                let Ok(proto) = world.prototypes.try_get(part.prototype) else {
                     continue;
                 };
 
@@ -1160,6 +1150,10 @@ pub fn draw_parts(
                     let scale = 1.0 / 20.0;
                     d.draw_texture_ex(sprite, pos, rot, scale, tint);
                 }
+            }
+
+            if draw_layer == PartLayer::Plumbing {
+                _ = draw_pipes_for_grid(d, &world, *grid_id);
             }
         }
     }
@@ -1482,6 +1476,33 @@ fn get_pipe_joint_location(
     let part_root = part.region.origin_isometry();
     let offset = joint.offset.to_meters();
     Ok(grid_root * part_root.offset(offset))
+}
+
+fn draw_pipes_for_grid(d: &mut RaylibDrawHandle, world: &World, grid_id: Ent) -> BaryResult<()> {
+    let grid = world.grids.try_get(grid_id)?;
+    for id in &grid.pipes {
+        let pipe = world.pipes.try_get(*id)?;
+        draw_pipe(d, pipe, world)?;
+    }
+    Ok(())
+}
+
+fn draw_pipe(d: &mut RaylibDrawHandle, pipe: &Pipe, world: &World) -> BaryResult<()> {
+    let src = get_pipe_joint_location(pipe.src, &world.grids, &world.parts)?;
+    let dst = get_pipe_joint_location(pipe.dst, &world.grids, &world.parts)?;
+
+    let half_cell = Vec2::splat(PartCoord::CELL_WIDTH) / 2.0;
+
+    let p = src.offset(half_cell).translation;
+    let q = dst.offset(half_cell).translation;
+
+    let color = Color::new(30, 30, 30, 255);
+
+    fill_circle(d, p, 0.13, color);
+    fill_circle(d, q, 0.13, color);
+    draw_line_width(d, p, q, 0.1, color);
+
+    Ok(())
 }
 
 fn draw_pipes(

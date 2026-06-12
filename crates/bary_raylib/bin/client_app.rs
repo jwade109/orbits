@@ -1033,6 +1033,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         main_app.client.player_id,
                         &mut d,
                     );
+
+                    // silly_func(&mut d, &main_app);
                 }
 
                 draw_terminal(

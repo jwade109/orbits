@@ -437,7 +437,7 @@ pub fn split_grid_if_necessary(world: &mut World, grid_id: Ent) -> BaryResult<Ve
         };
         let part = world.parts.try_get(*key_part)?;
         let pose = grid.origin() * part.region.origin_isometry();
-        info!("Position of {}: {:?}", key_part, pose);
+        debug!("Position of {}: {:?}", key_part, pose);
         key_parts.insert(*key_part, pose);
     }
 
