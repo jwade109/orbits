@@ -10,7 +10,6 @@ pub mod ui;
 pub mod utils;
 
 mod commands;
-pub mod headless_server;
 mod new_ui;
 
 pub use commands::*;

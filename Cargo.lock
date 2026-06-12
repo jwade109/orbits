@@ -537,6 +537,7 @@ dependencies = [
  "bary_ipc",
  "bary_orbital",
  "bary_parts",
+ "bary_server",
  "bary_sim",
  "bary_terminal",
  "bary_ui",
@@ -560,6 +561,21 @@ dependencies = [
  "simple_logger",
  "steamworks",
  "toml",
+]
+
+[[package]]
+name = "bary_server"
+version = "0.1.0"
+dependencies = [
+ "bary_core",
+ "bary_ipc",
+ "bary_sim",
+ "bincode",
+ "clap 4.6.1",
+ "log",
+ "md5",
+ "serde",
+ "simple_logger",
 ]
 
 [[package]]

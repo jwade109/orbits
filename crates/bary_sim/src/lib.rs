@@ -1,3 +1,4 @@
+mod application;
 mod apply_delta;
 mod big_rock;
 mod chat;
@@ -26,6 +27,7 @@ mod world_builder;
 mod world_delta;
 mod world_struct;
 
+pub use application::*;
 pub use apply_delta::*;
 pub use big_rock::*;
 pub use chat::*;

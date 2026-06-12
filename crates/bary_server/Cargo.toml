@@ -1,0 +1,20 @@
+[package]
+name = "bary_server"
+version = "0.1.0"
+edition = "2024"
+rust-version.workspace = true
+
+[dependencies]
+bary_core = { path = "../bary_core" }
+bary_sim = { path = "../bary_sim" }
+bary_ipc = { path = "../bary_ipc" }
+clap = { version = "4.6.1", features = ["derive"] }
+log = "0.4.31"
+simple_logger = "5.2.0"
+serde = { version = "1.0.228", features = ["derive"] }
+bincode = "1.3.3"
+md5 = "0.8.0"
+
+[[bin]]
+name = "headless_server"
+path = "bin/headless_server.rs"
