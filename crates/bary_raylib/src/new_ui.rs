@@ -16,7 +16,10 @@ pub enum UiMessage {
     DockingShiftY,
     DockingRotate,
     DockingActivate,
-    Dummy(u32),
+    LoadSinglePlayer,
+    JoinMultiplayer,
+    HostMultiplayer,
+    Settings,
 }
 
 #[derive(Debug, Clone, Copy, Default)]

@@ -1,5 +1,4 @@
 pub mod assets;
-pub mod camera;
 pub mod constants;
 pub mod editor_state;
 pub mod imgui;

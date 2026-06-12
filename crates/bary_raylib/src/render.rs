@@ -1,5 +1,4 @@
 use crate::assets::*;
-use crate::camera::{Camera, to_raylib_camera};
 use crate::editor_state::EditorState;
 use crate::imgui::{ImGui, ZOOM_NEAR_FAR_THRESHOLD};
 use crate::sim::*;
@@ -9,10 +8,23 @@ use bary_core::prelude::*;
 use bary_factory::*;
 use bary_orbital::TerrainMaterial;
 use bary_parts::*;
+use bary_sim::Camera;
 use bary_sim::*;
 use bary_terminal::*;
 use early_returns::*;
 use raylib::prelude::*;
+
+fn to_raylib_camera(camera: &Camera, screen_dims: Vec2) -> Camera2D {
+    Camera2D {
+        offset: glam_to_raylib(screen_dims) / 2.0,
+        target: Vector2::new(
+            camera.isometry.translation.x,
+            -camera.isometry.translation.y,
+        ),
+        rotation: camera.isometry.rotation.to_degrees(),
+        zoom: camera.zoom,
+    }
+}
 
 fn draw_text(d: &mut RaylibDrawHandle, iso: Isometry2d, text: &str, font_size: f32) {
     let p = glam_to_raylib_swap_y(iso.translation);

@@ -1,4 +1,3 @@
-use crate::camera::Camera;
 use crate::constants::*;
 use crate::imgui::*;
 use crate::sim::*;
@@ -7,6 +6,7 @@ use crate::utils::*;
 use bary_core::prelude::PI;
 use bary_core::prelude::*;
 use bary_input::*;
+use bary_sim::Camera;
 use bary_sim::*;
 use early_returns::*;
 use rdev::Button;

@@ -1,7 +1,5 @@
-use crate::camera::Camera;
 use bary_core::prelude::*;
-use bary_ipc::SyncFrame;
-use bary_sim::World;
+use bary_sim::Camera;
 use raylib::prelude::*;
 
 pub fn glam_to_raylib(v: Vec2) -> Vector2 {

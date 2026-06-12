@@ -25,7 +25,14 @@ use log::*;
 use raylib::prelude::*;
 use serde::Deserialize;
 
+enum AppState {
+    MainMenu,
+    InWorld,
+}
+
 pub struct ClientApp {
+    state: AppState,
+
     username: String,
 
     client: ClientSpecificInfo,
@@ -104,6 +111,7 @@ impl ClientApp {
         let ui_state = UiInteractionState::default();
 
         Ok(ClientApp {
+            state: AppState::MainMenu,
             username: args.username,
             world,
             client: ClientSpecificInfo::new(),
@@ -449,6 +457,13 @@ impl ClientApp {
                     UiMessage::SimSpeed(sp) => self.set_sim_speed(sp),
                     UiMessage::DockingRotate => self.docking_rotate(),
                     UiMessage::DockingActivate => self.docking_activate(),
+
+                    UiMessage::LoadSinglePlayer
+                    | UiMessage::JoinMultiplayer
+                    | UiMessage::HostMultiplayer
+                    | UiMessage::Settings => {
+                        self.state = AppState::InWorld;
+                    }
                     _ => (),
                 }
             }
@@ -673,7 +688,7 @@ fn handle_sounds<'a>(
 struct Args {
     #[arg(long)]
     username: String,
-    #[arg(short, default_value = "saves/scenario_a")]
+    #[arg(short)]
     save_file: String,
     #[arg(short = 'a', default_value = "127.0.0.1:5000")]
     server_addr: String,
@@ -823,50 +838,57 @@ fn make_main_menu(ui: &UiBuilder) -> Node<UiMessage> {
     Node::column(
         800,
         vec![
-            ui.button(UiMessage::Dummy(0), "Load Single Player"),
-            ui.button(UiMessage::Dummy(1), "Join Multiplayer"),
-            ui.button(UiMessage::Dummy(2), "Host Multiplayer"),
-            ui.button(UiMessage::Dummy(3), "Settings"),
+            ui.button(UiMessage::LoadSinglePlayer, "Load Single Player"),
+            ui.button(UiMessage::JoinMultiplayer, "Join Multiplayer"),
+            ui.button(UiMessage::HostMultiplayer, "Host Multiplayer"),
+            ui.button(UiMessage::Settings, "Settings"),
         ],
     )
 }
 
-fn make_gui(font: &Font, client: &ClientSpecificInfo, world: &World) -> Tree<UiMessage> {
+fn make_gui(font: &Font, app: &ClientApp) -> Tree<UiMessage> {
     let builder = UiBuilder::new(font);
 
-    let mut root: Node<UiMessage> = Node::root(Size::Fit, Size::Fit).with_children(
-        [
-            builder.button(UiMessage::Exit, "Exit to Desktop"),
-            builder.button(UiMessage::SaveFile, "Save Game"),
-            builder.button(UiMessage::AltMode, "Toggle Alt Mode"),
-            builder.button(UiMessage::DebugText, "Toggle Debug Text"),
-            builder.button(UiMessage::SimSpeed(0), "Toggle Pause"),
-            builder.button(UiMessage::SimSpeed(1), "Sim 1x"),
-            builder.button(UiMessage::SimSpeed(10), "Sim 10x"),
-            builder.button(UiMessage::SimSpeed(100), "Sim 100x"),
-            builder.button(UiMessage::SimSpeed(1000), "Sim 1000x"),
-        ]
-        .into_iter(),
-    );
+    let mut tree = Tree::new();
 
-    if client.selected_grid_loc().is_some() && client.viewport.editor().is_none() {
-        let b = builder.button(UiMessage::OpenEditor, "Open Ship Editor");
-        root.add_child(b);
-    }
+    match app.state {
+        AppState::MainMenu => {
+            tree.add_layout(make_main_menu(&builder), Vec2::splat(400.0));
+        }
+        AppState::InWorld => {
+            let mut root: Node<UiMessage> = Node::root(Size::Fit, Size::Fit).with_children(
+                [
+                    builder.button(UiMessage::Exit, "Exit to Desktop"),
+                    builder.button(UiMessage::SaveFile, "Save Game"),
+                    builder.button(UiMessage::AltMode, "Toggle Alt Mode"),
+                    builder.button(UiMessage::DebugText, "Toggle Debug Text"),
+                    builder.button(UiMessage::SimSpeed(0), "Toggle Pause"),
+                    builder.button(UiMessage::SimSpeed(1), "Sim 1x"),
+                    builder.button(UiMessage::SimSpeed(10), "Sim 10x"),
+                    builder.button(UiMessage::SimSpeed(100), "Sim 100x"),
+                    builder.button(UiMessage::SimSpeed(1000), "Sim 1000x"),
+                ]
+                .into_iter(),
+            );
 
-    if client.viewport.editor().is_some() {
-        root.add_child(builder.button(UiMessage::LeaveEditor, "Leave Ship Editor"));
-    }
+            if app.client.selected_grid_loc().is_some() && app.client.viewport.editor().is_none() {
+                let b = builder.button(UiMessage::OpenEditor, "Open Ship Editor");
+                root.add_child(b);
+            }
 
-    let mut tree = Tree::new().with_layout(root, None);
+            if app.client.viewport.editor().is_some() {
+                root.add_child(builder.button(UiMessage::LeaveEditor, "Leave Ship Editor"));
+            }
 
-    if let Some(docking) = client.docking_interface() {
-        if let Some(ui) = make_docking_ui(&builder, &docking, world) {
-            tree.add_layout(ui, Vec2::new(100.0, 200.0))
+            tree.add_layout(root, None);
+
+            if let Some(docking) = app.client.docking_interface() {
+                if let Some(ui) = make_docking_ui(&builder, &docking, &app.world) {
+                    tree.add_layout(ui, Vec2::new(100.0, 200.0))
+                }
+            }
         }
     }
-
-    // tree.add_layout(make_main_menu(&builder), Vec2::splat(400.0));
 
     tree
 }
@@ -967,7 +989,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let font = main_app.assets.fira_code.as_ref().unwrap();
 
-        let ui = make_gui(font, &main_app.client, &main_app.world);
+        let ui = make_gui(font, &main_app);
 
         if main_app
             .client
@@ -997,13 +1019,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .draw(&main_app.thread, |mut d: RaylibDrawHandle<'_>| {
                 d.clear_background(Color::BLACK);
 
-                draw_world(
-                    &main_app.world,
-                    &main_app.client,
-                    &main_app.assets,
-                    &gui,
-                    &mut d,
-                );
+                if matches!(main_app.state, AppState::InWorld) {
+                    draw_world(
+                        &main_app.world,
+                        &main_app.client,
+                        &main_app.assets,
+                        &gui,
+                        &mut d,
+                    );
+                }
 
                 draw_gui(&main_app.ui_state, &mut d, &ui, font);
 
@@ -1031,8 +1055,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         main_app.client.player_id,
                         &mut d,
                     );
-
-                    // silly_func(&mut d, &main_app);
                 }
 
                 draw_terminal(

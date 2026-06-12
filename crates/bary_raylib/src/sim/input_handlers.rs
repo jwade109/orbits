@@ -1,9 +1,9 @@
-use crate::camera::Camera;
 use crate::editor_state::EditorState;
 use crate::sim::*;
 use crate::sounds::*;
 use bary_core::prelude::*;
 use bary_input::*;
+use bary_sim::Camera;
 use bary_sim::*;
 use early_returns::*;
 use log::*;
