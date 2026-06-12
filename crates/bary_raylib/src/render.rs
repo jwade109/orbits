@@ -1133,7 +1133,7 @@ pub fn draw_parts(
                 let tint = if is_shown {
                     Color::WHITE
                 } else {
-                    Color::WHITE.alpha(0.3)
+                    Color::WHITE.alpha(0.1)
                 };
 
                 if let Some(sprite) = assets.part_textures.get(&proto.name) {
@@ -1153,7 +1153,9 @@ pub fn draw_parts(
             }
 
             if draw_layer == PartLayer::Plumbing {
-                _ = draw_pipes_for_grid(d, &world, *grid_id);
+                let is_shown = focus_layer == Some(PartLayer::Plumbing) || focus_layer.is_none();
+                let alpha = if is_shown { 1.0 } else { 0.2 };
+                _ = draw_pipes_for_grid(d, &world, *grid_id, assets, alpha);
             }
         }
     }
@@ -1478,29 +1480,123 @@ fn get_pipe_joint_location(
     Ok(grid_root * part_root.offset(offset))
 }
 
-fn draw_pipes_for_grid(d: &mut RaylibDrawHandle, world: &World, grid_id: Ent) -> BaryResult<()> {
+fn draw_pipes_for_grid(
+    d: &mut RaylibDrawHandle,
+    world: &World,
+    grid_id: Ent,
+    assets: &Assets,
+    alpha: f32,
+) -> BaryResult<()> {
     let grid = world.grids.try_get(grid_id)?;
     for id in &grid.pipes {
         let pipe = world.pipes.try_get(*id)?;
-        draw_pipe(d, pipe, world)?;
+        draw_pipe(d, grid, pipe, world, assets, alpha)?;
     }
     Ok(())
 }
 
-fn draw_pipe(d: &mut RaylibDrawHandle, pipe: &Pipe, world: &World) -> BaryResult<()> {
-    let src = get_pipe_joint_location(pipe.src, &world.grids, &world.parts)?;
-    let dst = get_pipe_joint_location(pipe.dst, &world.grids, &world.parts)?;
+fn pipe_tile_bounds(idx: usize) -> Rectangle {
+    let size = 5;
+    let xoff = idx % 5;
+    let yoff = idx / 5;
+    let x = xoff * size;
+    let y = yoff * size;
+    Rectangle::new(x as f32, y as f32, size as f32, size as f32)
+}
 
+fn draw_pipe_sprite(
+    d: &mut RaylibDrawHandle,
+    sprites: &Texture2D,
+    grid_iso: Isometry2d,
+    coord: PartCoord,
+    idx: usize,
+    alpha: f32,
+) {
     let half_cell = Vec2::splat(PartCoord::CELL_WIDTH) / 2.0;
+    let iso = grid_iso * Isometry2d::from_pos(coord.to_meters());
+    let p = iso.offset(half_cell).translation;
+    let source_rec = pipe_tile_bounds(idx);
+    let w = PartCoord::CELL_WIDTH;
+    let dest_rec = Rectangle::new(p.x - w / 2.0, -p.y - w / 2.0, w, w);
+    d.draw_texture_pro(
+        sprites,
+        source_rec,
+        dest_rec,
+        Vector2::zero(),
+        -grid_iso.rotation.to_degrees(),
+        Color::WHITE.alpha(alpha),
+    );
+}
 
-    let p = src.offset(half_cell).translation;
-    let q = dst.offset(half_cell).translation;
+fn draw_pipe(
+    d: &mut RaylibDrawHandle,
+    grid: &VehicleGrid,
+    pipe: &Pipe,
+    world: &World,
+    assets: &Assets,
+    alpha: f32,
+) -> BaryResult<()> {
+    let sprites = assets.pipe_tilemap.as_ref().unwrap();
 
-    let color = Color::new(30, 30, 30, 255);
+    let src_part = world.parts.try_get(pipe.src.part_id)?;
+    let dst_part = world.parts.try_get(pipe.dst.part_id)?;
+    let start = src_part.region.to_global(pipe.src.offset);
+    let end = dst_part.region.to_global(pipe.dst.offset);
 
-    fill_circle(d, p, 0.13, color);
-    fill_circle(d, q, 0.13, color);
-    draw_line_width(d, p, q, 0.1, color);
+    let geo = PipeGeometry {
+        start,
+        end,
+        x_first: true,
+    };
+
+    let iso = grid.origin();
+
+    match geo.segments() {
+        PipeSegments::Single(start, end) => {
+            if start.0.x == end.0.x {
+                if start.0.y < end.0.y {
+                    // straight up
+                    draw_pipe_sprite(d, sprites, iso, start, 5, alpha);
+                    draw_pipe_sprite(d, sprites, iso, end, 6, alpha);
+                    for y in start.0.y + 1..end.0.y {
+                        let c = PartCoord::new((start.0.x, y));
+                        draw_pipe_sprite(d, sprites, iso, c, 2, alpha);
+                    }
+                } else {
+                    // straight down
+                    draw_pipe_sprite(d, sprites, iso, start, 6, alpha);
+                    draw_pipe_sprite(d, sprites, iso, end, 5, alpha);
+                    for y in end.0.y + 1..start.0.y {
+                        let c = PartCoord::new((start.0.x, y));
+                        draw_pipe_sprite(d, sprites, iso, c, 2, alpha);
+                    }
+                }
+            } else {
+                if start.0.x < end.0.x {
+                    // straight to the right
+                    draw_pipe_sprite(d, sprites, iso, start, 0, alpha);
+                    draw_pipe_sprite(d, sprites, iso, end, 7, alpha);
+                    for x in start.0.x + 1..end.0.x {
+                        let c = PartCoord::new((x, start.0.y));
+                        draw_pipe_sprite(d, sprites, iso, c, 1, alpha);
+                    }
+                } else {
+                    // straight to the left
+                    draw_pipe_sprite(d, sprites, iso, start, 7, alpha);
+                    draw_pipe_sprite(d, sprites, iso, end, 0, alpha);
+                    for x in end.0.x + 1..start.0.x {
+                        let c = PartCoord::new((x, start.0.y));
+                        draw_pipe_sprite(d, sprites, iso, c, 1, alpha);
+                    }
+                }
+            }
+        }
+        PipeSegments::Double(start, mid, end) => {
+            // draw_pipe_sprite(d, sprites, iso, start, 3, alpha);
+            // draw_pipe_sprite(d, sprites, iso, mid, 5, alpha);
+            // draw_pipe_sprite(d, sprites, iso, end, 4, alpha);
+        }
+    }
 
     Ok(())
 }

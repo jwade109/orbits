@@ -19,6 +19,7 @@ pub struct Assets {
     pub terrain_textures: Vec<Texture2D>,
     pub animation: MaybeTexture,
     pub terrain_spritesheet: MaybeTexture,
+    pub pipe_tilemap: MaybeTexture,
     pub ship_names: Vec<String>,
     pub keybinds: GlobalKeybinds,
 }
@@ -67,4 +68,6 @@ pub fn load_assets(
     assets.terrain_spritesheet = rl
         .load_texture(&thread, "assets/terrain/terrain_sprites.png")
         .ok();
+
+    assets.pipe_tilemap = rl.load_texture(thread, "assets/pipe.png").ok();
 }
