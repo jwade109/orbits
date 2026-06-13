@@ -698,8 +698,8 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(r1, Ok(()));
-        assert_eq!(r2, Ok(()));
+        assert_eq!(r1, Ok(grid_id));
+        assert_eq!(r2, Ok(grid_id));
 
         let sum =
             get_sum_linear_forces(grid_id, &world.grids, &world.parts, &world.thrusters).unwrap();
@@ -725,8 +725,8 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(r1, Ok(()));
-        assert_eq!(r2, Ok(()));
+        assert_eq!(r1, Ok(grid_id));
+        assert_eq!(r2, Ok(grid_id));
 
         let grid = world.grids.try_get(grid_id).unwrap();
 
@@ -743,8 +743,8 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(r1, Ok(()));
-        assert_eq!(r2, Ok(()));
+        assert_eq!(r1, Ok(grid_id));
+        assert_eq!(r2, Ok(grid_id));
 
         let grid = world.grids.try_get(grid_id).unwrap();
 
@@ -869,7 +869,7 @@ mod tests {
 
         // obviously, turn the main thruster on
         let r = set_thruster_state(thruster_id, &mut world, true);
-        assert_eq!(r, Ok(()));
+        assert_eq!(r, Ok(grid_id));
 
         update_single_grid_acceleration(
             grid_id,

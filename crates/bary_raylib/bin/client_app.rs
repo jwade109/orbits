@@ -1213,12 +1213,13 @@ fn draw_node(
 }
 
 fn draw_gui(
-    state: &UiInteractionState,
     d: &mut RaylibDrawHandle,
+    state: &UiInteractionState,
     gui: &Tree<UiMessage>,
-    font: &Font,
     assets: &Assets,
 ) {
+    let font = assets.consolas.as_ref().unwrap();
+
     for node in gui.iter() {
         draw_node(state, d, node, font, assets);
     }
@@ -1282,11 +1283,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             main_app.on_ui_event(c);
         }
 
-        let font = main_app.assets.consolas.as_ref().unwrap();
-
         let timers = DebugTimers::default();
-
-        // CONSTRUCT IMMEDIATE-MODE GUI
 
         main_app
             .handle
@@ -1297,7 +1294,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     draw_world(&main_app.world, &main_app.client, &main_app.assets, &mut d);
                 }
 
-                draw_gui(&main_app.ui_state, &mut d, &ui, font, &main_app.assets);
+                draw_gui(&mut d, &main_app.ui_state, &ui, &main_app.assets);
 
                 imgui::lame_old_imgui_entrypoint(
                     &mut d,

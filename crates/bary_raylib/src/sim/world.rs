@@ -463,14 +463,6 @@ pub fn post_simulation_update(
 
     let mut deltas = Vec::new();
 
-    // if client.focused_grid_id().is_none() {
-    //     if client.input.is_key_pressed(rdev::Button::Left) {
-    //         if let Some(delta) = do_terrain_tile_under_mouse(world, client) {
-    //             deltas.push(delta);
-    //         }
-    //     }
-    // }
-
     if client.input.just_pressed(Button::Left) {
         if let Some(d) = editor_on_left_click(world, client) {
             deltas.push(d);

@@ -93,7 +93,7 @@ pub fn assert_world_is_consistent(world: &World) {
     match is_world_consistent(world) {
         Ok(_) => (),
         Err(e) => {
-            println!("Failed: {:?}", e);
+            println!("assert_world_is_consistent failed: {:?}", e);
             assert!(false);
         }
     }
