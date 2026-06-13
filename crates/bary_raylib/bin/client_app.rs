@@ -1031,6 +1031,11 @@ fn make_part_info_gui(ui: &UiBuilder, app: &ClientApp, tree: &mut Tree<UiMessage
         }
 
         if let Ok(cpu) = app.world.computers.try_get(part_id) {
+            children.push(ui.button(
+                UiMessage::SetComputerOnOff(part_id, !cpu.on),
+                if cpu.on { "Turn Off" } else { "Turn On" },
+            ));
+            children.push(ui.button(UiMessage::SetComputerDrift(part_id), "Set to Drift"));
             let info = computer_info_str(cpu);
             children.push(ui.text(info));
         }
@@ -1038,7 +1043,11 @@ fn make_part_info_gui(ui: &UiBuilder, app: &ClientApp, tree: &mut Tree<UiMessage
             let s = format!("{:#?}", thruster);
             children.push(ui.button(
                 UiMessage::SetThrusterOnOff(part_id, !thruster.is_on),
-                if thruster.is_on { "Turn Off" } else { "Turn On" },
+                if thruster.is_on {
+                    "Turn Off"
+                } else {
+                    "Turn On"
+                },
             ));
             children.push(ui.text(s));
         }

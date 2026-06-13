@@ -27,6 +27,8 @@ pub enum UiMessage {
     PartInfoHandle,
     SetMachineOnOff(Ent, bool),
     SetThrusterOnOff(Ent, bool),
+    SetComputerOnOff(Ent, bool),
+    SetComputerDrift(Ent),
     Salt(usize),
 }
 
