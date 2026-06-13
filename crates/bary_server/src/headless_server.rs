@@ -35,21 +35,32 @@ pub struct HeadlessServerApp {
 }
 
 impl HeadlessServerApp {
-    pub fn new(save_path: &str, port: u16, speed: u32) -> BaryResult<Self> {
+    pub fn new(save_path: Option<String>, port: u16, speed: u32) -> BaryResult<Self> {
         let node = ServerNode::new(port);
 
-        let world = load_world(save_path)?;
+        let world = World::empty();
 
-        Ok(Self {
+        let mut s = Self {
             world,
             client_telemetry: HashMap::new(),
             tick_rate: speed,
             node,
-            update_timer: WallTimer::with_dur(Duration::from_millis(1000 / TICKS_PER_SECOND)),
-            print_timer: WallTimer::with_dur(Duration::from_millis(1000)),
+            update_timer: WallTimer::hz(TICKS_PER_SECOND as u32),
+            print_timer: WallTimer::hz(1),
             md5_sync_timer: WallTimer::hz(2),
             queued_deltas: Vec::new(),
-        })
+        };
+
+        if let Some(path) = save_path {
+            s.load_save(&path)?;
+        }
+
+        Ok(s)
+    }
+
+    pub fn load_save(&mut self, save: &str) -> BaryResult<()> {
+        self.world = load_world(save)?;
+        Ok(())
     }
 
     pub fn get_statistics(&self) -> ServerStatistics {

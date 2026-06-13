@@ -88,6 +88,7 @@ pub enum NodeType<T: UiMsg> {
     Button(String, T),
     Image(String),
     Spacer,
+    DragHandle(T),
     Row(Vec<Node<T>>),
     Column(Vec<Node<T>>),
 }
@@ -136,6 +137,12 @@ impl<T: UiMsg> Node<T> {
     pub fn text(width: impl Into<Size>, height: impl Into<Size>, text: impl Into<String>) -> Self {
         let mut node = Self::new(width, height);
         node.node_type = NodeType::Text(text.into());
+        node
+    }
+
+    pub fn handle(width: impl Into<Size>, height: impl Into<Size>, onclick: impl Into<T>) -> Self {
+        let mut node = Self::new(width, height);
+        node.node_type = NodeType::DragHandle(onclick.into());
         node
     }
 
@@ -248,6 +255,7 @@ impl<T: UiMsg> Node<T> {
     pub fn on_click(&self) -> Option<&T> {
         match &self.node_type {
             NodeType::Button(_, onclick) => Some(onclick),
+            NodeType::DragHandle(onclick) => Some(onclick),
             _ => None,
         }
     }
@@ -685,6 +693,7 @@ fn write_node<'a, T: UiMsg>(
         NodeType::Button(_, _) => "Button",
         NodeType::Image(_) => "Image",
         NodeType::Spacer => "Spacer",
+        NodeType::DragHandle(_) => "DragHandle",
         NodeType::Row(nodes) => "Row",
         NodeType::Column(nodes) => "Column",
     };

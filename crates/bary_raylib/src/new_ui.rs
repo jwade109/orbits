@@ -3,7 +3,7 @@ use bary_input::InputState;
 use bary_ui::Tree;
 use log::*;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiMessage {
     Exit,
     SaveFile,
@@ -20,9 +20,14 @@ pub enum UiMessage {
     JoinMultiplayer,
     HostMultiplayer,
     Settings,
+    LoadSaveFile(String),
+    GoToMainMenu,
+    DockingHandle,
+    MainMenuHandle,
+    SaveSelectHandle,
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct UiInteractionState {
     is_on_gui: bool,
     screen_pos: Option<Vec2>,
@@ -37,7 +42,7 @@ pub enum UiEventKind {
     Drag(Vec2),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct UiEvent {
     pub msg: UiMessage,
     pub pos: Vec2,
@@ -75,12 +80,12 @@ impl UiInteractionState {
         self.is_on_gui
     }
 
-    pub fn active(&self) -> Option<UiMessage> {
-        self.active.map(|e| e.0)
+    pub fn active(&self) -> Option<&UiMessage> {
+        self.active.as_ref().map(|e| &e.0)
     }
 
-    pub fn hot(&self) -> Option<UiMessage> {
-        self.hot.map(|e| e.0)
+    pub fn hot(&self) -> Option<&UiMessage> {
+        self.hot.as_ref().map(|e| &e.0)
     }
 
     pub fn update(
@@ -108,10 +113,10 @@ impl UiInteractionState {
                 let relative = p - aabb.lower();
 
                 if contains {
-                    self.hot = Some((*onclick, relative));
+                    self.hot = Some((onclick.clone(), relative));
 
                     if input.just_pressed(rdev::Button::Left) {
-                        self.active = self.hot;
+                        self.active = self.hot.clone();
                     }
                 }
             }
@@ -120,10 +125,12 @@ impl UiInteractionState {
         let mut ret = None;
 
         if input.is_key_pressed(rdev::Button::Left) {
-            if let Some((last, (cur, active))) = last_pos.zip(self.screen_pos.zip(self.active)) {
+            if let Some((last, (cur, active))) =
+                last_pos.zip(self.screen_pos.zip(self.active.as_ref()))
+            {
                 if last != cur {
                     let delta = cur - last;
-                    ret = Some(UiEvent::drag(active.0, active.1, delta));
+                    ret = Some(UiEvent::drag(active.0.clone(), active.1, delta));
                 }
             }
         }
@@ -135,9 +142,9 @@ impl UiInteractionState {
         // }
 
         if input.just_released(rdev::Button::Left) {
-            if let Some((active, hot)) = self.active.zip(self.hot) {
+            if let Some((active, hot)) = self.active.as_ref().zip(self.hot.as_ref()) {
                 if active.0 == hot.0 {
-                    ret = Some(UiEvent::release(active.0, active.1));
+                    ret = Some(UiEvent::release(active.0.clone(), active.1));
                 }
             }
             self.active = None;

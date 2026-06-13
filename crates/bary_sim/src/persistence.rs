@@ -156,7 +156,7 @@ pub fn load_world(dir: impl AsRef<Path>) -> BaryResult<World> {
     Ok(world)
 }
 
-pub fn list_saves_in_dir(dir: &Path) -> Vec<PathBuf> {
+pub fn list_saves_in_dir(dir: impl AsRef<Path>) -> Vec<PathBuf> {
     let mut ret = Vec::new();
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries {

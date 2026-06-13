@@ -12,9 +12,7 @@ pub struct Args {
     #[arg(default_value = "5000")]
     server_port: u16,
     #[arg(default_value = "saves/")]
-    saves_dir: String,
-    #[arg(default_value = "scenario_a")]
-    save_name: String,
+    savefile: Option<String>,
 }
 
 fn main() -> BaryResult<()> {
@@ -24,7 +22,7 @@ fn main() -> BaryResult<()> {
 
     info!("Starting dedicated server...");
 
-    HeadlessServerApp::new(&args.saves_dir, args.server_port, 10)?.spin_forever();
+    HeadlessServerApp::new(args.savefile, args.server_port, 10)?.spin_forever();
 
     Ok(())
 }

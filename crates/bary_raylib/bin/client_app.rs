@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -27,6 +28,7 @@ use serde::Deserialize;
 
 enum AppState {
     MainMenu,
+    ListSaves,
     InWorld,
 }
 
@@ -60,6 +62,8 @@ pub struct ClientApp {
     show_debug_text: bool,
 
     sounds: SoundEffects,
+
+    menu_origin: Vec2,
 }
 
 impl ClientApp {
@@ -72,7 +76,11 @@ impl ClientApp {
             }
         });
 
-        let world = load_world(&args.save_file)?;
+        let world = if let Some(save) = args.save_file {
+            load_world(&save)?
+        } else {
+            World::empty()
+        };
 
         let mut terminal = Terminal::new();
 
@@ -130,6 +138,7 @@ impl ClientApp {
             should_exit: false,
             show_debug_text: false,
             sounds: SoundEffects::new(),
+            menu_origin: Vec2::new(300.0, 200.0),
         })
     }
 
@@ -423,6 +432,18 @@ impl ClientApp {
         }
     }
 
+    fn load_save_file(&mut self, path: &str) {
+        match load_world(path) {
+            Ok(world) => {
+                self.world = world;
+                self.state = AppState::InWorld;
+            }
+            Err(e) => {
+                error!("Failed to load world: {e}");
+            }
+        }
+    }
+
     pub fn on_drag(&mut self, id: UiMessage, delta: Vec2) {
         match id {
             UiMessage::DockingShiftX => {
@@ -430,6 +451,15 @@ impl ClientApp {
             }
             UiMessage::DockingShiftY => {
                 self.docking_shift(delta, false);
+            }
+            UiMessage::DockingHandle => {
+                self.menu_origin += delta;
+            }
+            UiMessage::MainMenuHandle => {
+                self.menu_origin += delta;
+            }
+            UiMessage::SaveSelectHandle => {
+                self.menu_origin += delta;
             }
             _ => (),
         }
@@ -457,9 +487,15 @@ impl ClientApp {
                     UiMessage::SimSpeed(sp) => self.set_sim_speed(sp),
                     UiMessage::DockingRotate => self.docking_rotate(),
                     UiMessage::DockingActivate => self.docking_activate(),
+                    UiMessage::LoadSaveFile(path) => self.load_save_file(&path),
+                    UiMessage::GoToMainMenu => {
+                        self.state = AppState::MainMenu;
+                    }
 
-                    UiMessage::LoadSinglePlayer
-                    | UiMessage::JoinMultiplayer
+                    UiMessage::LoadSinglePlayer => {
+                        self.state = AppState::ListSaves;
+                    }
+                    UiMessage::JoinMultiplayer
                     | UiMessage::HostMultiplayer
                     | UiMessage::Settings => {
                         self.state = AppState::InWorld;
@@ -689,7 +725,7 @@ struct Args {
     #[arg(long)]
     username: String,
     #[arg(short)]
-    save_file: String,
+    save_file: Option<String>,
     #[arg(short = 'a', default_value = "127.0.0.1:5000")]
     server_addr: String,
     #[arg(short = 'p', default_value = "5000")]
@@ -777,6 +813,7 @@ fn node_color<T: bary_ui::UiMsg>(node: &bary_ui::Node<T>) -> Color {
         NodeType::Spacer => Color::TEAL,
         NodeType::Row(_) => Color::ORANGE,
         NodeType::Column(_) => bary_to_raylib(BColor::gray(40)).alpha(0.9),
+        NodeType::DragHandle(_) => bary_to_raylib(BColor::gray(60)),
     }
 }
 
@@ -791,6 +828,10 @@ impl<'a> UiBuilder<'a> {
             font,
             font_size: UI_FONT_SIZE as f32,
         }
+    }
+
+    fn draghandle<T: UiMsg>(&self, msg: impl Into<T>) -> Node<T> {
+        Node::<T>::handle(Size::Grow, 20, msg)
     }
 
     fn header<T: UiMsg>(&self, s: impl Into<String>) -> Node<T> {
@@ -821,9 +862,9 @@ fn make_docking_ui(
     let docking_ui = Node::column(
         400,
         vec![
+            builder.draghandle(UiMessage::DockingHandle),
             builder.header("Docking Control Panel"),
-            builder.header(format!("Parent: {}", parent.name)),
-            builder.header(format!("Child: {}", child.name)),
+            builder.header(format!("{} <- {}", parent.name, child.name)),
             builder.button(UiMessage::DockingShiftX, "Offset X"),
             builder.button(UiMessage::DockingShiftY, "Offset Y"),
             builder.button(UiMessage::DockingRotate, "Rotate"),
@@ -838,10 +879,73 @@ fn make_main_menu(ui: &UiBuilder) -> Node<UiMessage> {
     Node::column(
         800,
         vec![
+            ui.draghandle(UiMessage::MainMenuHandle),
             ui.button(UiMessage::LoadSinglePlayer, "Load Single Player"),
             ui.button(UiMessage::JoinMultiplayer, "Join Multiplayer"),
             ui.button(UiMessage::HostMultiplayer, "Host Multiplayer"),
             ui.button(UiMessage::Settings, "Settings"),
+            ui.button(UiMessage::Exit, "Exit to Desktop"),
+        ],
+    )
+}
+
+fn make_savefiles_menu(ui: &UiBuilder, saves: &[String]) -> Node<UiMessage> {
+    let mut buttons = vec![ui.draghandle(UiMessage::SaveSelectHandle)];
+
+    for s in saves {
+        let b = ui.button(UiMessage::LoadSaveFile(s.clone()), s.clone());
+        buttons.push(b);
+    }
+
+    buttons.push(ui.button(UiMessage::GoToMainMenu, "Return to Main Menu"));
+
+    Node::column(800, buttons)
+}
+
+fn make_world_ui(ui: &UiBuilder, app: &ClientApp, tree: &mut Tree<UiMessage>) {
+    let mut root: Node<UiMessage> = Node::root(Size::Fit, Size::Fit).with_children(
+        [
+            ui.button(UiMessage::GoToMainMenu, "Return to Main Menu"),
+            ui.button(UiMessage::SaveFile, "Save Game"),
+            ui.button(UiMessage::AltMode, "Toggle Alt Mode"),
+            ui.button(UiMessage::DebugText, "Toggle Debug Text"),
+            ui.button(UiMessage::SimSpeed(0), "Toggle Pause"),
+            ui.button(UiMessage::SimSpeed(1), "Sim 1x"),
+            ui.button(UiMessage::SimSpeed(10), "Sim 10x"),
+            ui.button(UiMessage::SimSpeed(100), "Sim 100x"),
+            ui.button(UiMessage::SimSpeed(1000), "Sim 1000x"),
+        ]
+        .into_iter(),
+    );
+
+    if app.client.selected_grid_loc().is_some() && app.client.viewport.editor().is_none() {
+        let b = ui.button(UiMessage::OpenEditor, "Open Ship Editor");
+        root.add_child(b);
+    }
+
+    if app.client.viewport.editor().is_some() {
+        root.add_child(ui.button(UiMessage::LeaveEditor, "Leave Ship Editor"));
+    }
+
+    tree.add_layout(root, None);
+
+    if let Some(docking) = app.client.docking_interface() {
+        if let Some(ui) = make_docking_ui(ui, &docking, &app.world) {
+            tree.add_layout(ui, app.menu_origin)
+        }
+    }
+}
+
+fn ship_editor_menu(ui: &UiBuilder) -> Node<UiMessage> {
+    Node::column(
+        800,
+        vec![
+            ui.draghandle(UiMessage::MainMenuHandle),
+            ui.button(UiMessage::LoadSinglePlayer, "Load Single Player"),
+            ui.button(UiMessage::JoinMultiplayer, "Join Multiplayer"),
+            ui.button(UiMessage::HostMultiplayer, "Host Multiplayer"),
+            ui.button(UiMessage::Settings, "Settings"),
+            ui.button(UiMessage::Exit, "Exit to Desktop"),
         ],
     )
 }
@@ -853,40 +957,19 @@ fn make_gui(font: &Font, app: &ClientApp) -> Tree<UiMessage> {
 
     match app.state {
         AppState::MainMenu => {
-            tree.add_layout(make_main_menu(&builder), Vec2::splat(400.0));
+            tree.add_layout(make_main_menu(&builder), app.menu_origin);
         }
         AppState::InWorld => {
-            let mut root: Node<UiMessage> = Node::root(Size::Fit, Size::Fit).with_children(
-                [
-                    builder.button(UiMessage::Exit, "Exit to Desktop"),
-                    builder.button(UiMessage::SaveFile, "Save Game"),
-                    builder.button(UiMessage::AltMode, "Toggle Alt Mode"),
-                    builder.button(UiMessage::DebugText, "Toggle Debug Text"),
-                    builder.button(UiMessage::SimSpeed(0), "Toggle Pause"),
-                    builder.button(UiMessage::SimSpeed(1), "Sim 1x"),
-                    builder.button(UiMessage::SimSpeed(10), "Sim 10x"),
-                    builder.button(UiMessage::SimSpeed(100), "Sim 100x"),
-                    builder.button(UiMessage::SimSpeed(1000), "Sim 1000x"),
-                ]
-                .into_iter(),
-            );
-
-            if app.client.selected_grid_loc().is_some() && app.client.viewport.editor().is_none() {
-                let b = builder.button(UiMessage::OpenEditor, "Open Ship Editor");
-                root.add_child(b);
-            }
-
-            if app.client.viewport.editor().is_some() {
-                root.add_child(builder.button(UiMessage::LeaveEditor, "Leave Ship Editor"));
-            }
-
-            tree.add_layout(root, None);
-
-            if let Some(docking) = app.client.docking_interface() {
-                if let Some(ui) = make_docking_ui(&builder, &docking, &app.world) {
-                    tree.add_layout(ui, Vec2::new(100.0, 200.0))
-                }
-            }
+            make_world_ui(&builder, app, &mut tree);
+        }
+        AppState::ListSaves => {
+            let mut saves = list_saves_in_dir("saves/");
+            saves.sort();
+            let saves: Vec<_> = saves
+                .into_iter()
+                .map(|s| s.to_string_lossy().to_string())
+                .collect();
+            tree.add_layout(make_savefiles_menu(&builder, &saves), app.menu_origin);
         }
     }
 
@@ -908,10 +991,11 @@ fn draw_node(
     let color = node_color(node);
     let aabb = node.aabb();
 
+    let is_clicked = state.active() == node.on_click();
+    let is_hovered = state.hot() == node.on_click();
+
     match node.kind() {
         NodeType::Button(text, _msg) => {
-            let is_clicked = state.active().as_ref() == node.on_click();
-            let is_hovered = state.hot().as_ref() == node.on_click();
             let scale = if is_clicked { 0.95 } else { 1.0 };
             let color = if is_clicked {
                 color.lerp(Color::BLACK, 0.2)
@@ -930,6 +1014,16 @@ fn draw_node(
         NodeType::Text(text) => {
             let p = glam_to_raylib(aabb.center);
             draw_text_centered(d, font, &text, p, UI_FONT_SIZE, Color::WHITE);
+        }
+        NodeType::DragHandle(_) => {
+            let color = if is_clicked {
+                color.lerp(Color::BLACK, 0.2)
+            } else if is_hovered {
+                color.lerp(Color::WHITE, 0.3)
+            } else {
+                color
+            };
+            draw_ui_aabb(d, aabb, color, true);
         }
         _ => {
             draw_ui_aabb(d, aabb, color, true);
@@ -953,7 +1047,7 @@ fn server_thread(args: Args) {
         return;
     }
 
-    let server = match HeadlessServerApp::new(&args.save_file, args.server_port, 10) {
+    let server = match HeadlessServerApp::new(args.save_file, args.server_port, 10) {
         Ok(server) => server,
         Err(e) => {
             error!("Failed to start server: {e:?}");
@@ -1012,21 +1106,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // CONSTRUCT IMMEDIATE-MODE GUI
 
-        let gui = imgui::imgui_pass(&mut main_app.client, &main_app.world, &mut main_app.sounds);
-
         main_app
             .handle
             .draw(&main_app.thread, |mut d: RaylibDrawHandle<'_>| {
                 d.clear_background(Color::BLACK);
 
                 if matches!(main_app.state, AppState::InWorld) {
-                    draw_world(
-                        &main_app.world,
-                        &main_app.client,
-                        &main_app.assets,
-                        &gui,
-                        &mut d,
-                    );
+                    draw_world(&main_app.world, &main_app.client, &main_app.assets, &mut d);
                 }
 
                 draw_gui(&main_app.ui_state, &mut d, &ui, font);

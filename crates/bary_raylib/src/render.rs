@@ -310,7 +310,6 @@ pub fn draw_world(
     world: &World,
     client: &ClientSpecificInfo,
     assets: &Assets,
-    gui: &ImGui,
     d: &mut RaylibDrawHandle,
 ) {
     draw_stars(d, &world.stars, &client.camera, client.screen_dims);
@@ -416,7 +415,7 @@ pub fn draw_world(
 
     draw_chat(d, &client.chat, client.screen_dims, assets);
 
-    draw_imgui(d, gui, assets);
+    // draw_imgui(d, gui, assets);
 
     // draw_animation(d, assets);
 

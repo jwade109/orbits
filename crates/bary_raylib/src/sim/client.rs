@@ -208,6 +208,11 @@ impl ClientSpecificInfo {
 
     pub fn docking_interface(&self) -> Option<DockingInterface> {
         let free = self.viewport.free()?;
+
+        if free.selection_info.selected.len() != 2 {
+            return None;
+        }
+
         let parent = *free.selection_info.selected.first()?;
         let child = *free.selection_info.selected.get(1)?;
 

@@ -7,11 +7,8 @@ use crate::utils::*;
 use bary_core::prelude::*;
 use bary_factory::*;
 use bary_input::*;
-use bary_parts::*;
 use bary_sim::*;
 use early_returns::*;
-use enum_iterator::Sequence;
-use log::*;
 use raylib::prelude::*;
 
 #[derive(Debug, Copy, Clone)]
@@ -66,7 +63,7 @@ fn ui_bounds(origin: IVec2, dims: IVec2) -> AABB {
 }
 
 impl<'a> LayoutHandle<'a> {
-    pub fn button(&mut self, text: impl Into<String>) -> ButtonResponse {
+    pub fn button(&mut self, text: impl Into<String>) {
         let id = self.gui.next_id_counter();
         let dims = IVec2::new(155, 40);
         let origin = self.next_pos;
@@ -116,12 +113,6 @@ impl<'a> LayoutHandle<'a> {
         };
 
         self.text_areas.push(button);
-
-        ButtonResponse {
-            is_just_pressed,
-            is_just_released,
-            is_hot,
-        }
     }
 }
 
@@ -141,26 +132,6 @@ impl<'a> std::ops::Drop for LayoutHandle<'a> {
             dims: self.dims,
             text_areas: self.text_areas.clone(),
         });
-    }
-}
-
-pub struct ButtonResponse {
-    is_just_pressed: bool,
-    is_just_released: bool,
-    is_hot: bool,
-}
-
-impl ButtonResponse {
-    fn clicked(&self) -> bool {
-        self.is_just_released
-    }
-
-    fn hovered(&self) -> bool {
-        self.is_hot
-    }
-
-    fn just_released(&self) -> bool {
-        self.is_just_pressed
     }
 }
 
@@ -212,60 +183,6 @@ impl ImGui {
     pub fn is_hovering_gui(&self) -> bool {
         self.active > 0
     }
-}
-
-pub fn imgui_test(
-    gui: &mut ImGui,
-    client: &mut ClientSpecificInfo,
-    world: &mut World,
-    sounds: &mut SoundEffects,
-) {
-    let mut layout = gui.layout(IVec2::splat(300), LayoutDirection::Down);
-
-    let load = layout.button("Load");
-
-    if load.just_released() {
-        client.chat.log("Pressed!");
-    }
-
-    if load.clicked() {
-        client.chat.log("Clicked!");
-    }
-
-    if layout.button("New Save").hovered() {
-        client.chat.log("Hovered!");
-    }
-
-    for portal in world.debug_portals.values_mut() {
-        if let PortalState::Source(item) = &mut portal.state {
-            let s = format!("{:?}", item);
-            if layout.button(s).clicked() {
-                *item = item.next().flatten();
-            }
-        }
-    }
-
-    drop(layout);
-
-    let mut l2 = gui.layout(IVec2::new(800, 400), LayoutDirection::Right);
-
-    l2.button("Hello!");
-    l2.button("Goodbye!");
-
-    drop(l2);
-
-    ship_following_ui(gui, client, world);
-}
-
-fn ship_following_ui(gui: &mut ImGui, client: &ClientSpecificInfo, world: &World) {
-    let grid_id = some_or_return!(client.focused_grid_id());
-    let pos = some_or_return!(grid_pose(&world.grids, grid_id));
-
-    let pos = get_world_to_screen(&client.camera, pos.translation, client.screen_dims);
-
-    let mut ui = gui.layout(pos.as_ivec2() + IVec2::X * 20, LayoutDirection::Down);
-    ui.button("Hello!");
-    ui.button("Goodbye!");
 }
 
 pub fn imgui_all_parts_in_layer(
@@ -459,39 +376,6 @@ fn inventory_info_str(inv: &Inventory) -> String {
     lines.into_iter().collect()
 }
 
-fn imgui_selected_grid_primary_computer_info(
-    _d: &mut RaylibDrawHandle,
-    world: &World,
-    client: &ClientSpecificInfo,
-    assets: &Assets,
-) {
-    let free = some_or_return!(client.viewport.free());
-    let grid_id = some_or_return!(free.selection_info.first_selected_grid());
-    let grid = ok_or_return!(world.grids.try_get(grid_id));
-
-    let mut content = grid_info_str(grid);
-
-    if let Some(cpu_id) = grid.computers.first() {
-        if let Ok(cpu) = world.computers.try_get(*cpu_id) {
-            let info = computer_info_str(cpu);
-            content += &format!("\n{}", info);
-        }
-    };
-
-    let title = format!("Grid Info: \"{}\"", grid.name);
-
-    let _window = Window {
-        origin: IVec2::new(800, 60),
-        title,
-        content,
-        is_focused: true,
-    };
-
-    if let Some(_font) = &assets.lato_regular {
-        // draw_window(d, &window, font);
-    }
-}
-
 pub const ZOOM_NEAR_FAR_THRESHOLD: f32 = 5.0;
 pub const ZOOM_NEAR_VEHICLE: f32 = 60.0;
 pub const ZOOM_FAR_AWAY: f32 = 1.0;
@@ -586,58 +470,5 @@ pub fn lame_old_imgui_entrypoint(
 ) {
     imgui_editor_layer_indicator(d, client, sounds);
     imgui_all_parts_in_layer(d, client, world, sounds);
-
-    imgui_selected_grid_primary_computer_info(d, world, client, assets);
     imgui_hovered_part_info(d, world, client, assets);
-}
-
-fn save_editor_vehicle_as_blueprint(client: &mut ClientSpecificInfo, world: &World) {
-    client.chat.log("Save blueprint");
-    let editor = some_or_return!(client.viewport.editor());
-
-    let bp = get_blueprint(world, editor.vehicle);
-
-    if let Ok(bp) = bp {
-        let bytes = bincode::serialize(&bp).unwrap();
-
-        let path = format!("/tmp/test.bp");
-
-        if let Err(e) = save_blueprint(&path, &bp) {
-            error!("Failed to save blueprint: {e:?}");
-        } else {
-            client.chat.log(format!("Saved to {}", path));
-        }
-    }
-}
-
-pub fn selectable_ui<T>(layout: &mut LayoutHandle, value: &mut T)
-where
-    T: Sequence + std::fmt::Debug,
-{
-    if let Some(p) = value.previous() {
-        if layout.button("Previous").clicked() {
-            *value = p;
-        }
-    }
-    let s = format!("{:?}", value);
-    layout.button(s);
-    if let Some(n) = value.next() {
-        if layout.button("Next").clicked() {
-            *value = n;
-        }
-    }
-}
-
-pub fn imgui_pass(
-    client: &mut ClientSpecificInfo,
-    world: &World,
-    sounds: &mut SoundEffects,
-) -> ImGui {
-    let mut gui = ImGui::new(
-        client.screen_dims,
-        client.mouse_screen_position,
-        client.input.clone(),
-    );
-
-    gui
 }
