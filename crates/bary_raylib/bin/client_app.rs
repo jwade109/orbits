@@ -1,20 +1,13 @@
-use std::path::PathBuf;
-use std::thread::JoinHandle;
-use std::time::Duration;
-
 use bary_core::prelude::*;
+use bary_factory::*;
 use bary_input::InputState;
 use bary_ipc::*;
 use bary_raylib::assets::*;
-use bary_raylib::imgui;
+use bary_raylib::imgui::*;
 use bary_raylib::render::*;
 use bary_raylib::sim::*;
-use bary_raylib::sounds::SoundEffect;
-use bary_raylib::sounds::SoundEffects;
-use bary_raylib::utils::ActionSet;
-use bary_raylib::utils::glam_to_raylib;
-use bary_raylib::utils::raylib_to_glam;
-use bary_raylib::utils::screen_to_world;
+use bary_raylib::sounds::*;
+use bary_raylib::utils::*;
 use bary_raylib::*;
 use bary_server::*;
 use bary_sim::Application;
@@ -22,9 +15,12 @@ use bary_sim::*;
 use bary_terminal::Terminal;
 use bary_ui::*;
 use clap::Parser;
+use early_returns::*;
 use log::*;
 use raylib::prelude::*;
 use serde::Deserialize;
+use std::thread::JoinHandle;
+use std::time::Duration;
 
 enum AppState {
     MainMenu,
@@ -64,6 +60,7 @@ pub struct ClientApp {
     sounds: SoundEffects,
 
     menu_origin: Vec2,
+    part_info_origin: Vec2,
 }
 
 impl ClientApp {
@@ -139,6 +136,7 @@ impl ClientApp {
             show_debug_text: false,
             sounds: SoundEffects::new(),
             menu_origin: Vec2::new(300.0, 200.0),
+            part_info_origin: Vec2::new(400.0, 350.0),
         })
     }
 
@@ -460,6 +458,9 @@ impl ClientApp {
             }
             UiMessage::SaveSelectHandle => {
                 self.menu_origin += delta;
+            }
+            UiMessage::PartInfoHandle => {
+                self.part_info_origin += delta;
             }
             _ => (),
         }
@@ -945,18 +946,122 @@ fn make_world_ui(ui: &UiBuilder, app: &ClientApp, tree: &mut Tree<UiMessage>) {
     }
 }
 
-fn ship_editor_menu(ui: &UiBuilder) -> Node<UiMessage> {
-    Node::column(
-        800,
-        vec![
-            ui.draghandle(UiMessage::MainMenuHandle),
-            ui.button(UiMessage::LoadSinglePlayer, "Load Single Player"),
-            ui.button(UiMessage::JoinMultiplayer, "Join Multiplayer"),
-            ui.button(UiMessage::HostMultiplayer, "Host Multiplayer"),
-            ui.button(UiMessage::Settings, "Settings"),
-            ui.button(UiMessage::Exit, "Exit to Desktop"),
-        ],
-    )
+fn slot_info_str(slot: &InvSlot) -> String {
+    if let Some(contents) = slot.contents() {
+        format!(
+            "\n  - {:?} ({:0.1}%) {} {} {}",
+            contents,
+            100.0 * slot.fill_percentage(),
+            slot.mass(),
+            slot.location().0,
+            slot.location().1,
+        )
+    } else {
+        format!("\n  - Empty - {:?}", slot.filter())
+    }
+}
+
+fn computer_info_str(cpu: &Computer) -> String {
+    let mut lines = vec![
+        format!("CPU INFO ==="),
+        format!("\n  On: {}", cpu.on),
+        format!("\n  Status: {:?}", cpu.status),
+        format!("\n  Ticks: {}", cpu.ticks_this_cycle),
+        format!("\n  Fired: {}", cpu.fired_this_tick),
+        format!("\n  Iters: {}", cpu.iters),
+    ];
+
+    for cmd in &cpu.command_queue {
+        let line = format!("\n  - {}", cmd);
+        lines.push(line);
+    }
+
+    lines.into_iter().collect()
+}
+
+fn inventory_info_str(inv: &Inventory) -> String {
+    let mut lines = vec![format!("INVENTORY")];
+
+    for slot in inv.slots() {
+        let line = slot_info_str(slot);
+        lines.push(line);
+    }
+
+    lines.into_iter().collect()
+}
+
+fn make_part_info_gui(ui: &UiBuilder, app: &ClientApp, tree: &mut Tree<UiMessage>) {
+    if app.client.camera.zoom < ZOOM_NEAR_FAR_THRESHOLD {
+        return;
+    }
+
+    let gridloc = some_or_return!(app.client.selected_grid_loc());
+    let grid = ok_or_return!(app.world.grids.try_get(gridloc.grid_id));
+    let occ = some_or_return!(grid.get_parts_at(gridloc.coord));
+
+    let mut s = format!(
+        "At {}-{}: {:?}",
+        gridloc.grid_id,
+        gridloc.coord,
+        occ.to_array()
+    );
+
+    let slot = get_slot_c(
+        gridloc,
+        &app.world.grids,
+        &app.world.parts,
+        &app.world.inventories,
+    );
+    if let Ok(slot) = slot {
+        s += &format!("\n\nInventory slot here: {}", slot_info_str(slot));
+    }
+
+    for (layer, part_id) in occ.iter() {
+        let part = ok_or_continue!(app.world.parts.try_get(part_id));
+        let part_local = part.region.to_local(gridloc.coord);
+
+        s += &format!("\n\nPart ID: {}", part_id);
+        s += &format!("\nPart local coord: {}", part_local);
+
+        s += &format!(
+            "\nRegion: {:?} {} {:?}",
+            layer,
+            part.region.bottom_left(),
+            part.region.rot()
+        );
+
+        if let Ok(proto) = app.world.prototypes.try_get(part.prototype) {
+            s += &format!(
+                "\nPrototype: {} {} {:?}",
+                proto.name,
+                proto.mass,
+                proto.classification()
+            );
+        }
+        if let Ok(cpu) = app.world.computers.try_get(part_id) {
+            let info = computer_info_str(cpu);
+            s += &format!("\n{}", info);
+        }
+        if let Ok(thruster) = app.world.thrusters.try_get(part_id) {
+            s += &format!("\n{:#?}", thruster);
+        }
+        if let Ok(light) = app.world.lights.try_get(part_id) {
+            s += &format!("\n{:#?}", light);
+        }
+        if let Ok(mac) = app.world.machines.try_get(part_id) {
+            s += &format!("\n{:#?}", mac);
+        }
+        if let Ok(inv) = app.world.inventories.try_get(part_id) {
+            let info = inventory_info_str(inv);
+            s += &format!("\n{}", info);
+        }
+    }
+
+    let node = Node::column(
+        600,
+        vec![ui.draghandle(UiMessage::PartInfoHandle), ui.header(s)],
+    );
+    tree.add_layout(node, app.part_info_origin);
 }
 
 fn make_gui(font: &Font, app: &ClientApp) -> Tree<UiMessage> {
@@ -970,6 +1075,7 @@ fn make_gui(font: &Font, app: &ClientApp) -> Tree<UiMessage> {
         }
         AppState::InWorld => {
             make_world_ui(&builder, app, &mut tree);
+            make_part_info_gui(&builder, &app, &mut tree);
         }
         AppState::ListSaves => {
             let mut saves = list_saves_in_dir("saves/");

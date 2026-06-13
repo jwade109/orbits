@@ -559,6 +559,17 @@ pub fn draw_selected_part_cursors(
                 Color::ORANGE,
                 1.0,
             );
+
+            let region = GridRegion::new(loc.coord, Rotation::East, (1, 1));
+
+            draw_grid_region(
+                d,
+                grid.origin(),
+                region,
+                Color::TEAL.alpha(0.4),
+                Color::WHITE,
+                1.0,
+            );
         }
     }
 }

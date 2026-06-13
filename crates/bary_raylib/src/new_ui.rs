@@ -1,7 +1,6 @@
 use bary_core::prelude::*;
 use bary_input::InputState;
 use bary_ui::Tree;
-use log::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiMessage {
@@ -25,6 +24,8 @@ pub enum UiMessage {
     DockingHandle,
     MainMenuHandle,
     SaveSelectHandle,
+    PartInfoHandle,
+    Salt(usize),
 }
 
 #[derive(Debug, Clone, Default)]
