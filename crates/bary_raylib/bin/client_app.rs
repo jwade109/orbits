@@ -859,12 +859,21 @@ fn make_docking_ui(
     let parent = world.grids.try_get(docking.parent.grid_id).ok()?;
     let child = world.grids.try_get(docking.child.grid_id).ok()?;
 
+    let sep = parent
+        .particle_location
+        .translation
+        .distance(child.particle_location.translation);
+
+    let sep = distance_str(sep as f64);
+
     let docking_ui = Node::column(
         400,
         vec![
             builder.draghandle(UiMessage::DockingHandle),
             builder.header("Docking Control Panel"),
+            builder.header("Multiline string\nAnother line\nAnd another!"),
             builder.header(format!("{} <- {}", parent.name, child.name)),
+            builder.header(format!("Separation: {}", sep)),
             builder.button(UiMessage::DockingShiftX, "Offset X"),
             builder.button(UiMessage::DockingShiftY, "Offset Y"),
             builder.button(UiMessage::DockingRotate, "Rotate"),
@@ -976,7 +985,7 @@ fn make_gui(font: &Font, app: &ClientApp) -> Tree<UiMessage> {
     tree
 }
 
-const UI_FONT_SIZE: i32 = 22;
+const UI_FONT_SIZE: i32 = 18;
 
 fn draw_node(
     state: &UiInteractionState,
@@ -1081,7 +1090,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // AND DRAW IT ALL
 
-        let font = main_app.assets.fira_code.as_ref().unwrap();
+        let font = main_app.assets.consolas.as_ref().unwrap();
 
         let ui = make_gui(font, &main_app);
 
@@ -1100,7 +1109,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             main_app.on_ui_event(c);
         }
 
-        let font = main_app.assets.fira_code.as_ref().unwrap();
+        let font = main_app.assets.consolas.as_ref().unwrap();
 
         let timers = DebugTimers::default();
 
