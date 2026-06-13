@@ -189,6 +189,9 @@ impl HeadlessServerApp {
                     self.queued_deltas.push(delta.clone());
                 }
             }
+            MessageKind::LoadSave(path) => {
+                self.on_accept_load_save(path);
+            }
             _ => self.on_unsupported_message(),
         }
     }
@@ -200,6 +203,18 @@ impl HeadlessServerApp {
             MessageLevel::Response,
             MessageKind::Unsupported,
         ));
+    }
+
+    fn on_accept_load_save(&mut self, path: String) {
+        match load_world(&path) {
+            Ok(world) => {
+                self.world = world;
+                info!("Loaded {path}");
+            }
+            Err(e) => {
+                error!("Failed to load world: {e}");
+            }
+        }
     }
 
     fn on_accept_ping(&mut self) {

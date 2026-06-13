@@ -89,6 +89,7 @@ pub enum NodeType<T: UiMsg> {
     Image(String),
     Spacer,
     DragHandle(T),
+    ProgressBar(f32),
     Row(Vec<Node<T>>),
     Column(Vec<Node<T>>),
 }
@@ -150,6 +151,16 @@ impl<T: UiMsg> Node<T> {
         Self::new(width, height)
     }
 
+    pub fn image(
+        sprite_name: impl Into<String>,
+        width: impl Into<Size>,
+        height: impl Into<Size>,
+    ) -> Self {
+        let mut s = Self::new(width, height);
+        s.node_type = NodeType::Image(sprite_name.into());
+        s
+    }
+
     pub fn root(width: impl Into<Size>, height: impl Into<Size>) -> Self {
         let mut node = Self::new(width, height);
         node.node_type = NodeType::Column(vec![]);
@@ -185,6 +196,12 @@ impl<T: UiMsg> Node<T> {
         let mut node = Node::new(Size::Fit, Size::Fit).down();
         node.node_type = NodeType::Column(children);
         node
+    }
+
+    pub fn progress_bar(width: impl Into<Size>, height: impl Into<Size>, val: f32) -> Self {
+        let mut s = Node::new(width, height);
+        s.node_type = NodeType::ProgressBar(val);
+        s
     }
 
     pub fn enabled(mut self, enabled: bool) -> Self {
@@ -694,6 +711,7 @@ fn write_node<'a, T: UiMsg>(
         NodeType::Image(_) => "Image",
         NodeType::Spacer => "Spacer",
         NodeType::DragHandle(_) => "DragHandle",
+        NodeType::ProgressBar(_) => "ProgressBar",
         NodeType::Row(nodes) => "Row",
         NodeType::Column(nodes) => "Column",
     };

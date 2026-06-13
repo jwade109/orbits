@@ -6,4 +6,5 @@ rust-version.workspace = true
 
 [dependencies]
 bary_core = { path = "../bary_core" }
+clap = "4.6.1"
 image = "0.25.10"

@@ -1,6 +1,6 @@
 use crate::assets::*;
+use crate::constants::*;
 use crate::editor_state::EditorState;
-use crate::imgui::{ImGui, ZOOM_NEAR_FAR_THRESHOLD};
 use crate::sim::*;
 use crate::utils::*;
 use bary_core::prelude::PI;
@@ -407,8 +407,6 @@ pub fn draw_world(
 
     draw_waypoint_far_indicators(&world.computers, d, &raylib_camera);
 
-    draw_primary_grid_inventory_summary(d, world, client);
-
     draw_selected_grid_info(d, &client, &world.grids, client.screen_dims, assets);
 
     draw_editor_rename_field(d, client, assets);
@@ -789,72 +787,6 @@ fn draw_stars(
             offset.y as i32,
             Color::WHITE.alpha(star.alpha),
         );
-    }
-}
-
-fn draw_primary_grid_inventory_summary(
-    d: &mut RaylibDrawHandle,
-    world: &World,
-    client: &ClientSpecificInfo,
-) {
-    let free = some_or_return!(client.viewport.free());
-    let sel_loc = some_or_return!(free.selection_info.selected.first());
-    let grid = ok_or_return!(world.grids.try_get(sel_loc.grid_id));
-    let coord = if let Some(hover) = free.selection_info.hovered {
-        if hover.grid_id == sel_loc.grid_id {
-            Some(hover.coord)
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-
-    let occ = coord
-        .map(|c| grid.get_parts_at(c))
-        .flatten()
-        .unwrap_or(&PartOccupancy::EMPTY);
-
-    let bar_width = 350;
-    let small_bar_height = 5;
-    let large_bar_height = 20;
-    let highlight_width = 7;
-    let bar_spacing = 1;
-
-    let origin_x = d.get_render_width() - bar_width;
-    let mut y = bar_spacing;
-
-    for part_id in &grid.parts {
-        let inv = ok_or_continue!(world.inventories.try_get(*part_id));
-        for slot in inv.slots() {
-            let item = slot.item();
-            let c = item.map(|i| i.color()).unwrap_or([30, 30, 30]);
-            let color = Color::new(c[0], c[1], c[2], 255);
-            let width = bar_width as f32 * slot.fill_percentage();
-            let is_hovered = occ.contains(*part_id);
-
-            let bar_height = if is_hovered {
-                large_bar_height
-            } else {
-                small_bar_height
-            };
-
-            d.draw_rectangle(origin_x, y, bar_width, bar_height, Color::BLACK);
-            d.draw_rectangle(origin_x, y, width as i32, bar_height, color);
-
-            if is_hovered {
-                d.draw_rectangle(
-                    origin_x - highlight_width,
-                    y,
-                    highlight_width,
-                    bar_height,
-                    Color::WHITE,
-                );
-            }
-
-            y += bar_height + bar_spacing;
-            d.draw_line(origin_x, y, origin_x + bar_width, y, Color::SLATEGRAY);
-        }
     }
 }
 
@@ -1302,69 +1234,6 @@ fn draw_waypoint_far_indicators(
     }
 }
 
-fn draw_imgui(d: &mut RaylibDrawHandle, gui: &ImGui, assets: &Assets) {
-    const DRAW_OUTLINES: bool = false;
-
-    const BACKGROUND_COLOR: Color = Color::new(20, 20, 20, 255);
-    const BUTTON_IDLE_COLOR: Color = Color::new(40, 40, 40, 255);
-    const BUTTON_HOVERED_COLOR: Color = Color::new(50, 50, 50, 255);
-    const BUTTON_PRESSED_COLOR: Color = Color::new(120, 70, 70, 255);
-
-    for layout in &gui.layouts {
-        let p = layout.origin;
-        let s = layout.dims;
-        d.draw_rectangle(p.x, p.y, s.x, s.y, BACKGROUND_COLOR);
-
-        if layout.id == gui.active && DRAW_OUTLINES {
-            let rect = Rectangle::new(p.x as f32, p.y as f32, s.x as f32, s.y as f32);
-            d.draw_rectangle_lines_ex(rect, 2.0, Color::RED);
-        }
-
-        for b in &layout.text_areas {
-            let color = if b.is_pressed {
-                BUTTON_PRESSED_COLOR
-            } else if b.id == gui.active {
-                BUTTON_HOVERED_COLOR
-            } else {
-                BUTTON_IDLE_COLOR
-            };
-
-            let p = b.origin;
-
-            {
-                let mut p = p;
-                let mut dims = b.dims;
-                if b.is_pressed {
-                    let n = 4;
-                    p += IVec2::splat(n);
-                    dims -= IVec2::splat(n * 2);
-                }
-                d.draw_rectangle(p.x, p.y, dims.x, dims.y, color);
-            }
-
-            let font_size = 24.0;
-
-            if let Some(font) = &assets.lato_regular {
-                let tdims = font.measure_text(&b.text, font_size, 0.0);
-                let t = glam_to_raylib(p.as_vec2()) + glam_to_raylib(b.dims.as_vec2()) / 2.0
-                    - tdims / 2.0;
-
-                d.draw_text_ex(font, &b.text, t, font_size, 0.0, Color::WHITE);
-            }
-
-            if b.id == gui.active && DRAW_OUTLINES {
-                let rect = Rectangle::new(p.x as f32, p.y as f32, b.dims.x as f32, b.dims.y as f32);
-                d.draw_rectangle_lines_ex(rect, 2.0, Color::RED);
-            }
-        }
-    }
-
-    if gui.active == 0 && DRAW_OUTLINES {
-        let rect = Rectangle::new(0.0, 0.0, gui.screen.x, gui.screen.y);
-        d.draw_rectangle_lines_ex(rect, 2.0, Color::RED);
-    }
-}
-
 fn draw_waypoint_widget(d: &mut RaylibDrawHandle, client: &ClientSpecificInfo) {
     let free = some_or_return!(client.viewport.free());
     if free.selection_info.selected.is_empty() {
@@ -1613,7 +1482,7 @@ fn draw_pipe(
                 }
             }
         }
-        PipeSegments::Double(start, mid, end) => {
+        PipeSegments::Double(_start, _mid, _end) => {
             // draw_pipe_sprite(d, sprites, iso, start, 3, alpha);
             // draw_pipe_sprite(d, sprites, iso, mid, 5, alpha);
             // draw_pipe_sprite(d, sprites, iso, end, 4, alpha);

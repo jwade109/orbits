@@ -176,6 +176,8 @@ pub enum MessageKind {
     RequestDelta(WorldDelta),
     /// hashes of a few key tables to indicate desyncs
     SyncFrame(SyncFrame),
+    /// directive for the server to load a new save file
+    LoadSave(String),
 }
 
 impl MessageKind {

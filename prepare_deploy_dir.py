@@ -7,7 +7,7 @@ shutil.copytree("saves/", "target/barycenter_dist/saves/", dirs_exist_ok=True)
 shutil.copy("target/release/client_app.exe", "target/barycenter_dist/barycenter.exe")
 
 with open("target/barycenter_dist/client_with_server.bat", "w") as text_file:
-    text_file.write("barycenter.exe --run-server\npause")
+    text_file.write("barycenter.exe --run-server --username obama_prism\npause")
 
 with open("target/barycenter_dist/client.bat", "w") as text_file:
-    text_file.write("barycenter.exe\npause")
+    text_file.write("barycenter.exe --username obama_prism\npause")

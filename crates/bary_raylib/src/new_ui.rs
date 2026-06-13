@@ -25,6 +25,8 @@ pub enum UiMessage {
     MainMenuHandle,
     SaveSelectHandle,
     PartInfoHandle,
+    SetMachineOnOff(Ent, bool),
+    SetThrusterOnOff(Ent, bool),
     Salt(usize),
 }
 

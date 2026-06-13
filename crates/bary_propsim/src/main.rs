@@ -1,11 +1,14 @@
+use image::{GenericImage, GenericImageView, ImageBuffer, RgbaImage};
+use std::path::Path;
+
 use bary_core::prelude::*;
-use image::{ColorType, DynamicImage};
+use clap::Parser;
+use image::{ColorType, DynamicImage, Rgba};
 
 pub struct Particle {
     pos: Vec2,
     vel: Vec2,
     remaining_time: f32,
-    total_time: f32,
     color: BColor,
 }
 
@@ -19,18 +22,15 @@ fn random_color() -> BColor {
 
 impl Particle {
     fn new(pos: Vec2, angle: f32, vscale: f32) -> Self {
-        let max_da = (1.0 - vscale / 2.0).clamp(0.0, 1.0);
-        let da = rand(-0.4, 0.4) * max_da;
-        let a = angle + da;
+        let da = rand(-0.04, 0.04);
         let v = rand(130.0, 400.0) * da.cos() * vscale;
-        let vel = rotate(Vec2::X * v, a);
+        let vel = rotate(Vec2::X * v, da);
         let t = rand(0.3, 0.5);
 
         Self {
             pos,
             vel,
             remaining_time: t,
-            total_time: t,
             color: random_color(),
         }
     }
@@ -38,11 +38,7 @@ impl Particle {
     fn step(&mut self) {
         self.pos += self.vel * DT;
         self.remaining_time -= DT;
-        self.vel *= 0.985;
-    }
-
-    fn alpha(&self) -> f32 {
-        self.remaining_time / self.total_time
+        self.vel *= 0.99;
     }
 
     fn color(&self) -> BColor {
@@ -54,62 +50,46 @@ impl Particle {
 
 const DT: f32 = 0.002;
 
-const WIDTH: u32 = 150;
-const HEIGHT: u32 = 150;
+const WIDTH: u32 = 300;
+const HEIGHT: u32 = 50;
 
 pub struct ParticleSim {
     emitter_top: Vec2,
     emitter_bottom: Vec2,
     particles: Vec<Particle>,
-    angle: f32,
-    angular_velocity: f32,
     velocity_scale: f32,
     emit: bool,
     switch_dur: f32,
+    width: u32,
 }
 
 impl ParticleSim {
-    fn new() -> Self {
+    fn new(width: u32) -> Self {
         Self {
             emitter_top: Vec2::new(WIDTH as f32 / 2.0, HEIGHT as f32 / 2.0),
             emitter_bottom: Vec2::new(WIDTH as f32 / 2.0, HEIGHT as f32 / 2.0),
             particles: Vec::new(),
-            angle: 0.0,
-            angular_velocity: 0.0,
             velocity_scale: rand(0.1, 2.0),
             emit: true,
             switch_dur: 3.0,
+            width,
         }
     }
 
-    fn step(&mut self) {
-        self.angular_velocity += rand(-DT, DT);
-        self.angular_velocity = self.angular_velocity.clamp(-1.0, 1.0);
-        self.angle += DT * self.angular_velocity;
-
-        self.velocity_scale += rand(-DT, DT) * 6.0;
-        self.velocity_scale = self.velocity_scale.clamp(0.1, 5.0);
+    fn step(&mut self, is_emitting: bool) {
+        self.velocity_scale = 4.5;
 
         self.switch_dur -= DT;
 
         self.particles.iter_mut().for_each(|p| p.step());
 
-        if self.emit {
+        if is_emitting {
             for _ in 0..50 {
                 let s = rand(0.0, 1.0);
                 let e = self.emitter_bottom.lerp(self.emitter_top, s);
                 let e = e + randvec(1.0, 2.0);
-                let p = Particle::new(e, self.angle, self.velocity_scale);
+                let p = Particle::new(e, 0.0, self.velocity_scale);
                 self.particles.push(p);
-            }
-        }
-
-        if self.switch_dur < 0.0 {
-            self.emit = !self.emit;
-            if self.emit {
-                self.switch_dur = rand(3.0, 5.0);
-            } else {
-                self.switch_dur = rand(0.4, 1.0);
             }
         }
 
@@ -127,7 +107,7 @@ fn render_particles(sim: &ParticleSim) -> Result<DynamicImage, Box<dyn std::erro
     let editable = img.as_mut_rgba8().ok_or("Expected a buffer")?;
 
     for particle in &sim.particles {
-        let p = particle.pos.as_ivec2();
+        let p = particle.pos.as_ivec2() - IVec2::X * 100;
 
         if p.x < 0 || p.y < 0 {
             continue;
@@ -145,18 +125,52 @@ fn render_particles(sim: &ParticleSim) -> Result<DynamicImage, Box<dyn std::erro
     Ok(img)
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut sim = ParticleSim::new();
+/// Run the test client app
+#[derive(Parser, Debug, Default, Clone)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(long, short, default_value = "10")]
+    width: u32,
 
-    loop {
-        for _ in 0..10 {
-            sim.step();
+    #[arg(long, short)]
+    outdir: String,
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Args::parse();
+
+    if !std::fs::exists(&args.outdir)? {
+        std::fs::create_dir(&args.outdir)?;
+    }
+
+    let mut sim = ParticleSim::new(args.width);
+
+    let mut images = Vec::new();
+
+    for i in 0..200 {
+        for _ in 0..3 {
+            sim.step(i < 110);
         }
 
         let img = render_particles(&sim)?;
-
-        img.save("/tmp/out.png")?;
-
-        std::thread::sleep(std::time::Duration::from_millis(40));
+        images.push(img);
     }
+
+    if images.is_empty() {
+        println!("Generated no frames.");
+        return Ok(());
+    }
+
+    let mut concat: RgbaImage = ImageBuffer::new(WIDTH, HEIGHT * images.len() as u32);
+
+    for (idx, image) in images.into_iter().enumerate() {
+        let y = HEIGHT * idx as u32;
+        concat.copy_from(&image, 0, y)?;
+    }
+
+    let path = Path::new(&args.outdir).join("concat.png");
+    println!("Writing to {}", path.display());
+    concat.save(path)?;
+
+    Ok(())
 }

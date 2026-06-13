@@ -1,11 +1,8 @@
-use crate::assets::Assets;
 use crate::render::*;
 use crate::sim::*;
 use crate::sounds::*;
-use crate::ui::{Window, draw_window};
 use crate::utils::*;
 use bary_core::prelude::*;
-use bary_factory::*;
 use bary_input::*;
 use bary_sim::*;
 use early_returns::*;
@@ -320,99 +317,12 @@ pub fn imgui_editor_layer_indicator(
     }
 }
 
-pub const ZOOM_NEAR_FAR_THRESHOLD: f32 = 5.0;
-pub const ZOOM_NEAR_VEHICLE: f32 = 60.0;
-pub const ZOOM_FAR_AWAY: f32 = 1.0;
-
-// fn imgui_hovered_part_info(
-//     d: &mut RaylibDrawHandle,
-//     world: &World,
-//     client: &ClientSpecificInfo,
-//     assets: &Assets,
-// ) {
-//     if client.camera.zoom < ZOOM_NEAR_FAR_THRESHOLD {
-//         return;
-//     }
-
-//     let gridloc = some_or_return!(client.hovered_grid_loc());
-//     let grid = ok_or_return!(world.grids.try_get(gridloc.grid_id));
-//     let occ = some_or_return!(grid.get_parts_at(gridloc.coord));
-
-//     let mut s = format!(
-//         "At {}-{}: {:?}",
-//         gridloc.grid_id,
-//         gridloc.coord,
-//         occ.to_array()
-//     );
-
-//     let slot = get_slot_c(gridloc, &world.grids, &world.parts, &world.inventories);
-//     if let Ok(slot) = slot {
-//         s += &format!("\n\nInventory slot here: {}", slot_info_str(slot));
-//     }
-
-//     for (layer, part_id) in occ.iter() {
-//         let part = ok_or_continue!(world.parts.try_get(part_id));
-//         let part_local = part.region.to_local(gridloc.coord);
-
-//         s += &format!("\n\nPart ID: {}", part_id);
-//         s += &format!("\nPart local coord: {}", part_local);
-
-//         s += &format!(
-//             "\nRegion: {:?} {} {:?}",
-//             layer,
-//             part.region.bottom_left(),
-//             part.region.rot()
-//         );
-
-//         if let Ok(proto) = world.prototypes.try_get(part.prototype) {
-//             s += &format!(
-//                 "\nPrototype: {} {} {:?}",
-//                 proto.name,
-//                 proto.mass,
-//                 proto.classification()
-//             );
-//         }
-//         if let Ok(cpu) = world.computers.try_get(part_id) {
-//             let info = computer_info_str(cpu);
-//             s += &format!("\n{}", info);
-//         }
-//         if let Ok(thruster) = world.thrusters.try_get(part_id) {
-//             s += &format!("\n{:#?}", thruster);
-//         }
-//         if let Ok(light) = world.lights.try_get(part_id) {
-//             s += &format!("\n{:#?}", light);
-//         }
-//         if let Ok(mac) = world.machines.try_get(part_id) {
-//             s += &format!("\n{:#?}", mac);
-//         }
-//         if let Ok(inv) = world.inventories.try_get(part_id) {
-//             let info = inventory_info_str(inv);
-//             s += &format!("\n{}", info);
-//         }
-//     }
-
-//     let origin = vround(Vec2::new(client.screen_dims.x - 500.0, 20.0));
-
-//     let window = Window {
-//         origin,
-//         title: "Part Info".to_string(),
-//         content: s,
-//         is_focused: true,
-//     };
-
-//     if let Some(font) = &assets.lato_regular {
-//         draw_window(d, &window, font);
-//     }
-// }
-
 pub fn lame_old_imgui_entrypoint(
     d: &mut RaylibDrawHandle,
     client: &mut ClientSpecificInfo,
     world: &World,
     sounds: &mut SoundEffects,
-    assets: &Assets,
 ) {
     imgui_editor_layer_indicator(d, client, sounds);
     imgui_all_parts_in_layer(d, client, world, sounds);
-    // imgui_hovered_part_info(d, world, client, assets);
 }

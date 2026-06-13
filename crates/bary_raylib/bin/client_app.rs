@@ -3,7 +3,7 @@ use bary_factory::*;
 use bary_input::InputState;
 use bary_ipc::*;
 use bary_raylib::assets::*;
-use bary_raylib::imgui::*;
+use bary_raylib::constants::*;
 use bary_raylib::render::*;
 use bary_raylib::sim::*;
 use bary_raylib::sounds::*;
@@ -430,11 +430,12 @@ impl ClientApp {
         }
     }
 
-    fn load_save_file(&mut self, path: &str) {
-        match load_world(path) {
+    fn load_save_file(&mut self, path: String) {
+        match load_world(&path) {
             Ok(world) => {
                 self.world = world;
                 self.state = AppState::InWorld;
+                self.node.send_command(MessageKind::LoadSave(path));
             }
             Err(e) => {
                 error!("Failed to load world: {e}");
@@ -488,9 +489,12 @@ impl ClientApp {
                     UiMessage::SimSpeed(sp) => self.set_sim_speed(sp),
                     UiMessage::DockingRotate => self.docking_rotate(),
                     UiMessage::DockingActivate => self.docking_activate(),
-                    UiMessage::LoadSaveFile(path) => self.load_save_file(&path),
+                    UiMessage::LoadSaveFile(path) => self.load_save_file(path),
                     UiMessage::GoToMainMenu => {
                         self.state = AppState::MainMenu;
+                    }
+                    UiMessage::SetMachineOnOff(machine_id, state) => {
+                        warn!("Not handling machine on/off: {machine_id}, {state}");
                     }
 
                     UiMessage::LoadSinglePlayer => {
@@ -811,10 +815,11 @@ fn node_color<T: bary_ui::UiMsg>(node: &bary_ui::Node<T>) -> Color {
         NodeType::Text(_) => Color::TEAL.alpha(0.3),
         NodeType::Button(_, _) => Color::ORANGE,
         NodeType::Image(_) => Color::YELLOW,
-        NodeType::Spacer => Color::TEAL,
-        NodeType::Row(_) => Color::ORANGE,
-        NodeType::Column(_) => bary_to_raylib(BColor::gray(40)).alpha(0.9),
+        NodeType::Spacer => bary_to_raylib(BColor::gray(50)),
+        NodeType::Row(_) => bary_to_raylib(BColor::gray(20)).alpha(0.95),
+        NodeType::Column(_) => bary_to_raylib(BColor::gray(20)).alpha(0.95),
         NodeType::DragHandle(_) => bary_to_raylib(BColor::gray(60)),
+        NodeType::ProgressBar(_) => Color::TEAL,
     }
 }
 
@@ -835,7 +840,11 @@ impl<'a> UiBuilder<'a> {
         Node::<T>::handle(Size::Grow, 20, msg)
     }
 
-    fn header<T: UiMsg>(&self, s: impl Into<String>) -> Node<T> {
+    fn sep<T: UiMsg>(&self) -> Node<T> {
+        Node::structural(Size::Grow, 2)
+    }
+
+    fn text<T: UiMsg>(&self, s: impl Into<String>) -> Node<T> {
         let s = s.into();
         let dims = self.font.measure_text(&s, self.font_size, 0.0);
         let w = dims.x;
@@ -849,6 +858,19 @@ impl<'a> UiBuilder<'a> {
         let w = dims.x + 36.0;
         let h = dims.y + 18.0;
         Node::button(s, msg, w, h)
+    }
+
+    fn sprite<T: UiMsg>(&self, s: impl Into<String>, texture: &Texture2D) -> Node<T> {
+        let h = 70;
+        let actual_w = texture.width;
+        let actual_h = texture.height;
+        let scale = actual_h as f32 / h as f32;
+        let w = actual_w as f32 / scale;
+        Node::image(s, w as u32, h)
+    }
+
+    fn progress_bar<T: UiMsg>(&self, val: f32) -> Node<T> {
+        Node::progress_bar(Size::Grow, 11, val)
     }
 }
 
@@ -871,10 +893,10 @@ fn make_docking_ui(
         400,
         vec![
             builder.draghandle(UiMessage::DockingHandle),
-            builder.header("Docking Control Panel"),
-            builder.header("Multiline string\nAnother line\nAnd another!"),
-            builder.header(format!("{} <- {}", parent.name, child.name)),
-            builder.header(format!("Separation: {}", sep)),
+            builder.text("Docking Control Panel"),
+            builder.text("Multiline string\nAnother line\nAnd another!"),
+            builder.text(format!("{} <- {}", parent.name, child.name)),
+            builder.text(format!("Separation: {}", sep)),
             builder.button(UiMessage::DockingShiftX, "Offset X"),
             builder.button(UiMessage::DockingShiftY, "Offset Y"),
             builder.button(UiMessage::DockingRotate, "Rotate"),
@@ -946,29 +968,28 @@ fn make_world_ui(ui: &UiBuilder, app: &ClientApp, tree: &mut Tree<UiMessage>) {
     }
 }
 
-fn slot_info_str(slot: &InvSlot) -> String {
+fn slot_info_str(idx: usize, slot: &InvSlot) -> String {
     if let Some(contents) = slot.contents() {
         format!(
-            "\n  - {:?} ({:0.1}%) {} {} {}",
-            contents,
+            "{}. {:?} ({}) ({:0.1}%) {}",
+            idx + 1,
+            contents.0,
+            contents.1,
             100.0 * slot.fill_percentage(),
             slot.mass(),
-            slot.location().0,
-            slot.location().1,
         )
     } else {
-        format!("\n  - Empty - {:?}", slot.filter())
+        format!("{}. Empty - can store [{:?}]", idx + 1, slot.filter())
     }
 }
 
 fn computer_info_str(cpu: &Computer) -> String {
     let mut lines = vec![
-        format!("CPU INFO ==="),
-        format!("\n  On: {}", cpu.on),
-        format!("\n  Status: {:?}", cpu.status),
-        format!("\n  Ticks: {}", cpu.ticks_this_cycle),
-        format!("\n  Fired: {}", cpu.fired_this_tick),
-        format!("\n  Iters: {}", cpu.iters),
+        format!("On: {}", cpu.on),
+        format!("\nStatus: {:?}", cpu.status),
+        format!("\nTicks: {}", cpu.ticks_this_cycle),
+        format!("\nFired: {}", cpu.fired_this_tick),
+        format!("\nIters: {}", cpu.iters),
     ];
 
     for cmd in &cpu.command_queue {
@@ -979,88 +1000,89 @@ fn computer_info_str(cpu: &Computer) -> String {
     lines.into_iter().collect()
 }
 
-fn inventory_info_str(inv: &Inventory) -> String {
-    let mut lines = vec![format!("INVENTORY")];
-
-    for slot in inv.slots() {
-        let line = slot_info_str(slot);
-        lines.push(line);
-    }
-
-    lines.into_iter().collect()
-}
-
 fn make_part_info_gui(ui: &UiBuilder, app: &ClientApp, tree: &mut Tree<UiMessage>) {
-    if app.client.camera.zoom < ZOOM_NEAR_FAR_THRESHOLD {
-        return;
-    }
-
     let gridloc = some_or_return!(app.client.selected_grid_loc());
     let grid = ok_or_return!(app.world.grids.try_get(gridloc.grid_id));
     let occ = some_or_return!(grid.get_parts_at(gridloc.coord));
 
-    let mut s = format!(
+    let mut children = Vec::new();
+
+    let s = format!(
         "At {}-{}: {:?}",
         gridloc.grid_id,
         gridloc.coord,
         occ.to_array()
     );
 
-    let slot = get_slot_c(
-        gridloc,
-        &app.world.grids,
-        &app.world.parts,
-        &app.world.inventories,
-    );
-    if let Ok(slot) = slot {
-        s += &format!("\n\nInventory slot here: {}", slot_info_str(slot));
-    }
+    children.push(ui.draghandle(UiMessage::PartInfoHandle));
+    children.push(ui.text(s));
 
     for (layer, part_id) in occ.iter() {
+        children.push(ui.sep());
+
         let part = ok_or_continue!(app.world.parts.try_get(part_id));
         let part_local = part.region.to_local(gridloc.coord);
+        let proto = ok_or_continue!(app.world.prototypes.try_get(part.prototype));
 
-        s += &format!("\n\nPart ID: {}", part_id);
-        s += &format!("\nPart local coord: {}", part_local);
+        children.push(ui.text(proto.name.clone()));
 
-        s += &format!(
-            "\nRegion: {:?} {} {:?}",
-            layer,
-            part.region.bottom_left(),
-            part.region.rot()
-        );
+        if let Some(texture) = app.assets.part_textures.get(&proto.name) {
+            children.push(ui.sprite(proto.name.clone(), texture));
+        }
 
-        if let Ok(proto) = app.world.prototypes.try_get(part.prototype) {
+        if let Ok(cpu) = app.world.computers.try_get(part_id) {
+            let info = computer_info_str(cpu);
+            children.push(ui.text(info));
+        }
+        if let Ok(thruster) = app.world.thrusters.try_get(part_id) {
+            let s = format!("{:#?}", thruster);
+            children.push(ui.button(
+                UiMessage::SetThrusterOnOff(part_id, !thruster.is_on),
+                if thruster.is_on { "Turn Off" } else { "Turn On" },
+            ));
+            children.push(ui.text(s));
+        }
+        if let Ok(light) = app.world.lights.try_get(part_id) {
+            let s = format!("{:#?}", light);
+            children.push(ui.text(s));
+        }
+        if let Ok(mac) = app.world.machines.try_get(part_id) {
+            children.push(ui.progress_bar(mac.progress()));
+            children.push(ui.button(
+                UiMessage::SetMachineOnOff(part_id, !mac.enabled),
+                if mac.enabled { "Turn Off" } else { "Turn On" },
+            ));
+        }
+        if let Ok(inv) = app.world.inventories.try_get(part_id) {
+            for (idx, slot) in inv.slots().enumerate() {
+                let line = slot_info_str(idx, slot);
+                children.push(ui.text(line));
+                children.push(ui.progress_bar(slot.fill_percentage()));
+            }
+        }
+
+        if app.client.alt_mode {
+            let mut s = format!("Part ID: {}", part_id);
+            s += &format!("\nPart local coord: {}", part_local);
+
+            s += &format!(
+                "\nRegion: {:?} {} {:?}",
+                layer,
+                part.region.bottom_left(),
+                part.region.rot()
+            );
+
             s += &format!(
                 "\nPrototype: {} {} {:?}",
                 proto.name,
                 proto.mass,
                 proto.classification()
             );
-        }
-        if let Ok(cpu) = app.world.computers.try_get(part_id) {
-            let info = computer_info_str(cpu);
-            s += &format!("\n{}", info);
-        }
-        if let Ok(thruster) = app.world.thrusters.try_get(part_id) {
-            s += &format!("\n{:#?}", thruster);
-        }
-        if let Ok(light) = app.world.lights.try_get(part_id) {
-            s += &format!("\n{:#?}", light);
-        }
-        if let Ok(mac) = app.world.machines.try_get(part_id) {
-            s += &format!("\n{:#?}", mac);
-        }
-        if let Ok(inv) = app.world.inventories.try_get(part_id) {
-            let info = inventory_info_str(inv);
-            s += &format!("\n{}", info);
+            children.push(ui.text(s));
         }
     }
 
-    let node = Node::column(
-        600,
-        vec![ui.draghandle(UiMessage::PartInfoHandle), ui.header(s)],
-    );
+    let node = Node::column(600, children);
     tree.add_layout(node, app.part_info_origin);
 }
 
@@ -1098,6 +1120,7 @@ fn draw_node(
     d: &mut RaylibDrawHandle,
     node: &Node<UiMessage>,
     font: &Font,
+    assets: &Assets,
 ) {
     if !node.is_visible() {
         return;
@@ -1127,6 +1150,7 @@ fn draw_node(
             draw_text_centered(d, font, &text, p, font_size, Color::BLACK);
         }
         NodeType::Text(text) => {
+            draw_ui_aabb(d, aabb, Color::new(30, 30, 30, 200), true);
             let p = glam_to_raylib(aabb.center);
             draw_text_centered(d, font, &text, p, UI_FONT_SIZE, Color::WHITE);
         }
@@ -1140,6 +1164,30 @@ fn draw_node(
             };
             draw_ui_aabb(d, aabb, color, true);
         }
+        NodeType::Image(name) => {
+            let p = aabb.lower();
+            if let Some(texture) = assets.part_textures.get(name) {
+                let source_rec =
+                    Rectangle::new(0.0, 0.0, texture.width as f32, texture.height as f32);
+                let dest_rec = Rectangle::new(p.x, p.y, aabb.span.x, aabb.span.y);
+                draw_ui_aabb(d, aabb, Color::new(90, 90, 90, 255), false);
+                d.draw_texture_pro(
+                    texture,
+                    source_rec,
+                    dest_rec,
+                    Vector2::zero(),
+                    0.0,
+                    Color::WHITE,
+                );
+            }
+        }
+        NodeType::ProgressBar(val) => {
+            let dims = Vec2::new(aabb.span.x * *val, aabb.span.y);
+            let bar_aabb = AABB::from_arbitrary(aabb.lower(), aabb.lower() + dims);
+            draw_ui_aabb(d, aabb, Color::new(40, 40, 40, 255), true);
+            draw_ui_aabb(d, aabb, Color::new(10, 10, 10, 255), false);
+            draw_ui_aabb(d, bar_aabb, color, true);
+        }
         _ => {
             draw_ui_aabb(d, aabb, color, true);
         }
@@ -1151,9 +1199,10 @@ fn draw_gui(
     d: &mut RaylibDrawHandle,
     gui: &Tree<UiMessage>,
     font: &Font,
+    assets: &Assets,
 ) {
     for node in gui.iter() {
-        draw_node(state, d, node, font);
+        draw_node(state, d, node, font, assets);
     }
 }
 
@@ -1230,14 +1279,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     draw_world(&main_app.world, &main_app.client, &main_app.assets, &mut d);
                 }
 
-                draw_gui(&main_app.ui_state, &mut d, &ui, font);
+                draw_gui(&main_app.ui_state, &mut d, &ui, font, &main_app.assets);
 
                 imgui::lame_old_imgui_entrypoint(
                     &mut d,
                     &mut main_app.client,
                     &main_app.world,
                     &mut main_app.sounds,
-                    &main_app.assets,
                 );
 
                 draw_mouse_screen_position(&mut d, main_app.client.mouse_screen_position);
