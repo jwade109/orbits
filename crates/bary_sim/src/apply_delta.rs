@@ -182,5 +182,19 @@ pub fn apply_delta(world: &mut World, delta: WorldDelta) -> BaryResult<()> {
             set_grid_blueprint_id(world, grid_id, bp_id)?;
             Ok(())
         }
+        WorldDelta::SetMachineState(machine_id, state) => {
+            set_machine_state(world, machine_id, state)?;
+            Ok(())
+        }
+        WorldDelta::SetThrusterState(thruster_id, state) => {
+            let grid_id = set_thruster_state(thruster_id, world, state)?;
+            update_single_grid_acceleration(
+                grid_id,
+                &mut world.grids,
+                &world.thrusters,
+                &world.parts,
+            )?;
+            Ok(())
+        }
     }
 }

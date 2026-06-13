@@ -83,4 +83,6 @@ pub enum WorldDelta {
     MergeGrids(Ent, Ent, PartCoord, Rotation),
     RenameGrid(Ent, String),
     SetGridBlueprint(Ent, Option<BlueprintId>),
+    SetMachineState(Ent, bool),
+    SetThrusterState(Ent, bool),
 }

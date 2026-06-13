@@ -140,6 +140,10 @@ impl ClientApp {
         })
     }
 
+    fn request_server_delta(&mut self, delta: WorldDelta) {
+        self.node.send_command(MessageKind::RequestDelta(delta));
+    }
+
     fn send_telemetry_to_server(&mut self) {
         let tlm = ClientTelemetry {
             ticks: self.world.ticks,
@@ -155,7 +159,7 @@ impl ClientApp {
         if let Some(id) = id {
             self.client.player_id = Some(id);
             let delta = WorldDelta::SetPlayerPosition(id, self.client.camera.isometry);
-            self.node.send_command(MessageKind::RequestDelta(delta));
+            self.request_server_delta(delta);
 
             let world_pos = if let Some(screen_pos) = self.client.mouse_screen_position {
                 Some(screen_to_world(
@@ -168,11 +172,11 @@ impl ClientApp {
             };
 
             let delta = WorldDelta::SetPlayerCursorPosition(id, world_pos);
-            self.node.send_command(MessageKind::RequestDelta(delta));
+            self.request_server_delta(delta);
         } else {
             warn!("Client with username {} isn't in the world", self.username);
             let delta = WorldDelta::SpawnPlayer(self.username.clone(), Isometry2d::ZERO);
-            self.node.send_command(MessageKind::RequestDelta(delta));
+            self.request_server_delta(delta);
         }
     }
 
@@ -493,8 +497,13 @@ impl ClientApp {
                     UiMessage::GoToMainMenu => {
                         self.state = AppState::MainMenu;
                     }
-                    UiMessage::SetMachineOnOff(machine_id, state) => {
-                        warn!("Not handling machine on/off: {machine_id}, {state}");
+                    UiMessage::SetMachineState(machine_id, state) => {
+                        let delta = WorldDelta::SetMachineState(machine_id, state);
+                        self.request_server_delta(delta);
+                    }
+                    UiMessage::SetThrusterState(thruster_id, state) => {
+                        let delta = WorldDelta::SetThrusterState(thruster_id, state);
+                        self.request_server_delta(delta);
                     }
 
                     UiMessage::LoadSinglePlayer => {
@@ -1042,7 +1051,7 @@ fn make_part_info_gui(ui: &UiBuilder, app: &ClientApp, tree: &mut Tree<UiMessage
         if let Ok(thruster) = app.world.thrusters.try_get(part_id) {
             let s = format!("{:#?}", thruster);
             children.push(ui.button(
-                UiMessage::SetThrusterOnOff(part_id, !thruster.is_on),
+                UiMessage::SetThrusterState(part_id, !thruster.is_on),
                 if thruster.is_on {
                     "Turn Off"
                 } else {
@@ -1058,7 +1067,7 @@ fn make_part_info_gui(ui: &UiBuilder, app: &ClientApp, tree: &mut Tree<UiMessage
         if let Ok(mac) = app.world.machines.try_get(part_id) {
             children.push(ui.progress_bar(mac.progress()));
             children.push(ui.button(
-                UiMessage::SetMachineOnOff(part_id, !mac.enabled),
+                UiMessage::SetMachineState(part_id, !mac.enabled),
                 if mac.enabled { "Turn Off" } else { "Turn On" },
             ));
         }

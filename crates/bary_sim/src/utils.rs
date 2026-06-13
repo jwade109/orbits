@@ -66,22 +66,14 @@ pub fn get_grid_physical_props(
     Ok((total_mass, com))
 }
 
-fn set_thruster_state_c(
-    thruster_id: Ent,
-    thrusters: &mut Components<Thruster>,
-    new_state: bool,
-) -> BaryResult<()> {
-    let thruster = thrusters.try_get_mut(thruster_id)?;
-    thruster.is_on = new_state;
-    Ok(())
-}
-
 /// Sets the state of a given thruster.
-/// Does not modify the corresponding grid's acceleration.
-/// TODO(cleanup) this doesn't really need to be a function.
-/// Exclusive version of [`set_thruster_state_c`].
-pub fn set_thruster_state(thruster_id: Ent, world: &mut World, new_state: bool) -> BaryResult<()> {
-    set_thruster_state_c(thruster_id, &mut world.thrusters, new_state)
+/// Does not modify the corresponding grid's acceleration,
+/// but returns the ID of the grid that the thruster belongs to.
+pub fn set_thruster_state(thruster_id: Ent, world: &mut World, new_state: bool) -> BaryResult<Ent> {
+    let part = world.parts.try_get(thruster_id)?;
+    let thruster = world.thrusters.try_get_mut(thruster_id)?;
+    thruster.is_on = new_state;
+    Ok(part.grid_id)
 }
 
 pub fn get_top_part_at(world: &World, loc: GridLocation) -> BaryResult<Ent> {
@@ -1390,6 +1382,12 @@ pub fn set_grid_blueprint_id(
 ) -> BaryResult<()> {
     let grid = world.grids.try_get_mut(grid_id)?;
     grid.blueprint = bp_id;
+    Ok(())
+}
+
+pub fn set_machine_state(world: &mut World, machine_id: Ent, state: bool) -> BaryResult<()> {
+    let machine = world.machines.try_get_mut(machine_id)?;
+    machine.enabled = state;
     Ok(())
 }
 
