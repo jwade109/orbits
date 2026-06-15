@@ -2,12 +2,6 @@ use bary_core::prelude::*;
 use bary_factory::*;
 use bary_input::InputState;
 use bary_ipc::*;
-use bary_raylib::assets::*;
-use bary_raylib::constants::*;
-use bary_raylib::render::*;
-use bary_raylib::sim::*;
-use bary_raylib::sounds::*;
-use bary_raylib::utils::*;
 use bary_raylib::*;
 use bary_server::*;
 use bary_sim::Application;
@@ -479,10 +473,10 @@ impl ClientApp {
                 self.on_drag(c.msg, delta);
             }
             UiEventKind::Release => {
-                self.sounds.push(sounds::SoundEffect::ButtonUp);
+                self.sounds.push(SoundEffect::ButtonUp);
             }
             UiEventKind::Click => {
-                self.sounds.push(sounds::SoundEffect::ButtonDown);
+                self.sounds.push(SoundEffect::ButtonDown);
                 match c.msg {
                     UiMessage::Exit => self.exit(),
                     UiMessage::SaveFile => self.save(),
@@ -1161,11 +1155,12 @@ fn draw_node(
                 color
             };
             let aabb = aabb.scale_about_center(scale);
-            draw_ui_aabb(d, aabb, color, true);
+            draw_ui_aabb(d, aabb, Color::new(40, 40, 40, 255), false);
+            draw_ui_aabb(d, aabb, color, false);
 
             let p = glam_to_raylib(aabb.center);
             let font_size = (UI_FONT_SIZE as f32 * scale) as i32;
-            draw_text_centered(d, font, &text, p, font_size, Color::BLACK);
+            draw_text_centered(d, font, &text, p, font_size, color);
         }
         NodeType::Text(text) => {
             draw_ui_aabb(d, aabb, Color::new(30, 30, 30, 200), true);
@@ -1296,7 +1291,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 draw_gui(&mut d, &main_app.ui_state, &ui, &main_app.assets);
 
-                imgui::lame_old_imgui_entrypoint(
+                lame_old_imgui_entrypoint(
                     &mut d,
                     &mut main_app.client,
                     &main_app.world,
