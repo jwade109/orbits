@@ -4,8 +4,59 @@ use bary_sim::*;
 use log::*;
 use log::{debug, info, warn};
 use serde::Serialize;
-use std::collections::HashMap;
-use std::time::Duration;
+use std::collections::{BTreeMap, HashMap};
+use std::hash::Hash;
+use std::time::{Duration, Instant};
+
+fn serialize_table<T: Serialize>(entities: &Components<T>) -> Option<Vec<u8>> {
+    bincode::serialize(&entities).ok()
+}
+
+fn get_blob(world: &World, table: TableIdent) -> Option<Blob> {
+    let data = match table {
+        TableIdent::Blueprints => serialize_table(&world.blueprints),
+        TableIdent::Grids => serialize_table(&world.grids),
+        TableIdent::Protos => serialize_table(&world.prototypes),
+        TableIdent::Parts => serialize_table(&world.parts),
+        TableIdent::Thrusters => serialize_table(&world.thrusters),
+        TableIdent::Computers => serialize_table(&world.computers),
+        TableIdent::Chunks => serialize_table(&world.terrain_chunks),
+        TableIdent::Tiles => serialize_table(&world.terrain_tiles),
+        TableIdent::Inventories => serialize_table(&world.inventories),
+        TableIdent::Machines => serialize_table(&world.machines),
+        TableIdent::Asteroids => serialize_table(&world.asteroids),
+        TableIdent::Pipes => serialize_table(&world.pipes),
+        TableIdent::Lights => serialize_table(&world.lights),
+        TableIdent::Excavators => serialize_table(&world.excavators),
+        TableIdent::Players => serialize_table(&world.players),
+    };
+    data.map(|data| Blob::new(data, table))
+}
+
+struct PaginatedTransaction {
+    blobs: BTreeMap<TableIdent, Blob>,
+    offset: usize,
+    next_blob: Option<TableIdent>,
+    last_sent: Instant,
+}
+
+impl PaginatedTransaction {
+    fn from_world(world: &World) -> Self {
+        let mut blobs = BTreeMap::new();
+        let all: Vec<_> = TableIdent::all().collect();
+        for ident in &all {
+            let blob = get_blob(world, *ident).expect("This is bad");
+            blobs.insert(*ident, blob);
+        }
+
+        Self {
+            blobs,
+            next_blob: all.first().cloned(),
+            offset: 0,
+            last_sent: Instant::now(),
+        }
+    }
+}
 
 pub fn sync_frame_from_world(world: &World) -> SyncFrame {
     let grid_bytes = bincode::serialize(&world.grids).unwrap();
@@ -32,6 +83,7 @@ pub struct HeadlessServerApp {
     print_timer: WallTimer,
     md5_sync_timer: WallTimer,
     queued_deltas: Vec<WorldDelta>,
+    transactions: HashMap<ClientId, PaginatedTransaction>,
 }
 
 impl HeadlessServerApp {
@@ -49,6 +101,7 @@ impl HeadlessServerApp {
             print_timer: WallTimer::hz(1),
             md5_sync_timer: WallTimer::hz(2),
             queued_deltas: Vec::new(),
+            transactions: HashMap::new(),
         };
 
         if let Some(path) = save_path {
@@ -129,6 +182,38 @@ impl HeadlessServerApp {
         }
     }
 
+    fn process_transactions(&mut self) {
+        let dur = Duration::from_millis(300);
+        let now = Instant::now();
+        for (client, tr) in &mut self.transactions {
+            let next_send = tr.last_sent + dur;
+            if now < next_send {
+                continue;
+            }
+
+            if let Some(next) = tr.next_blob {
+                info!("Sending blob {next} to {client}");
+                if let Some(blob) = tr.blobs.remove(&next) {
+                    let kind = MessageKind::BlobResponse(blob);
+                    self.node
+                        .send(*client, kind.with_source(MessageSource::Server));
+                }
+                tr.next_blob = tr.next_blob.map(|t| t.next()).flatten();
+                tr.last_sent = now;
+            }
+
+            if tr.next_blob.is_none() {
+                info!("Finished transaction!");
+                let kind = MessageKind::FinishWorldDownload;
+                self.node
+                    .send(*client, kind.with_source(MessageSource::Server));
+            }
+        }
+
+        self.transactions
+            .retain(|_client, tr| tr.next_blob.is_some());
+    }
+
     fn on_accept_message(&mut self, msg: Message) {
         debug!("Got a command: {:?}", msg);
         self.send_tlm_ack();
@@ -192,8 +277,19 @@ impl HeadlessServerApp {
             MessageKind::LoadSave(path) => {
                 self.on_accept_load_save(path);
             }
+            MessageKind::BeginAsyncWorldDownload => self.begin_async_world_download(client_id),
             _ => self.on_unsupported_message(),
         }
+    }
+
+    fn begin_async_world_download(&mut self, client: ClientId) {
+        if self.transactions.contains_key(&client) {
+            error!("Transaction already underway for client {client}");
+            return;
+        }
+        let tr = PaginatedTransaction::from_world(&self.world);
+        self.transactions.insert(client, tr);
+        info!("Started async world download for {client}");
     }
 
     fn on_unsupported_message(&mut self) {
@@ -320,34 +416,9 @@ impl HeadlessServerApp {
         ));
     }
 
-    fn serialize_table<T: Serialize>(entities: &Components<T>) -> Option<Vec<u8>> {
-        bincode::serialize(&entities).ok()
-    }
-
-    fn get_blob(&self, table: TableIdent) -> Option<Blob> {
-        let data = match table {
-            TableIdent::Blueprints => Self::serialize_table(&self.world.blueprints),
-            TableIdent::Grids => Self::serialize_table(&self.world.grids),
-            TableIdent::Protos => Self::serialize_table(&self.world.prototypes),
-            TableIdent::Parts => Self::serialize_table(&self.world.parts),
-            TableIdent::Thrusters => Self::serialize_table(&self.world.thrusters),
-            TableIdent::Computers => Self::serialize_table(&self.world.computers),
-            TableIdent::Chunks => Self::serialize_table(&self.world.terrain_chunks),
-            TableIdent::Tiles => Self::serialize_table(&self.world.terrain_tiles),
-            TableIdent::Inventories => Self::serialize_table(&self.world.inventories),
-            TableIdent::Machines => Self::serialize_table(&self.world.machines),
-            TableIdent::Asteroids => Self::serialize_table(&self.world.asteroids),
-            TableIdent::Pipes => Self::serialize_table(&self.world.pipes),
-            TableIdent::Lights => Self::serialize_table(&self.world.lights),
-            TableIdent::Excavators => Self::serialize_table(&self.world.excavators),
-            TableIdent::Players => Self::serialize_table(&self.world.players),
-        };
-        data.map(|data| Blob::new(data, table))
-    }
-
     fn on_accept_client_blob_request(&mut self, client: ClientId, table: TableIdent) {
         info!("Responding to blob request for {table} from {client}");
-        if let Some(blob) = self.get_blob(table) {
+        if let Some(blob) = get_blob(&self.world, table) {
             let msg = Message::new(
                 MessageSource::Server,
                 MessageLevel::Response,
@@ -366,10 +437,7 @@ impl HeadlessServerApp {
 
     fn on_accept_client_blob_request_all(&mut self, client: ClientId) {
         let blobs: Result<Vec<Blob>, BaryError> = TableIdent::all()
-            .map(|table| {
-                self.get_blob(table)
-                    .ok_or(BaryError::FailedToSerialize(table))
-            })
+            .map(|table| get_blob(&self.world, table).ok_or(BaryError::FailedToSerialize(table)))
             .collect();
 
         match blobs {
@@ -419,6 +487,7 @@ impl Application for HeadlessServerApp {
         self.send_tlm_current_tick();
         self.send_tlm_grid_pos();
         self.send_tlm_server_info();
+        self.process_transactions();
     }
 
     fn draw(&mut self) {
@@ -426,14 +495,14 @@ impl Application for HeadlessServerApp {
             return;
         }
 
-        info!("Running da server.");
-        info!("Ticks:  {}", self.world.ticks);
-        info!(
+        debug!("Running da server.");
+        debug!("Ticks:  {}", self.world.ticks);
+        debug!(
             "Update: {:0.2} / {:0.2} Hz",
             self.update_timer.actual_rate(),
             self.update_timer.nominal_rate()
         );
-        info!(
+        debug!(
             "Print:  {:0.2} / {:0.2} Hz",
             self.print_timer.actual_rate(),
             self.print_timer.nominal_rate()

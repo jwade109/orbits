@@ -1,7 +1,7 @@
 use enum_iterator::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq, Eq, Sequence)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq, Eq, Sequence, PartialOrd, Ord)]
 pub enum TableIdent {
     Blueprints,
     Grids,
@@ -23,6 +23,10 @@ pub enum TableIdent {
 impl TableIdent {
     pub fn all() -> impl Iterator<Item = Self> {
         all::<Self>()
+    }
+
+    pub fn next(&self) -> Option<Self> {
+        next::<Self>(self)
     }
 }
 

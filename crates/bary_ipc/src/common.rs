@@ -178,6 +178,9 @@ pub enum MessageKind {
     SyncFrame(SyncFrame),
     /// directive for the server to load a new save file
     LoadSave(String),
+    /// directive for the server to send paginated world data
+    BeginAsyncWorldDownload,
+    FinishWorldDownload,
 }
 
 impl MessageKind {

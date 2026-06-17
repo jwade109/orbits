@@ -193,7 +193,7 @@ impl<T: UiMsg> Node<T> {
     }
 
     pub fn column(width: impl Into<Size>, children: Vec<Node<T>>) -> Self {
-        let mut node = Node::new(Size::Fit, Size::Fit).down();
+        let mut node = Node::new(width, Size::Fit).down();
         node.node_type = NodeType::Column(children);
         node
     }

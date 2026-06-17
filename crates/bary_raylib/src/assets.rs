@@ -11,17 +11,21 @@ pub type MaybeFont = Option<Font>;
 
 #[derive(Default)]
 pub struct Assets {
-    pub circle_texture: MaybeTexture,
-    pub lato_regular: MaybeFont,
-    pub fira_code: MaybeFont,
-    pub consolas: MaybeFont,
+    lato_regular: MaybeFont,
+    fira_code: MaybeFont,
+    consolas: MaybeFont,
     pub part_textures: BTreeMap<String, Texture2D>,
-    pub terrain_textures: Vec<Texture2D>,
     pub animation: MaybeTexture,
     pub terrain_spritesheet: MaybeTexture,
     pub pipe_tilemap: MaybeTexture,
     pub ship_names: Vec<String>,
     pub keybinds: GlobalKeybinds,
+}
+
+impl Assets {
+    pub fn ui_font(&self) -> &Font {
+        self.consolas.as_ref().unwrap()
+    }
 }
 
 pub fn load_assets(
@@ -30,8 +34,6 @@ pub fn load_assets(
     thread: &raylib::RaylibThread,
 ) {
     debug!("Loading assets");
-
-    assets.circle_texture = rl.load_texture(thread, "assets/parts/frame2/skin.png").ok();
 
     assets.lato_regular = rl
         .load_font_ex(thread, "assets/fonts/Lato-Regular.ttf", 32, None)
@@ -55,13 +57,6 @@ pub fn load_assets(
         let skin_path = format!("assets/parts/{}/skin.png", name);
         if let Ok(tex) = rl.load_texture(thread, &skin_path) {
             assets.part_textures.insert(name, tex);
-        }
-    }
-
-    for i in 1..=5 {
-        let path = format!("assets/terrain/terrain{}.png", i);
-        if let Ok(tex) = rl.load_texture(thread, &path) {
-            assets.terrain_textures.push(tex);
         }
     }
 

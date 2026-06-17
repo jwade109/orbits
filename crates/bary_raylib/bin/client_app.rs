@@ -1,6 +1,7 @@
 use bary_core::prelude::*;
 use bary_factory::*;
 use bary_input::InputState;
+use bary_ipc::MessageKind::LoadSave;
 use bary_ipc::*;
 use bary_raylib::*;
 use bary_server::*;
@@ -17,6 +18,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 enum AppState {
+    Loading(u32, String),
     MainMenu,
     ListSaves,
     InWorld,
@@ -29,6 +31,7 @@ pub struct ClientApp {
 
     client: ClientSpecificInfo,
     world: World,
+
     #[allow(unused)]
     debug: DebugInfo,
 
@@ -67,11 +70,7 @@ impl ClientApp {
             }
         });
 
-        let world = if let Some(save) = args.save_file {
-            load_world(&save)?
-        } else {
-            World::empty()
-        };
+        let world = World::empty();
 
         let mut terminal = Terminal::new();
 
@@ -110,7 +109,7 @@ impl ClientApp {
         let ui_state = UiInteractionState::default();
 
         Ok(ClientApp {
-            state: AppState::MainMenu,
+            state: AppState::Loading(0, "Hello there!".to_string()),
             username: args.username,
             world,
             client: ClientSpecificInfo::new(),
@@ -174,26 +173,20 @@ impl ClientApp {
         }
     }
 
-    fn update(&mut self) {
-        // GET SOME BASIC INPUT INFORMATION FROM RAYLIB
+    fn update_loading(&mut self) {
+        if let AppState::Loading(steps, status) = &mut self.state {
+            if chance(0.8) && *steps < 400 {
+                *steps += 3;
+                *status = get_random_name();
+            }
 
-        self.client.mouse_screen_position = self
-            .handle
-            .is_cursor_on_screen()
-            .then(|| raylib_to_glam(self.handle.get_mouse_position()));
-
-        self.client.screen_dims = Vec2::new(
-            self.handle.get_screen_width() as f32,
-            self.handle.get_screen_height() as f32,
-        );
-
-        // HANDLE MESSAGES FROM NETWORK NODE
-
-        while let Some(e) = self.input_queue.pop() {
-            let focused = self.handle.is_window_focused();
-            self.client.input.process_rdev_event(&e, focused);
+            if *steps >= 400 {
+                self.state = AppState::MainMenu;
+            }
         }
+    }
 
+    fn update_in_world(&mut self) {
         let deltas = pre_simulation_update(&self.world, &mut self.client);
 
         for msg in self.node.update() {
@@ -229,10 +222,6 @@ impl ClientApp {
             self.on_terminal_cmd(cmd);
         }
 
-        self.process_events();
-    }
-
-    pub fn process_events(&mut self) {
         let on_gui = self.ui_state.is_on_gui();
         if !self.terminal.is_active() {
             process_event(&mut self.world, &mut self.client, &mut self.sounds, on_gui);
@@ -243,6 +232,32 @@ impl ClientApp {
                     self.node.send_command(MessageKind::RequestDelta(delta));
                 }
             }
+        }
+    }
+
+    fn update(&mut self) {
+        // GET SOME BASIC INPUT INFORMATION FROM RAYLIB
+
+        self.client.mouse_screen_position = self
+            .handle
+            .is_cursor_on_screen()
+            .then(|| raylib_to_glam(self.handle.get_mouse_position()));
+
+        self.client.screen_dims = Vec2::new(
+            self.handle.get_screen_width() as f32,
+            self.handle.get_screen_height() as f32,
+        );
+
+        // HANDLE MESSAGES FROM NETWORK NODE
+
+        while let Some(e) = self.input_queue.pop() {
+            let focused = self.handle.is_window_focused();
+            self.client.input.process_rdev_event(&e, focused);
+        }
+
+        match &self.state {
+            AppState::Loading(_, _) => self.update_loading(),
+            _ => self.update_in_world(),
         }
     }
 
@@ -297,6 +312,9 @@ impl ClientApp {
                 for blob in blobs {
                     self.on_rcv_blob(blob);
                 }
+            }
+            (_, MessageKind::FinishWorldDownload) => {
+                self.state = AppState::InWorld;
             }
             (_, MessageKind::SyncFrame(frame)) => {
                 debug!("Got frame: {:?}", frame);
@@ -429,16 +447,8 @@ impl ClientApp {
     }
 
     fn load_save_file(&mut self, path: String) {
-        match load_world(&path) {
-            Ok(world) => {
-                self.world = world;
-                self.state = AppState::InWorld;
-                self.node.send_command(MessageKind::LoadSave(path));
-            }
-            Err(e) => {
-                error!("Failed to load world: {e}");
-            }
-        }
+        self.node.send_command(MessageKind::LoadSave(path));
+        self.node.send_command(MessageKind::BeginAsyncWorldDownload);
     }
 
     pub fn on_drag(&mut self, id: UiMessage, delta: Vec2) {
@@ -571,137 +581,6 @@ impl ClientApp {
     }
 }
 
-fn draw_debug_info(
-    world: &World,
-    client: &ClientSpecificInfo,
-    assets: &Assets,
-    timers: &DebugTimers,
-    node: &ClientNode,
-    update_timer: &WallTimer,
-    ping_timer: &WallTimer,
-    tlm_timer: &WallTimer,
-    username: &str,
-    user_id: Option<Ent>,
-    d: &mut RaylibDrawHandle,
-) {
-    let size = size_in_bytes(world);
-    let mut s = "Barycenter Client".to_string();
-
-    let consist = is_world_consistent(world);
-    s += &format!("\nOK: {:?}", consist);
-
-    let fmt_time = |d: std::time::Duration, t: std::time::Duration| {
-        let p = d.as_secs_f64() / t.as_secs_f64();
-        format!(
-            "    {:09} ns\n    {:05.04} ms\n    {:3.1}%",
-            d.as_nanos(),
-            d.as_nanos() as f64 / 1000000.0,
-            p * 100.0
-        )
-    };
-
-    s += &format!(
-        "\nW {}/{} {} {:0.1} {}",
-        timers.ticks,
-        client.tick_rate,
-        world.ticks,
-        apparent_elapsed_time(world.ticks).as_secs_f64(),
-        apparent_datetime(world.ticks).format("%b %d %Y %I:%M:%S %p"),
-    );
-
-    s += &format!("\nUsername:  {}", username);
-    if let Some(uid) = user_id {
-        s += &format!("\nUser ID:   {}", uid);
-    }
-
-    s += &format!("\nFPS:       {}", d.get_fps());
-    s += &format!("\nMemory:    {:0.3} KB", size as f64 / 1000.0);
-    s += &format!("\nZoom:      {:0.3}", client.camera.zoom);
-
-    s += &format!(
-        "\nUpdate:    {:0.2} Hz / {:0.2} Hz ",
-        update_timer.actual_rate(),
-        update_timer.nominal_rate()
-    );
-    s += &format!(
-        "\nPing:      {:0.2} Hz / {:0.2} Hz ",
-        ping_timer.actual_rate(),
-        ping_timer.nominal_rate()
-    );
-    s += &format!(
-        "\nTLM:       {:0.2} Hz / {:0.2} Hz ",
-        tlm_timer.actual_rate(),
-        tlm_timer.nominal_rate()
-    );
-
-    s += "\n";
-
-    s += &format!("\nConnected: {}", node.is_connected());
-    s += &format!("\nAddress:   {}", node.server_addr());
-    s += &format!("\nRX:        {}", node.rx_count());
-    s += &format!("\nTX:        {}", node.tx_count());
-    s += &format!("\nErrors:    {}", node.errors());
-
-    s += "\n";
-
-    s += &format!("\nTicks:     {}", world.ticks);
-    s += &format!("\nGrids:     {}", world.grids.len());
-    s += &format!("\nParts:     {}", world.parts.len());
-    s += &format!("\nProtos:    {}", world.prototypes.len());
-    s += &format!("\nBPs:       {}", world.blueprints.len());
-    s += &format!("\nThrusters: {}", world.thrusters.len());
-    s += &format!("\nInvs:      {}", world.inventories.len());
-    s += &format!("\nMachines:  {}", world.machines.len());
-    s += &format!("\nAsteroids: {}", world.asteroids.len());
-    s += &format!("\nChunks:    {}", world.terrain_chunks.len());
-    s += &format!("\nTiles:     {}", world.terrain_tiles.len());
-    s += &format!("\nGAUs:      {}", world.grid_acceleration_updates);
-    s += &format!("\nPlayers:   {}", world.players.len());
-
-    for player in world.players.values() {
-        s += &format!("\n  {} {}", player.name, player.state);
-    }
-
-    s += "\n";
-
-    let total = timers.total();
-
-    s += &format!("\ntotal\n{}", fmt_time(total, total));
-
-    for timer in timers.timers.iter() {
-        let time = fmt_time(*timer.1, total);
-        s += &format!("\n{}\n{}", timer.0, time);
-    }
-
-    let font_size = 16.0;
-
-    let font = assets.consolas.as_ref().unwrap();
-    let dims = font.measure_text(&s, font_size, 0.0);
-    let padding = 10;
-    let pos = Vector2::new(10.0, 60.0);
-
-    d.draw_rectangle(
-        pos.x as i32,
-        pos.y as i32,
-        dims.x as i32 + padding * 2,
-        dims.y as i32 + padding * 2,
-        Color::new(20, 20, 20, 255).alpha(0.9),
-    );
-
-    let rec = Rectangle::new(
-        pos.x,
-        pos.y,
-        dims.x + padding as f32 * 2.0,
-        dims.y + padding as f32 * 2.0,
-    );
-
-    d.draw_rectangle_lines_ex(rec, 3.0, Color::new(60, 60, 60, 255).alpha(0.9));
-
-    let pos = Vector2::new(pos.x + padding as f32, pos.y + padding as f32);
-
-    d.draw_text_ex(font, &s, pos, 16.0, 0.0, Color::ORANGE);
-}
-
 fn handle_sounds<'a>(
     sounds: &SoundEffects,
     audio: &'a RaylibAudio,
@@ -740,27 +619,6 @@ struct Args {
     server_port: u16,
     #[arg(long)]
     run_server: bool,
-}
-
-fn draw_ui_aabb(d: &mut RaylibDrawHandle, aabb: AABB, color: Color, fill: bool) {
-    let tl = aabb.lower();
-    if fill {
-        d.draw_rectangle(
-            tl.x as i32,
-            tl.y as i32,
-            aabb.span.x as i32,
-            aabb.span.y as i32,
-            color,
-        );
-    } else {
-        d.draw_rectangle_lines(
-            tl.x as i32,
-            tl.y as i32,
-            aabb.span.x as i32,
-            aabb.span.y as i32,
-            color,
-        );
-    }
 }
 
 #[allow(unused)]
@@ -807,23 +665,6 @@ fn generate_assets_ui(assets: &Assets, input: &InputState, width: f32, height: f
     }
 
     Tree::new().with_layout(root, None)
-}
-
-fn bary_to_raylib(c: BColor) -> Color {
-    Color::new(c.r, c.g, c.b, c.a)
-}
-
-fn node_color<T: bary_ui::UiMsg>(node: &bary_ui::Node<T>) -> Color {
-    match node.kind() {
-        NodeType::Text(_) => Color::TEAL.alpha(0.3),
-        NodeType::Button(_, _) => Color::ORANGE,
-        NodeType::Image(_) => Color::YELLOW,
-        NodeType::Spacer => bary_to_raylib(BColor::gray(50)),
-        NodeType::Row(_) => bary_to_raylib(BColor::gray(20)).alpha(0.95),
-        NodeType::Column(_) => bary_to_raylib(BColor::gray(20)).alpha(0.95),
-        NodeType::DragHandle(_) => bary_to_raylib(BColor::gray(60)),
-        NodeType::ProgressBar(_) => Color::TEAL,
-    }
 }
 
 pub struct UiBuilder<'a> {
@@ -893,7 +734,7 @@ fn make_docking_ui(
     let sep = distance_str(sep as f64);
 
     let docking_ui = Node::column(
-        400,
+        Size::Fit,
         vec![
             builder.draghandle(UiMessage::DockingHandle),
             builder.text("Docking Control Panel"),
@@ -912,7 +753,7 @@ fn make_docking_ui(
 
 fn make_main_menu(ui: &UiBuilder) -> Node<UiMessage> {
     Node::column(
-        800,
+        Size::Fit,
         vec![
             ui.draghandle(UiMessage::MainMenuHandle),
             ui.button(UiMessage::LoadSinglePlayer, "Load Single Player"),
@@ -920,6 +761,20 @@ fn make_main_menu(ui: &UiBuilder) -> Node<UiMessage> {
             ui.button(UiMessage::HostMultiplayer, "Host Multiplayer"),
             ui.button(UiMessage::Settings, "Settings"),
             ui.button(UiMessage::Exit, "Exit to Desktop"),
+        ],
+    )
+}
+
+fn loading_layout(ui: &UiBuilder, steps: u32, status: &str) -> Node<UiMessage> {
+    let progress = steps as f32 / 400.0;
+    let pstr = format!("{}/{}", steps, 400);
+    Node::column(
+        500,
+        vec![
+            ui.text("Loading..."),
+            ui.progress_bar(progress),
+            ui.text(pstr),
+            ui.text(status),
         ],
     )
 }
@@ -934,7 +789,7 @@ fn make_savefiles_menu(ui: &UiBuilder, saves: &[String]) -> Node<UiMessage> {
 
     buttons.push(ui.button(UiMessage::GoToMainMenu, "Return to Main Menu"));
 
-    Node::column(800, buttons)
+    Node::column(Size::Fit, buttons)
 }
 
 fn make_world_ui(ui: &UiBuilder, app: &ClientApp, tree: &mut Tree<UiMessage>) {
@@ -1103,7 +958,10 @@ fn make_gui(font: &Font, app: &ClientApp) -> Tree<UiMessage> {
 
     let mut tree = Tree::new();
 
-    match app.state {
+    match &app.state {
+        AppState::Loading(steps, status) => {
+            tree.add_layout(loading_layout(&builder, *steps, status), app.menu_origin);
+        }
         AppState::MainMenu => {
             tree.add_layout(make_main_menu(&builder), app.menu_origin);
         }
@@ -1123,101 +981,6 @@ fn make_gui(font: &Font, app: &ClientApp) -> Tree<UiMessage> {
     }
 
     tree
-}
-
-const UI_FONT_SIZE: i32 = 18;
-
-fn draw_node(
-    state: &UiInteractionState,
-    d: &mut RaylibDrawHandle,
-    node: &Node<UiMessage>,
-    font: &Font,
-    assets: &Assets,
-) {
-    if !node.is_visible() {
-        return;
-    }
-
-    let color = node_color(node);
-    let aabb = node.aabb();
-
-    let is_clicked = state.active() == node.on_click();
-    let is_hovered = state.hot() == node.on_click();
-
-    match node.kind() {
-        NodeType::Button(text, _msg) => {
-            let scale = if is_clicked { 0.95 } else { 1.0 };
-            let color = if is_clicked {
-                color.lerp(Color::BLACK, 0.2)
-            } else if is_hovered {
-                color.lerp(Color::WHITE, 0.3)
-            } else {
-                color
-            };
-            let aabb = aabb.scale_about_center(scale);
-            draw_ui_aabb(d, aabb, Color::new(40, 40, 40, 255), false);
-            draw_ui_aabb(d, aabb, color, false);
-
-            let p = glam_to_raylib(aabb.center);
-            let font_size = (UI_FONT_SIZE as f32 * scale) as i32;
-            draw_text_centered(d, font, &text, p, font_size, color);
-        }
-        NodeType::Text(text) => {
-            draw_ui_aabb(d, aabb, Color::new(30, 30, 30, 200), true);
-            let p = glam_to_raylib(aabb.center);
-            draw_text_centered(d, font, &text, p, UI_FONT_SIZE, Color::WHITE);
-        }
-        NodeType::DragHandle(_) => {
-            let color = if is_clicked {
-                color.lerp(Color::BLACK, 0.2)
-            } else if is_hovered {
-                color.lerp(Color::WHITE, 0.3)
-            } else {
-                color
-            };
-            draw_ui_aabb(d, aabb, color, true);
-        }
-        NodeType::Image(name) => {
-            let p = aabb.lower();
-            if let Some(texture) = assets.part_textures.get(name) {
-                let source_rec =
-                    Rectangle::new(0.0, 0.0, texture.width as f32, texture.height as f32);
-                let dest_rec = Rectangle::new(p.x, p.y, aabb.span.x, aabb.span.y);
-                draw_ui_aabb(d, aabb, Color::new(90, 90, 90, 255), false);
-                d.draw_texture_pro(
-                    texture,
-                    source_rec,
-                    dest_rec,
-                    Vector2::zero(),
-                    0.0,
-                    Color::WHITE,
-                );
-            }
-        }
-        NodeType::ProgressBar(val) => {
-            let dims = Vec2::new(aabb.span.x * *val, aabb.span.y);
-            let bar_aabb = AABB::from_arbitrary(aabb.lower(), aabb.lower() + dims);
-            draw_ui_aabb(d, aabb, Color::new(40, 40, 40, 255), true);
-            draw_ui_aabb(d, aabb, Color::new(10, 10, 10, 255), false);
-            draw_ui_aabb(d, bar_aabb, color, true);
-        }
-        _ => {
-            draw_ui_aabb(d, aabb, color, true);
-        }
-    };
-}
-
-fn draw_gui(
-    d: &mut RaylibDrawHandle,
-    state: &UiInteractionState,
-    gui: &Tree<UiMessage>,
-    assets: &Assets,
-) {
-    let font = assets.consolas.as_ref().unwrap();
-
-    for node in gui.iter() {
-        draw_node(state, d, node, font, assets);
-    }
 }
 
 fn server_thread(args: Args) {
@@ -1259,7 +1022,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // AND DRAW IT ALL
 
-        let font = main_app.assets.consolas.as_ref().unwrap();
+        let font = main_app.assets.ui_font();
 
         let ui = make_gui(font, &main_app);
 

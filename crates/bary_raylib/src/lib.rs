@@ -9,6 +9,8 @@ mod sim;
 mod sounds;
 mod utils;
 
+mod task;
+
 pub use assets::*;
 pub use commands::*;
 pub use constants::*;

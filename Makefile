@@ -5,7 +5,7 @@ local_server:
 	cargo run --release --bin server_app 5000 $$(pwd)/saves/ scenario_a
 
 mp_client:
-	cargo run --release -- -s saves/scenario_a -a 127.0.0.1:5000 --username mattmarti
+	cargo run --release -- -a 127.0.0.1:5000 --username mattmarti
 
 single_player:
 	cargo run --release -- --run-server --username kim_mcbudget -s saves/scenario_a

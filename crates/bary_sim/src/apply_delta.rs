@@ -160,15 +160,15 @@ pub fn apply_delta(world: &mut World, delta: WorldDelta) -> BaryResult<()> {
             Ok(())
         }
         WorldDelta::SpawnPlayer(username, iso) => {
-            spawn_player(world, username, iso)?;
+            _ = spawn_player(world, username, iso);
             Ok(())
         }
         WorldDelta::SetPlayerPosition(id, iso) => {
-            set_player_position(world, id, iso)?;
+            _ = set_player_position(world, id, iso);
             Ok(())
         }
         WorldDelta::SetPlayerCursorPosition(id, pos) => {
-            set_player_cursor_position(world, id, pos)?;
+            _ = set_player_cursor_position(world, id, pos);
             Ok(())
         }
         WorldDelta::MergeGrids(parent, child, offset, rotation) => {
