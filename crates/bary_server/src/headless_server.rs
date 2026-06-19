@@ -166,7 +166,7 @@ impl HeadlessServerApp {
     }
 
     fn process_transactions(&mut self) {
-        let dur = Duration::from_millis(300);
+        let dur = Duration::from_millis(180);
         let now = Instant::now();
         for (client, tr) in &mut self.transactions {
             let next_send = tr.last_sent + dur;

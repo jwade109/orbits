@@ -1,4 +1,5 @@
 mod assets;
+mod async_world_download;
 mod commands;
 mod constants;
 mod editor_state;
@@ -12,6 +13,7 @@ mod utils;
 mod task;
 
 pub use assets::*;
+pub use async_world_download::*;
 pub use commands::*;
 pub use constants::*;
 pub use editor_state::*;

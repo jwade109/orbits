@@ -1,7 +1,6 @@
 use bary_core::prelude::*;
 use bary_factory::*;
 use bary_input::InputState;
-use bary_ipc::MessageKind::LoadSave;
 use bary_ipc::*;
 use bary_raylib::*;
 use bary_server::*;
@@ -13,12 +12,11 @@ use clap::Parser;
 use early_returns::*;
 use log::*;
 use raylib::prelude::*;
-use serde::Deserialize;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
 enum AppState {
-    Loading(u32, String),
+    Loading(u32, u32, String),
     MainMenu,
     ListSaves,
     InWorld,
@@ -58,6 +56,8 @@ pub struct ClientApp {
 
     menu_origin: Vec2,
     part_info_origin: Vec2,
+
+    async_world_download: Option<AsyncWorldDownload>,
 }
 
 impl ClientApp {
@@ -109,7 +109,7 @@ impl ClientApp {
         let ui_state = UiInteractionState::default();
 
         Ok(ClientApp {
-            state: AppState::Loading(0, "Hello there!".to_string()),
+            state: AppState::Loading(0, 1000, "Hello there!".to_string()),
             username: args.username,
             world,
             client: ClientSpecificInfo::new(),
@@ -130,6 +130,7 @@ impl ClientApp {
             sounds: SoundEffects::new(),
             menu_origin: Vec2::new(300.0, 200.0),
             part_info_origin: Vec2::new(400.0, 350.0),
+            async_world_download: None,
         })
     }
 
@@ -174,13 +175,13 @@ impl ClientApp {
     }
 
     fn update_loading(&mut self) {
-        if let AppState::Loading(steps, status) = &mut self.state {
-            if chance(0.8) && *steps < 400 {
-                *steps += 3;
+        if let AppState::Loading(steps, total, status) = &mut self.state {
+            if chance(0.8) && *steps < *total {
+                *steps += randint(4, 12) as u32;
                 *status = get_random_name();
             }
 
-            if *steps >= 400 {
+            if *steps >= *total {
                 self.state = AppState::MainMenu;
             }
         }
@@ -256,7 +257,7 @@ impl ClientApp {
         }
 
         match &self.state {
-            AppState::Loading(_, _) => self.update_loading(),
+            AppState::Loading(_, _, _) => self.update_loading(),
             _ => self.update_in_world(),
         }
     }
@@ -337,42 +338,20 @@ impl ClientApp {
         }
     }
 
-    fn unpack_blob<'a, T: Deserialize<'a>>(entities: &mut Components<T>, bytes: &'a [u8]) -> bool {
-        if let Ok(e) = bincode::deserialize(bytes) {
-            *entities = e;
-            true
-        } else {
-            false
-        }
-    }
-
     fn on_rcv_blob(&mut self, blob: Blob) {
-        info!("Got blob: {blob}");
-        let table = blob.table();
-        let success = match table {
-            TableIdent::Blueprints => Self::unpack_blob(&mut self.world.blueprints, blob.data()),
-            TableIdent::Grids => Self::unpack_blob(&mut self.world.grids, blob.data()),
-            TableIdent::Protos => Self::unpack_blob(&mut self.world.prototypes, blob.data()),
-            TableIdent::Parts => Self::unpack_blob(&mut self.world.parts, blob.data()),
-            TableIdent::Thrusters => Self::unpack_blob(&mut self.world.thrusters, blob.data()),
-            TableIdent::Computers => Self::unpack_blob(&mut self.world.computers, blob.data()),
-            TableIdent::Chunks => Self::unpack_blob(&mut self.world.terrain_chunks, blob.data()),
-            TableIdent::Tiles => Self::unpack_blob(&mut self.world.terrain_tiles, blob.data()),
-            TableIdent::Inventories => Self::unpack_blob(&mut self.world.inventories, blob.data()),
-            TableIdent::Machines => Self::unpack_blob(&mut self.world.machines, blob.data()),
-            TableIdent::Asteroids => Self::unpack_blob(&mut self.world.asteroids, blob.data()),
-            TableIdent::Pipes => Self::unpack_blob(&mut self.world.pipes, blob.data()),
-            TableIdent::Lights => Self::unpack_blob(&mut self.world.lights, blob.data()),
-            TableIdent::Excavators => Self::unpack_blob(&mut self.world.excavators, blob.data()),
-            TableIdent::Players => Self::unpack_blob(&mut self.world.players, blob.data()),
-        };
+        if let Some(dl) = &mut self.async_world_download {
+            dl.add_blob(blob);
 
-        if success {
-            self.terminal
-                .log_info(format!("Unpacked blob data for table {table}"));
+            if dl.is_complete() {
+                let dl = self
+                    .async_world_download
+                    .take()
+                    .expect("Expected this to be Some(_)");
+
+                self.world = dl.world();
+            }
         } else {
-            self.terminal
-                .log_error(format!("Failed to unpack blob for table {table}"));
+            error!("No download underway!");
         }
     }
 
@@ -434,6 +413,7 @@ impl ClientApp {
     fn load_save_file(&mut self, path: String) {
         self.node.send(MessageKind::LoadSave(path));
         self.node.send(MessageKind::BeginAsyncWorldDownload);
+        self.async_world_download = Some(AsyncWorldDownload::new());
     }
 
     pub fn on_drag(&mut self, id: UiMessage, delta: Vec2) {
@@ -549,7 +529,8 @@ impl ClientApp {
             TermCmd::ClientReqAllBlobs => {
                 self.terminal
                     .log_warn(format!("Requesting all blobs at tick {}", self.world.ticks));
-                self.node.send(MessageKind::ClientBlobRequestAll);
+                self.node.send(MessageKind::BeginAsyncWorldDownload);
+                self.async_world_download = Some(AsyncWorldDownload::new());
             }
             TermCmd::World(delta) => {
                 self.node.send(MessageKind::RequestDelta(delta));
@@ -749,9 +730,9 @@ fn make_main_menu(ui: &UiBuilder) -> Node<UiMessage> {
     )
 }
 
-fn loading_layout(ui: &UiBuilder, steps: u32, status: &str) -> Node<UiMessage> {
-    let progress = steps as f32 / 400.0;
-    let pstr = format!("{}/{}", steps, 400);
+fn loading_layout(ui: &UiBuilder, steps: u32, total: u32, status: &str) -> Node<UiMessage> {
+    let progress = steps as f32 / total as f32;
+    let pstr = format!("{}/{}", steps, total);
     Node::column(
         500,
         vec![
@@ -943,8 +924,11 @@ fn make_gui(font: &Font, app: &ClientApp) -> Tree<UiMessage> {
     let mut tree = Tree::new();
 
     match &app.state {
-        AppState::Loading(steps, status) => {
-            tree.add_layout(loading_layout(&builder, *steps, status), app.menu_origin);
+        AppState::Loading(steps, total, status) => {
+            tree.add_layout(
+                loading_layout(&builder, *steps, *total, status),
+                app.menu_origin,
+            );
         }
         AppState::MainMenu => {
             tree.add_layout(make_main_menu(&builder), app.menu_origin);
@@ -962,6 +946,11 @@ fn make_gui(font: &Font, app: &ClientApp) -> Tree<UiMessage> {
                 .collect();
             tree.add_layout(make_savefiles_menu(&builder, &saves), app.menu_origin);
         }
+    }
+
+    if let Some(dl) = &app.async_world_download {
+        let node = loading_layout(&builder, dl.steps(), dl.total(), dl.status());
+        tree.add_layout(node, Vec2::new(400.0, 200.0));
     }
 
     tree
