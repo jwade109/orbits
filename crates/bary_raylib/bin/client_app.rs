@@ -134,14 +134,14 @@ impl ClientApp {
     }
 
     fn request_server_delta(&mut self, delta: WorldDelta) {
-        self.node.send_command(MessageKind::RequestDelta(delta));
+        self.node.send(MessageKind::RequestDelta(delta));
     }
 
     fn send_telemetry_to_server(&mut self) {
         let tlm = ClientTelemetry {
             ticks: self.world.ticks,
         };
-        self.node.send_telemetry(MessageKind::ClientTelemetry(tlm));
+        self.node.send(MessageKind::ClientTelemetry(tlm));
 
         let id = self
             .world
@@ -201,13 +201,13 @@ impl ClientApp {
         );
 
         for delta in deltas.into_iter().chain(post_deltas) {
-            self.node.send_command(MessageKind::RequestDelta(delta));
+            self.node.send(MessageKind::RequestDelta(delta));
         }
 
         // HANDLE INPUTS FROM RDEV LISTENER THREAD
 
         if self.server_ping_timer.tick() {
-            self.node.send_telemetry(MessageKind::Ping)
+            self.node.send(MessageKind::Ping)
         }
 
         if self.server_telemetry_timer.tick() {
@@ -229,7 +229,7 @@ impl ClientApp {
             if let Some(editor) = self.client.viewport.editor_mut() {
                 let zoom = self.client.camera.zoom;
                 if let Some(delta) = editor.handle_keys(&self.client.input, &self.world, zoom) {
-                    self.node.send_command(MessageKind::RequestDelta(delta));
+                    self.node.send(MessageKind::RequestDelta(delta));
                 }
             }
         }
@@ -271,36 +271,21 @@ impl ClientApp {
         let t = format!("[{:?}] {}", msg.source, k);
         self.terminal.log_debug(s);
 
-        match msg.level {
-            MessageLevel::Command => {
-                self.terminal.log_info(t);
-                info!("{msg:?}");
-            }
-            MessageLevel::Response => {
-                self.terminal.log_info(t);
-                info!("{msg:?}");
-            }
-            MessageLevel::Telemetry => {
-                debug!("{msg:?}");
-            }
-        }
+        debug!("{msg:?}");
 
-        match (msg.level, msg.kind) {
-            (
-                MessageLevel::Telemetry,
-                MessageKind::Driver {
-                    ticks,
-                    deltas,
-                    players,
-                },
-            ) => {
+        match msg.kind {
+            MessageKind::Driver {
+                ticks,
+                deltas,
+                players,
+            } => {
                 self.on_driver_packet(ticks, deltas);
                 self.world.players = players;
             }
-            (MessageLevel::Response, MessageKind::BlobResponse(blob)) => {
+            MessageKind::BlobResponse(blob) => {
                 self.on_rcv_blob(blob);
             }
-            (MessageLevel::Response, MessageKind::MultiBlobResponse(ent, ticks, blobs)) => {
+            MessageKind::MultiBlobResponse(ent, ticks, blobs) => {
                 let delta = ticks as i64 - self.world.ticks as i64;
                 self.terminal.log_warn(format!(
                     "Delta ticks: {} AKA {:0.3}",
@@ -313,10 +298,10 @@ impl ClientApp {
                     self.on_rcv_blob(blob);
                 }
             }
-            (_, MessageKind::FinishWorldDownload) => {
+            MessageKind::FinishWorldDownload => {
                 self.state = AppState::InWorld;
             }
-            (_, MessageKind::SyncFrame(frame)) => {
+            MessageKind::SyncFrame(frame) => {
                 debug!("Got frame: {:?}", frame);
                 let our_frame = sync_frame_from_world(&self.world);
                 debug!("Our frame: {:?}", our_frame);
@@ -411,7 +396,7 @@ impl ClientApp {
     }
 
     fn set_sim_speed(&mut self, speed: u32) {
-        self.node.send_command(MessageKind::SetSimSpeed(speed));
+        self.node.send(MessageKind::SetSimSpeed(speed));
     }
 
     fn docking_rotate(&mut self) {
@@ -442,13 +427,13 @@ impl ClientApp {
                 docking.offset,
                 docking.rotation,
             );
-            self.node.send_command(MessageKind::RequestDelta(delta));
+            self.node.send(MessageKind::RequestDelta(delta));
         }
     }
 
     fn load_save_file(&mut self, path: String) {
-        self.node.send_command(MessageKind::LoadSave(path));
-        self.node.send_command(MessageKind::BeginAsyncWorldDownload);
+        self.node.send(MessageKind::LoadSave(path));
+        self.node.send(MessageKind::BeginAsyncWorldDownload);
     }
 
     pub fn on_drag(&mut self, id: UiMessage, delta: Vec2) {
@@ -529,10 +514,10 @@ impl ClientApp {
 
         match cmd {
             TermCmd::Say(s) => {
-                self.node.send_command(MessageKind::Text(s));
+                self.node.send(MessageKind::Text(s));
             }
             TermCmd::Ping => {
-                self.node.send_command(MessageKind::Ping);
+                self.node.send(MessageKind::Ping);
             }
             TermCmd::Clear => {
                 self.terminal.clear();
@@ -541,13 +526,13 @@ impl ClientApp {
                 self.set_sim_speed(speed);
             }
             TermCmd::FindGridByName(name) => {
-                self.node.send_command(MessageKind::FindGridByName(name));
+                self.node.send(MessageKind::FindGridByName(name));
             }
             TermCmd::Exit => {
                 self.exit();
             }
             TermCmd::PrintEntityInfo(table) => {
-                self.node.send_command(MessageKind::PrintEntityInfo(table));
+                self.node.send(MessageKind::PrintEntityInfo(table));
             }
             TermCmd::ServerConnect => {
                 self.node.reconnect();
@@ -556,19 +541,18 @@ impl ClientApp {
                 self.node.disconnect();
             }
             TermCmd::RequestServerStatistics => {
-                self.node.send_command(MessageKind::RequestServerStatistics);
+                self.node.send(MessageKind::RequestServerStatistics);
             }
             TermCmd::ClientReqBlob(table) => {
-                self.node
-                    .send_command(MessageKind::ClientBlobRequest(table));
+                self.node.send(MessageKind::ClientBlobRequest(table));
             }
             TermCmd::ClientReqAllBlobs => {
                 self.terminal
                     .log_warn(format!("Requesting all blobs at tick {}", self.world.ticks));
-                self.node.send_command(MessageKind::ClientBlobRequestAll);
+                self.node.send(MessageKind::ClientBlobRequestAll);
             }
             TermCmd::World(delta) => {
-                self.node.send_command(MessageKind::RequestDelta(delta));
+                self.node.send(MessageKind::RequestDelta(delta));
             }
             TermCmd::Help => {
                 self.terminal.print_help_command();

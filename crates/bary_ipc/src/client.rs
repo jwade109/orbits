@@ -183,12 +183,8 @@ impl ClientNode {
         self.tx_count += 1;
     }
 
-    pub fn send_command(&mut self, kind: MessageKind) {
-        self.send_message(Message::command(MessageSource::Client(self.id), kind));
-    }
-
-    pub fn send_telemetry(&mut self, kind: MessageKind) {
-        self.send_message(Message::telemetry(MessageSource::Client(self.id), kind));
+    pub fn send(&mut self, kind: MessageKind) {
+        self.send_message(Message::new(MessageSource::Client(self.id), kind));
     }
 
     pub fn disconnect(&mut self) {

@@ -59,37 +59,8 @@ impl ServerNode {
         self.client_info.iter()
     }
 
-    pub fn broadcast_telemetry(&mut self, kind: MessageKind) {
-        let msg = Message::telemetry(MessageSource::Server, kind);
-        self.broadcast(msg);
-    }
-
-    pub fn send_telemetry(&mut self, id: ClientId, kind: MessageKind) {
-        let msg = Message::telemetry(MessageSource::Server, kind);
-        self.send(id, msg);
-    }
-
-    pub fn broadcast_response(&mut self, kind: MessageKind) {
-        let msg = Message::response(MessageSource::Server, kind);
-        self.broadcast(msg);
-    }
-
-    pub fn send_response(&mut self, id: ClientId, kind: MessageKind) {
-        let msg = Message::response(MessageSource::Server, kind);
-        self.send(id, msg);
-    }
-
-    pub fn broadcast_command(&mut self, kind: MessageKind) {
-        let msg = Message::command(MessageSource::Server, kind);
-        self.broadcast(msg);
-    }
-
-    pub fn send_command(&mut self, id: ClientId, kind: MessageKind) {
-        let msg = Message::command(MessageSource::Server, kind);
-        self.send(id, msg);
-    }
-
-    pub fn broadcast(&mut self, msg: Message) {
+    pub fn broadcast(&mut self, msg: MessageKind) {
+        let msg = msg.with_source(MessageSource::Server);
         let message = bincode::serialize(&msg).unwrap();
         self.renet
             .broadcast_message(DefaultChannel::ReliableOrdered, message);
@@ -99,8 +70,8 @@ impl ServerNode {
         }
     }
 
-    pub fn send(&mut self, id: ClientId, msg: Message) {
-        let message = bincode::serialize(&msg).unwrap();
+    pub fn send(&mut self, id: ClientId, kind: MessageKind) {
+        let message = bincode::serialize(&kind.with_source(MessageSource::Server)).unwrap();
         self.renet
             .send_message(id.0, DefaultChannel::ReliableOrdered, message);
 
@@ -190,7 +161,7 @@ mod tests {
         assert!(c1.is_connected());
         assert!(c2.is_connected());
 
-        server.send_telemetry(c1.id(), MessageKind::Ack);
+        server.send(c1.id(), MessageKind::Ack);
 
         _ = server.update();
 
@@ -222,9 +193,9 @@ mod tests {
         assert_eq!(server.renet().connected_clients(), 1);
         assert!(client.is_connected());
 
-        server.broadcast_response(MessageKind::Ack);
-        server.broadcast_telemetry(MessageKind::PrintEntityInfo(TableIdent::Grids));
-        server.send_command(
+        server.broadcast(MessageKind::Ack);
+        server.broadcast(MessageKind::PrintEntityInfo(TableIdent::Grids));
+        server.send(
             client.id(),
             MessageKind::PrintEntityInfo(TableIdent::Computers),
         );
@@ -234,10 +205,6 @@ mod tests {
         let msgs = client.update();
 
         assert_eq!(msgs.len(), 3);
-
-        assert_eq!(msgs[0].level, MessageLevel::Response);
-        assert_eq!(msgs[1].level, MessageLevel::Telemetry);
-        assert_eq!(msgs[2].level, MessageLevel::Command);
 
         assert_eq!(msgs[0].source, MessageSource::Server);
         assert_eq!(msgs[1].source, MessageSource::Server);
@@ -260,7 +227,7 @@ mod tests {
         assert_eq!(server.renet().connected_clients(), 1);
         assert!(client.is_connected());
 
-        server.broadcast_telemetry(MessageKind::Ack);
+        server.broadcast(MessageKind::Ack);
         _ = server.update();
 
         let msgs = client.update();

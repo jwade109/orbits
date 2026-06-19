@@ -16,13 +16,6 @@ pub fn new_message_queue<T>() -> MessageQueue<T> {
     Arc::new(SegQueue::new())
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
-pub enum MessageLevel {
-    Telemetry,
-    Command,
-    Response,
-}
-
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ClientId(pub u64);
 
@@ -41,25 +34,20 @@ pub enum MessageSource {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Message {
     pub source: MessageSource,
-    pub level: MessageLevel,
     pub kind: MessageKind,
 }
 
 impl Message {
-    pub fn new(source: MessageSource, level: MessageLevel, kind: MessageKind) -> Self {
-        Self {
-            source,
-            level,
-            kind,
-        }
+    pub fn new(source: MessageSource, kind: MessageKind) -> Self {
+        Self { source, kind }
     }
 
-    pub fn ack_tlm(source: MessageSource) -> Self {
-        Self::new(source, MessageLevel::Telemetry, MessageKind::Ack)
+    pub fn ack(source: MessageSource) -> Self {
+        Self::new(source, MessageKind::Ack)
     }
 
-    pub fn nack_tlm(source: MessageSource) -> Self {
-        Self::new(source, MessageLevel::Telemetry, MessageKind::Ack)
+    pub fn nack(source: MessageSource) -> Self {
+        Self::new(source, MessageKind::Nack)
     }
 
     pub fn is_ack(&self) -> bool {
@@ -76,18 +64,6 @@ impl Message {
         } else {
             false
         }
-    }
-
-    pub fn telemetry(source: MessageSource, kind: MessageKind) -> Self {
-        Self::new(source, MessageLevel::Telemetry, kind)
-    }
-
-    pub fn response(source: MessageSource, kind: MessageKind) -> Self {
-        Self::new(source, MessageLevel::Response, kind)
-    }
-
-    pub fn command(source: MessageSource, kind: MessageKind) -> Self {
-        Self::new(source, MessageLevel::Command, kind)
     }
 }
 
@@ -185,21 +161,7 @@ pub enum MessageKind {
 
 impl MessageKind {
     pub fn with_source(self, source: MessageSource) -> Message {
-        Message {
-            source,
-            level: MessageLevel::Telemetry,
-            kind: self,
-        }
-    }
-}
-
-impl From<MessageKind> for Message {
-    fn from(kind: MessageKind) -> Self {
-        Self {
-            source: MessageSource::Client(ClientId(0)),
-            level: MessageLevel::Telemetry,
-            kind,
-        }
+        Message { source, kind: self }
     }
 }
 
