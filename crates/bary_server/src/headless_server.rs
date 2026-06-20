@@ -76,6 +76,7 @@ pub fn sync_frame_from_world(world: &World) -> SyncFrame {
 pub struct HeadlessServerApp {
     world: World,
     client_telemetry: HashMap<ClientId, ClientTelemetry>,
+    usernames: HashMap<ClientId, String>,
     tick_rate: u32,
     node: ServerNode,
     update_timer: WallTimer,
@@ -94,6 +95,7 @@ impl HeadlessServerApp {
         let mut s = Self {
             world,
             client_telemetry: HashMap::new(),
+            usernames: HashMap::new(),
             tick_rate: speed,
             node,
             update_timer: WallTimer::hz(TICKS_PER_SECOND as u32),
@@ -104,15 +106,10 @@ impl HeadlessServerApp {
         };
 
         if let Some(path) = save_path {
-            s.load_save(&path)?;
+            s.world = load_world(path)?;
         }
 
         Ok(s)
-    }
-
-    pub fn load_save(&mut self, save: &str) -> BaryResult<()> {
-        self.world = load_world(save)?;
-        Ok(())
     }
 
     pub fn get_statistics(&self) -> ServerStatistics {
@@ -135,19 +132,6 @@ impl HeadlessServerApp {
         self.node.broadcast(msg);
     }
 
-    fn send_tlm_current_tick(&mut self) {
-        self.node
-            .broadcast(MessageKind::CurrentTick(self.world.ticks));
-    }
-
-    fn send_tlm_grid_pos(&mut self) {
-        for grid in self.world.grids.values() {
-            let pos = grid.particle_location;
-            self.node
-                .broadcast(MessageKind::GridPos(grid.name.clone(), pos));
-        }
-    }
-
     fn send_tlm_ack(&mut self) {
         self.node.broadcast(MessageKind::Ack);
     }
@@ -155,8 +139,6 @@ impl HeadlessServerApp {
     fn send_tlm_server_info(&mut self) {
         self.node
             .broadcast(MessageKind::ServerStatistics(self.get_statistics()));
-        self.node
-            .broadcast(MessageKind::Text("Hello there!".to_string()));
     }
 
     fn send_md5_sync_packet(&mut self) {
@@ -166,7 +148,7 @@ impl HeadlessServerApp {
     }
 
     fn process_transactions(&mut self) {
-        let dur = Duration::from_millis(180);
+        let dur = Duration::from_millis(80);
         let now = Instant::now();
         for (client, tr) in &mut self.transactions {
             let next_send = tr.last_sent + dur;
@@ -175,7 +157,7 @@ impl HeadlessServerApp {
             }
 
             if let Some(next) = tr.next_blob {
-                info!("Sending blob {next} to {client}");
+                debug!("Sending blob {next} to {client}");
                 if let Some(blob) = tr.blobs.remove(&next) {
                     let kind = MessageKind::BlobResponse(blob);
                     self.node.send(*client, kind);
@@ -205,38 +187,23 @@ impl HeadlessServerApp {
         };
 
         match msg.kind {
+            MessageKind::Introduction { username } => {
+                self.on_accept_introduction(client_id, username);
+            }
             MessageKind::ClientTelemetry(tlm) => {
                 self.on_accept_client_tlm(client_id, tlm);
             }
             MessageKind::Ping => {
-                self.on_accept_ping();
+                self.on_accept_ping(client_id);
             }
-            MessageKind::Text(s) => {
-                self.on_accept_text(s);
+            MessageKind::ClientSays(s) => {
+                self.on_accept_client_say(client_id, s);
             }
             MessageKind::SetSimSpeed(s) => {
-                self.on_accept_set_sim_speed(s);
-            }
-            MessageKind::FindGridByName(name) => {
-                self.on_accept_find_grid_by_name(name);
-            }
-            MessageKind::PrintEntityInfo(TableIdent::Grids) => {
-                self.on_accept_list_grids();
-            }
-            MessageKind::PrintEntityInfo(TableIdent::Protos) => {
-                self.on_accept_list_prototypes();
-            }
-            MessageKind::PrintEntityInfo(TableIdent::Parts) => {
-                self.on_accept_list_parts();
-            }
-            MessageKind::PrintEntityInfo(TableIdent::Thrusters) => {
-                self.on_accept_list_thrusters();
-            }
-            MessageKind::PrintEntityInfo(TableIdent::Computers) => {
-                self.on_accept_list_computers();
+                self.on_accept_set_sim_speed(client_id, s);
             }
             MessageKind::RequestServerStatistics => {
-                self.on_accept_req_server_info();
+                self.on_accept_req_server_info(client_id);
             }
             MessageKind::ClientBlobRequest(table) => {
                 self.on_accept_client_blob_request(client_id, table);
@@ -245,18 +212,35 @@ impl HeadlessServerApp {
                 self.on_accept_client_blob_request_all(client_id);
             }
             MessageKind::RequestDelta(delta) => {
-                if let Err(e) = apply_delta(&mut self.world, delta.clone()) {
-                    error!("Failed to apply delta: {e}");
-                } else {
-                    debug!("Successfully applied delta: {delta:?}");
-                    self.queued_deltas.push(delta.clone());
-                }
+                self.on_accept_world_delta(client_id, delta);
             }
             MessageKind::LoadSave(path) => {
                 self.on_accept_load_save(path);
             }
             MessageKind::BeginAsyncWorldDownload => self.begin_async_world_download(client_id),
             _ => self.on_unsupported_message(),
+        }
+    }
+
+    fn on_accept_world_delta(&mut self, id: ClientId, delta: WorldDelta) -> Option<()> {
+        self.ensure_client_is_connected(id)?;
+        if let Err(e) = apply_delta(&mut self.world, delta.clone()) {
+            error!("Failed to apply delta: {e}");
+        } else {
+            debug!("Successfully applied delta: {delta:?}");
+            self.queued_deltas.push(delta.clone());
+        }
+        Some(())
+    }
+
+    fn on_accept_introduction(&mut self, id: ClientId, username: String) {
+        if !self.usernames.contains_key(&id) {
+            info!("Client {id} has introduced themselves as {username}");
+            self.usernames.insert(id, username.clone());
+            self.node.broadcast(MessageKind::PlayerConnected(username));
+            self.node.send(id, MessageKind::TakeYourHatOff);
+        } else {
+            error!("Client {id} has reintroduced themselves")
         }
     }
 
@@ -280,6 +264,7 @@ impl HeadlessServerApp {
             Ok(world) => {
                 self.world = world;
                 info!("Loaded {path}");
+                self.node.broadcast(MessageKind::HaveNewSave);
             }
             Err(e) => {
                 error!("Failed to load world: {e}");
@@ -287,71 +272,41 @@ impl HeadlessServerApp {
         }
     }
 
-    fn on_accept_ping(&mut self) {
+    fn on_accept_ping(&mut self, id: ClientId) -> Option<()> {
+        self.ensure_client_is_connected(id)?;
         self.node.broadcast(MessageKind::Pong);
+        Some(())
+    }
+
+    fn ensure_client_is_connected(&self, id: ClientId) -> Option<()> {
+        if !self.usernames.contains_key(&id) {
+            error!("Client {id} is not connected!");
+            return None;
+        }
+        Some(())
     }
 
     fn on_accept_client_tlm(&mut self, id: ClientId, tlm: ClientTelemetry) {
+        self.ensure_client_is_connected(id);
         self.client_telemetry.insert(id, tlm);
     }
 
-    fn on_accept_text(&mut self, s: String) {
-        self.node.broadcast(MessageKind::Text(format!(
-            "Here king, you dropped this: \"{s:}\""
-        )));
+    fn on_accept_client_say(&mut self, id: ClientId, s: String) -> Option<()> {
+        self.ensure_client_is_connected(id)?;
+        self.node.broadcast(MessageKind::ChatMessage(id, s));
+        Some(())
     }
 
-    fn on_accept_set_sim_speed(&mut self, speed: u32) {
+    fn on_accept_set_sim_speed(&mut self, id: ClientId, speed: u32) -> Option<()> {
+        self.ensure_client_is_connected(id)?;
         self.tick_rate = speed;
-        self.node.broadcast(MessageKind::Ack);
+        self.node.send(id, MessageKind::Ack);
+        Some(())
     }
 
-    fn on_accept_find_grid_by_name(&mut self, name: String) {
-        if let Some(id) = get_grid_by_name(&self.world.grids, &name) {
-            self.node.broadcast(MessageKind::Entity(id));
-        } else {
-            self.node
-                .broadcast(MessageKind::Text("No grid with that name.".into()));
-        }
-    }
-
-    fn on_accept_list_grids(&mut self) {
-        for (id, grid) in self.world.grids.iter() {
-            self.node.broadcast(MessageKind::GridInfo(
-                *id,
-                grid.name.clone(),
-                grid.particle_location,
-            ));
-        }
-    }
-
-    fn on_accept_list_prototypes(&mut self) {
-        for (id, proto) in self.world.prototypes.iter() {
-            self.node.broadcast(MessageKind::Proto(*id, proto.clone()));
-        }
-    }
-
-    fn on_accept_list_parts(&mut self) {
-        for (id, part) in self.world.parts.iter() {
-            self.node.broadcast(MessageKind::Part(*id, *part));
-        }
-    }
-
-    fn on_accept_list_thrusters(&mut self) {
-        for (id, thr) in self.world.thrusters.iter() {
-            self.node.broadcast(MessageKind::Thruster(*id, thr.clone()));
-        }
-    }
-
-    fn on_accept_list_computers(&mut self) {
-        for (id, cpu) in self.world.computers.iter() {
-            self.node.broadcast(MessageKind::Computer(*id, cpu.clone()));
-        }
-    }
-
-    fn on_accept_req_server_info(&mut self) {
+    fn on_accept_req_server_info(&mut self, id: ClientId) {
         self.node
-            .broadcast(MessageKind::ServerStatistics(self.get_statistics()));
+            .send(id, MessageKind::ServerStatistics(self.get_statistics()));
     }
 
     fn on_accept_client_blob_request(&mut self, client: ClientId, table: TableIdent) {
@@ -360,7 +315,7 @@ impl HeadlessServerApp {
             let kind = MessageKind::BlobResponse(blob);
             self.node.send(client, kind);
         } else {
-            let kind = MessageKind::Text(format!("Failed to serialize table: {:?}", table));
+            let kind = MessageKind::ServerSays(format!("Failed to serialize table: {:?}", table));
             self.node.send(client, kind);
         }
     }
@@ -380,9 +335,22 @@ impl HeadlessServerApp {
                 self.node.send(client, kind);
             }
             Err(err) => {
-                let kind = MessageKind::Text(format!("Failed to serialize table: {:?}", err));
+                let kind = MessageKind::ServerSays(format!("Failed to serialize table: {:?}", err));
                 self.node.send(client, kind);
             }
+        }
+    }
+
+    fn on_client_connect(&mut self, id: ClientId) {
+        info!("Client {id} connected");
+        self.node.send(id, MessageKind::WhoGoesThere);
+    }
+
+    fn on_client_disconnect(&mut self, id: ClientId, reason: DisconnectReason) {
+        info!("Client {id} disconnected: {reason}");
+        if let Some(username) = self.usernames.remove(&id) {
+            self.node
+                .broadcast(MessageKind::PlayerDisconnected(username));
         }
     }
 }
@@ -398,7 +366,17 @@ impl Application for HeadlessServerApp {
         }
 
         for msg in self.node.update() {
-            self.on_accept_message(msg.clone());
+            match msg {
+                ServerEvent::Connected(id) => {
+                    self.on_client_connect(id);
+                }
+                ServerEvent::Disconnected(id, reason) => {
+                    self.on_client_disconnect(id, reason);
+                }
+                ServerEvent::Message(msg) => {
+                    self.on_accept_message(msg);
+                }
+            }
         }
 
         for _ in 0..self.tick_rate {
@@ -406,8 +384,6 @@ impl Application for HeadlessServerApp {
         }
 
         self.send_driver_packet();
-        self.send_tlm_current_tick();
-        self.send_tlm_grid_pos();
         self.send_tlm_server_info();
         self.process_transactions();
     }

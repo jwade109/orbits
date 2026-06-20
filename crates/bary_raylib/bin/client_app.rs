@@ -20,6 +20,8 @@ enum AppState {
     MainMenu,
     ListSaves,
     InWorld,
+    Kicked,
+    Settings,
 }
 
 pub struct ClientApp {
@@ -56,6 +58,7 @@ pub struct ClientApp {
 
     menu_origin: Vec2,
     part_info_origin: Vec2,
+    server_handshake_complete: bool,
 
     async_world_download: Option<AsyncWorldDownload>,
 }
@@ -130,6 +133,7 @@ impl ClientApp {
             sounds: SoundEffects::new(),
             menu_origin: Vec2::new(300.0, 200.0),
             part_info_origin: Vec2::new(400.0, 350.0),
+            server_handshake_complete: false,
             async_world_download: None,
         })
     }
@@ -144,34 +148,34 @@ impl ClientApp {
         };
         self.node.send(MessageKind::ClientTelemetry(tlm));
 
-        let id = self
-            .world
-            .players
-            .iter()
-            .find_map(|(id, player)| (player.name == self.username).then(|| *id));
+        // let id = self
+        //     .world
+        //     .players
+        //     .iter()
+        //     .find_map(|(id, player)| (player.name == self.username).then(|| *id));
 
-        if let Some(id) = id {
-            self.client.player_id = Some(id);
-            let delta = WorldDelta::SetPlayerPosition(id, self.client.camera.isometry);
-            self.request_server_delta(delta);
+        // if let Some(id) = id {
+        //     self.client.player_id = Some(id);
+        //     let delta = WorldDelta::SetPlayerPosition(id, self.client.camera.isometry);
+        //     self.request_server_delta(delta);
 
-            let world_pos = if let Some(screen_pos) = self.client.mouse_screen_position {
-                Some(screen_to_world(
-                    &self.client.camera,
-                    screen_pos,
-                    self.client.screen_dims,
-                ))
-            } else {
-                None
-            };
+        //     let world_pos = if let Some(screen_pos) = self.client.mouse_screen_position {
+        //         Some(screen_to_world(
+        //             &self.client.camera,
+        //             screen_pos,
+        //             self.client.screen_dims,
+        //         ))
+        //     } else {
+        //         None
+        //     };
 
-            let delta = WorldDelta::SetPlayerCursorPosition(id, world_pos);
-            self.request_server_delta(delta);
-        } else {
-            warn!("Client with username {} isn't in the world", self.username);
-            let delta = WorldDelta::SpawnPlayer(self.username.clone(), Isometry2d::ZERO);
-            self.request_server_delta(delta);
-        }
+        //     let delta = WorldDelta::SetPlayerCursorPosition(id, world_pos);
+        //     self.request_server_delta(delta);
+        // } else {
+        //     warn!("Client with username {} isn't in the world", self.username);
+        //     let delta = WorldDelta::SpawnPlayer(self.username.clone(), Isometry2d::ZERO);
+        //     self.request_server_delta(delta);
+        // }
     }
 
     fn update_loading(&mut self) {
@@ -208,11 +212,15 @@ impl ClientApp {
         // HANDLE INPUTS FROM RDEV LISTENER THREAD
 
         if self.server_ping_timer.tick() {
-            self.node.send(MessageKind::Ping)
+            if self.server_handshake_complete {
+                self.node.send(MessageKind::Ping)
+            }
         }
 
         if self.server_telemetry_timer.tick() {
-            self.send_telemetry_to_server();
+            if self.server_handshake_complete {
+                self.send_telemetry_to_server();
+            }
         }
 
         // HANDLE RDEV EVENTS (DEPRECATED - USE INPUTSTATE)
@@ -264,17 +272,15 @@ impl ClientApp {
 
     pub fn on_rcv_server_msg(&mut self, msg: Message) {
         let s = format!("{:?}", msg);
-        let k = if let MessageKind::Text(text) = &msg.kind {
-            text.clone()
-        } else {
-            format!("{:?}", msg.kind)
-        };
-        let t = format!("[{:?}] {}", msg.source, k);
         self.terminal.log_debug(s);
 
         debug!("{msg:?}");
 
         match msg.kind {
+            MessageKind::ChatMessage(id, text) => {
+                let s = format!("[{id}]: {text}");
+                self.client.chat.log(s);
+            }
             MessageKind::Driver {
                 ticks,
                 deltas,
@@ -307,8 +313,52 @@ impl ClientApp {
                 let our_frame = sync_frame_from_world(&self.world);
                 debug!("Our frame: {:?}", our_frame);
             }
-            _ => (),
+            MessageKind::HaveNewSave => {
+                self.on_rcv_have_new_save();
+            }
+            MessageKind::Kicked => {
+                self.on_rcv_kicked();
+            }
+            MessageKind::WhoGoesThere => {
+                self.on_rcv_who_goes_there();
+            }
+            MessageKind::TakeYourHatOff => {
+                self.on_rcv_take_your_hat_off();
+            }
+            MessageKind::PlayerConnected(username) => {
+                self.client.chat.log(format!("{username} just connected."));
+            }
+            MessageKind::PlayerDisconnected(username) => {
+                self.client
+                    .chat
+                    .log(format!("{username} just disconnected."));
+            }
+            MessageKind::Ack => (),
+            MessageKind::Pong => (),
+            MessageKind::ServerStatistics(_) => (),
+            _ => error!("Unsupported message from server: {:?}", msg.kind),
         }
+    }
+
+    fn on_rcv_take_your_hat_off(&mut self) {
+        self.server_handshake_complete = true;
+    }
+
+    fn on_rcv_who_goes_there(&mut self) {
+        self.node.send(MessageKind::Introduction {
+            username: self.username.clone(),
+        });
+    }
+
+    fn on_rcv_kicked(&mut self) {
+        self.node.disconnect();
+        self.state = AppState::Kicked;
+        self.world = World::empty();
+    }
+
+    fn on_rcv_have_new_save(&mut self) {
+        self.node.send(MessageKind::BeginAsyncWorldDownload);
+        self.async_world_download = Some(AsyncWorldDownload::new());
     }
 
     fn log_world_delta(&mut self, delta: &WorldDelta) {
@@ -412,8 +462,6 @@ impl ClientApp {
 
     fn load_save_file(&mut self, path: String) {
         self.node.send(MessageKind::LoadSave(path));
-        self.node.send(MessageKind::BeginAsyncWorldDownload);
-        self.async_world_download = Some(AsyncWorldDownload::new());
     }
 
     pub fn on_drag(&mut self, id: UiMessage, delta: Vec2) {
@@ -474,14 +522,14 @@ impl ClientApp {
                         let delta = WorldDelta::SetThrusterState(thruster_id, state);
                         self.request_server_delta(delta);
                     }
-
-                    UiMessage::LoadSinglePlayer => {
+                    UiMessage::LoadSave => {
                         self.state = AppState::ListSaves;
                     }
-                    UiMessage::JoinMultiplayer
-                    | UiMessage::HostMultiplayer
-                    | UiMessage::Settings => {
-                        self.state = AppState::InWorld;
+                    UiMessage::JoinMultiplayer => {
+                        self.request_world_download();
+                    }
+                    UiMessage::Settings => {
+                        self.state = AppState::Settings;
                     }
                     _ => (),
                 }
@@ -489,12 +537,17 @@ impl ClientApp {
         }
     }
 
+    fn request_world_download(&mut self) {
+        self.node.send(MessageKind::BeginAsyncWorldDownload);
+        self.async_world_download = Some(AsyncWorldDownload::new());
+    }
+
     pub fn on_terminal_cmd(&mut self, cmd: TermCmd) {
         self.terminal.log_info(format!("{cmd:?}"));
 
         match cmd {
             TermCmd::Say(s) => {
-                self.node.send(MessageKind::Text(s));
+                self.node.send(MessageKind::ClientSays(s));
             }
             TermCmd::Ping => {
                 self.node.send(MessageKind::Ping);
@@ -529,8 +582,7 @@ impl ClientApp {
             TermCmd::ClientReqAllBlobs => {
                 self.terminal
                     .log_warn(format!("Requesting all blobs at tick {}", self.world.ticks));
-                self.node.send(MessageKind::BeginAsyncWorldDownload);
-                self.async_world_download = Some(AsyncWorldDownload::new());
+                self.request_world_download();
             }
             TermCmd::World(delta) => {
                 self.node.send(MessageKind::RequestDelta(delta));
@@ -721,9 +773,10 @@ fn make_main_menu(ui: &UiBuilder) -> Node<UiMessage> {
         Size::Fit,
         vec![
             ui.draghandle(UiMessage::MainMenuHandle),
-            ui.button(UiMessage::LoadSinglePlayer, "Load Single Player"),
-            ui.button(UiMessage::JoinMultiplayer, "Join Multiplayer"),
-            ui.button(UiMessage::HostMultiplayer, "Host Multiplayer"),
+            ui.button(UiMessage::LoadSave, "Load Single Player"),
+            ui.button(UiMessage::JoinMultiplayer, "Join Server"),
+            // ui.button(UiMessage::JoinMultiplayer, "Join Multiplayer"),
+            // ui.button(UiMessage::HostMultiplayer, "Host Multiplayer"),
             ui.button(UiMessage::Settings, "Settings"),
             ui.button(UiMessage::Exit, "Exit to Desktop"),
         ],
@@ -945,6 +998,15 @@ fn make_gui(font: &Font, app: &ClientApp) -> Tree<UiMessage> {
                 .map(|s| s.to_string_lossy().to_string())
                 .collect();
             tree.add_layout(make_savefiles_menu(&builder, &saves), app.menu_origin);
+        }
+        AppState::Kicked => {
+            tree.add_layout(
+                Node::text(600, 100, "You've been kicked."),
+                Vec2::splat(200.0),
+            );
+        }
+        AppState::Settings => {
+            tree.add_layout(Node::text(600, 100, "The settings."), Vec2::splat(200.0));
         }
     }
 

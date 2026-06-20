@@ -24,10 +24,10 @@ impl AsyncWorldDownload {
     }
 
     pub fn add_blob(&mut self, blob: Blob) {
-        info!("Got blob: {blob}");
+        debug!("Got blob: {blob}");
         let table = blob.table();
         if apply_blob(&mut self.world, blob) {
-            info!("Unpacked blob data for table {table}");
+            debug!("Unpacked blob data for table {table}");
             self.tables_completed.insert(table);
             self.status = format!("Got entity table \"{table}\"...");
         } else {

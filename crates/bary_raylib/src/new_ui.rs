@@ -15,7 +15,7 @@ pub enum UiMessage {
     DockingShiftY,
     DockingRotate,
     DockingActivate,
-    LoadSinglePlayer,
+    LoadSave,
     JoinMultiplayer,
     HostMultiplayer,
     Settings,

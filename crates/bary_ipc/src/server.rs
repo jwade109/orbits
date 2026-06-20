@@ -1,5 +1,6 @@
 use crate::{ClientId, Message, MessageKind, MessageSource};
 use log::{debug, info};
+pub use renet::DisconnectReason;
 use renet::*;
 use renet_netcode::*;
 use std::collections::HashMap;
@@ -9,6 +10,12 @@ use std::time::{Instant, SystemTime};
 pub struct ClientInfo {
     pub rx_count: usize,
     pub tx_count: usize,
+}
+
+pub enum ServerEvent {
+    Connected(ClientId),
+    Disconnected(ClientId, DisconnectReason),
+    Message(Message),
 }
 
 pub struct ServerNode {
@@ -85,7 +92,7 @@ impl ServerNode {
     }
 
     #[must_use]
-    pub fn update(&mut self) -> Vec<Message> {
+    pub fn update(&mut self) -> Vec<ServerEvent> {
         let mut messages = Vec::new();
 
         let now = Instant::now();
@@ -95,15 +102,16 @@ impl ServerNode {
 
         while let Some(event) = self.renet.get_event() {
             match event {
-                ServerEvent::ClientConnected { client_id } => {
-                    info!("Client connected: {}", client_id);
+                renet::ServerEvent::ClientConnected { client_id } => {
+                    let event = ServerEvent::Connected(ClientId(client_id));
+                    messages.push(event);
                 }
-                ServerEvent::ClientDisconnected {
-                    client_id,
-                    reason: _,
-                } => {
+                renet::ServerEvent::ClientDisconnected { client_id, reason } => {
                     info!("Client disconnected: {}", client_id);
                     self.client_info.remove(&ClientId(client_id));
+
+                    let event = ServerEvent::Disconnected(ClientId(client_id), reason);
+                    messages.push(event);
                 }
             }
         }
@@ -122,7 +130,9 @@ impl ServerNode {
                             rx_count: 1,
                             tx_count: 0,
                         });
-                    messages.push(message);
+
+                    let event = ServerEvent::Message(message);
+                    messages.push(event);
                 }
             }
         }

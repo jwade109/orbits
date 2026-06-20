@@ -110,13 +110,13 @@ pub struct ServerStatistics {
 pub enum MessageKind {
     Pong,
     Ping,
-    CurrentTick(u64),
     Introduction {
         username: String,
     },
-    Text(String),
+    ClientSays(String),
+    ServerSays(String),
+    ChatMessage(ClientId, String),
     SetSimSpeed(u32),
-    GridPos(String, Isometry2d),
     Ack,
     Nack,
     Unsupported,
@@ -157,6 +157,18 @@ pub enum MessageKind {
     /// directive for the server to send paginated world data
     BeginAsyncWorldDownload,
     FinishWorldDownload,
+    /// broadcasted to all clients when the server loads a new world
+    HaveNewSave,
+    /// sent to a client when they've been kicked
+    Kicked,
+    /// challenge sent by server for client to provide their username
+    WhoGoesThere,
+    /// sent by server to client to indicate they have successfully connected
+    TakeYourHatOff,
+    /// sent by the server to clients to let them know someone has connected
+    PlayerConnected(String),
+    /// sent by the server to clients to let them know someone has disconnected
+    PlayerDisconnected(String),
 }
 
 impl MessageKind {
