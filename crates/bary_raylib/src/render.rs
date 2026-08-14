@@ -18,7 +18,7 @@ use bary_ui::*;
 use early_returns::*;
 use raylib::prelude::*;
 
-fn to_raylib_camera(camera: &Camera, screen_dims: Vec2) -> Camera2D {
+pub fn to_raylib_camera(camera: &Camera, screen_dims: Vec2) -> Camera2D {
     Camera2D {
         offset: glam_to_raylib(screen_dims) / 2.0,
         target: Vector2::new(
@@ -1268,13 +1268,13 @@ fn draw_mouse_world_position(
     draw_circle(d, world_pos, r, Color::WHITE);
 }
 
-fn draw_line(d: &mut RaylibDrawHandle, start: Vec2, end: Vec2, color: Color) {
+pub fn draw_line(d: &mut RaylibDrawHandle, start: Vec2, end: Vec2, color: Color) {
     let start = glam_to_raylib_swap_y(start);
     let end = glam_to_raylib_swap_y(end);
     d.draw_line_v(start, end, color);
 }
 
-fn draw_line_width(d: &mut RaylibDrawHandle, start: Vec2, end: Vec2, thick: f32, color: Color) {
+pub fn draw_line_width(d: &mut RaylibDrawHandle, start: Vec2, end: Vec2, thick: f32, color: Color) {
     let start = glam_to_raylib_swap_y(start);
     let end = glam_to_raylib_swap_y(end);
     d.draw_line_ex(start, end, thick, color);
@@ -1315,19 +1315,19 @@ fn draw_rectangle(d: &mut RaylibDrawHandle, iso: Isometry2d, dims: Vec2, color: 
     }
 }
 
-fn fill_rectangle(d: &mut RaylibDrawHandle, iso: Isometry2d, dims: Vec2, color: Color) {
+pub fn fill_rectangle(d: &mut RaylibDrawHandle, iso: Isometry2d, dims: Vec2, color: Color) {
     let rec = Rectangle::new(iso.translation.x, -iso.translation.y, dims.x, dims.y);
     let origin = Vector2::new(0.0, dims.y);
     let rotation = -iso.rotation.to_degrees();
     d.draw_rectangle_pro(rec, origin, rotation, color);
 }
 
-fn fill_circle(d: &mut RaylibDrawHandle, p: Vec2, r: f32, color: Color) {
+pub fn fill_circle(d: &mut RaylibDrawHandle, p: Vec2, r: f32, color: Color) {
     let center = glam_to_raylib_swap_y(p);
     d.draw_circle_v(center, r, color);
 }
 
-fn draw_circle(d: &mut RaylibDrawHandle, p: Vec2, r: f32, color: Color) {
+pub fn draw_circle(d: &mut RaylibDrawHandle, p: Vec2, r: f32, color: Color) {
     let center = glam_to_raylib_swap_y(p);
     d.draw_circle_lines_v(center, r, color);
 }
