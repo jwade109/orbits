@@ -15,47 +15,59 @@ enum LegState {
     Retracted,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum ExtensionState {
+    Overextended,
+    Nominal,
+    UnderExtended,
+}
+
 const LEG_RADIUS: f32 = 2.0;
+const MIN_LEG_LENGTH: f32 = 0.6;
+const MAX_LEG_LENGTH: f32 = 3.0;
 
 struct Leg {
-    length: f32,
-    angle: f32,
+    min_length: f32,
+    max_length: f32,
+    desired_angle: f32,
     foot_position: Vec2,
     target_foot_position: Vec2,
     state: LegState,
-    spring_constant: f32,
 }
 
 impl Leg {
+    fn desired_length(&self) -> f32 {
+        (self.max_length + self.min_length) / 2.0
+    }
+
     fn desired_offset(&self, spider_angle: f32) -> Vec2 {
-        rotate(Vec2::X, self.angle + spider_angle) * self.length
+        rotate(Vec2::X, self.desired_angle + spider_angle) * self.desired_length()
     }
 
     fn desired_foot_pos(&self, spider: Isometry2d) -> Vec2 {
         self.desired_offset(spider.rotation) + spider.translation
     }
 
-    fn spring_force(&self, spider_pos: Vec2) -> Vec2 {
-        if self.state == LegState::Grappled {
-            let l = spider_pos.distance(self.foot_position) - self.length;
-            let u = (self.foot_position - spider_pos).normalize_or_zero();
-            u * l
-        } else {
-            Vec2::ZERO
-        }
-    }
-
     fn should_replant(&self, spider: Isometry2d) -> bool {
-        let d = self.desired_foot_pos(spider);
-        let l = self.foot_position.distance(d);
-        l > LEG_RADIUS
+        let p = self.desired_foot_pos(spider);
+        let a = self.foot_position;
+        let dist_from_desired = p.distance(a);
+        dist_from_desired > self.desired_length()
+            || self.extension_state(spider.translation) != ExtensionState::Nominal
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, spider: Isometry2d, dt: f32) {
         if self.state == LegState::Travelling {
-            let delta = (self.target_foot_position - self.foot_position);
+            let max_speed = 65.0;
+            let max_delta = max_speed * dt;
+            let u = self.target_foot_position - self.foot_position;
+            let delta = max_delta.min(u.length());
+            let u = u.normalize_or_zero();
+            let delta = u * delta;
             self.foot_position += delta;
-            self.state = LegState::Grappled;
+            if delta.length() < 0.01 {
+                self.state = LegState::Grappled;
+            }
         }
     }
 
@@ -64,8 +76,19 @@ impl Leg {
             return;
         }
         let p = self.desired_foot_pos(spider);
-        self.target_foot_position = p;
+        self.target_foot_position = p; // vround(p / 2.0).as_vec2() * 2.0;
         self.state = LegState::Travelling;
+    }
+
+    fn extension_state(&self, spider: Vec2) -> ExtensionState {
+        let l = spider.distance(self.foot_position);
+        if l < self.min_length {
+            ExtensionState::UnderExtended
+        } else if l > self.max_length {
+            ExtensionState::Overextended
+        } else {
+            ExtensionState::Nominal
+        }
     }
 }
 
@@ -83,12 +106,12 @@ impl Spider {
             .map(|i| {
                 let a = i as f32 / 6.0 * 2.0 * bary_core::prelude::PI;
                 Leg {
-                    angle: a,
-                    length: 2.0,
+                    desired_angle: a,
+                    min_length: MIN_LEG_LENGTH,
+                    max_length: MAX_LEG_LENGTH,
                     foot_position: Vec2::ZERO,
                     target_foot_position: rotate(Vec2::X, a) * 2.0,
                     state: LegState::Travelling,
-                    spring_constant: 50.0,
                 }
             })
             .collect();
@@ -152,14 +175,17 @@ fn draw_spider(d: &mut RaylibDrawHandle, spider: &Spider) {
         let offset = leg.desired_offset(spider.pose.rotation);
         let s = spider.pose.translation;
         let e = leg.foot_position;
-        let color = if leg.should_replant(spider.pose) {
-            Color::RED
+
+        let color = if leg.state == LegState::Travelling {
+            Color::GRAY
         } else {
-            Color::GREEN
+            Color::ORANGE
         };
-        draw_line_width(d, s, e, 0.2, Color::GRAY);
-        fill_circle(d, e, 0.2, Color::GRAY);
-        draw_circle(d, e, LEG_RADIUS, Color::RED);
+
+        draw_line_width(d, s, e, 0.2, color);
+        fill_circle(d, e, 0.2, color);
+        draw_circle(d, s, MIN_LEG_LENGTH, Color::TEAL);
+        draw_circle(d, s, MAX_LEG_LENGTH, Color::TEAL);
 
         if leg.state == LegState::Travelling {
             let p = leg.target_foot_position;
@@ -167,7 +193,7 @@ fn draw_spider(d: &mut RaylibDrawHandle, spider: &Spider) {
         }
     }
 
-    let body_dims = Vec2::new(1.6, 1.1);
+    let body_dims = Vec2::new(1.1, 1.6);
     let mut body_iso = spider.pose;
     body_iso = body_iso.offset(-body_dims / 2.0);
     fill_rectangle(d, body_iso, body_dims, Color::TEAL);
@@ -182,6 +208,12 @@ fn draw_world(handle: &mut RaylibDrawHandle, world: &World) {
     let cam = to_raylib_camera(&world.camera, screen_dims);
     let mut draw_handle = handle.begin_mode2D(cam);
     let d = &mut draw_handle;
+
+    for x in (-20..=20).step_by(2) {
+        for y in (-20..=20).step_by(2) {
+            fill_circle(d, Vec2::new(x as f32, y as f32), 0.05, Color::RED);
+        }
+    }
 
     for x in (-100..100).step_by(10) {
         let s = Vec2::new(x as f32, -1000.0);
@@ -198,30 +230,30 @@ fn draw_world(handle: &mut RaylibDrawHandle, world: &World) {
 }
 
 fn update_spider(spider: &mut Spider, dt: f32) {
-    let mut any_legs_moving = spider.legs.iter().any(|l| l.state == LegState::Travelling);
     let mut dv = Vec2::ZERO;
 
-    for leg in &mut spider.legs {
-        leg.update();
+    let n_moving = spider
+        .legs
+        .iter()
+        .filter(|l| l.state == LegState::Travelling)
+        .count();
 
-        let force = leg.spring_force(spider.pose.translation);
-        let a = force / spider.mass;
-        dv += a;
-    }
-
-    if !any_legs_moving {
+    if n_moving < 2 {
         if let Some(i) = spider.worst_leg() {
             spider.legs[i].replant(spider.pose);
         }
     }
 
-    for leg in &spider.legs {
-        if leg.state == LegState::Grappled {
-            spider.vel.translation *= 0.99;
-        }
+    for leg in &mut spider.legs {
+        leg.update(spider.pose, dt);
     }
 
-    spider.vel.translation += dv;
+    // for leg in &spider.legs {
+    //     if leg.state == LegState::Grappled {
+    //         spider.vel.translation *= 0.99;
+    //     }
+    // }
+
     spider.pose.translation += spider.vel.translation * dt;
     spider.pose.rotation += spider.vel.rotation * dt;
 }
@@ -257,23 +289,27 @@ fn process_input(world: &mut World, input: &InputState) {
     let x_pull = -(w as i8) + e as i8;
     let y_pull = -(s as i8) + n as i8;
 
-    let speed = 4.0;
+    let speed = 16.0;
 
     let dir = Vec2::new(x_pull as f32, y_pull as f32).normalize_or_zero();
 
-    let force = dir * speed;
+    let vel = dir * speed;
 
     let mut spider = &mut world.spiders[0];
 
     let rot_dir = l as i8 - r as i8;
 
-    let acc = force / spider.mass;
-    spider.vel.translation += acc;
+    spider.vel.translation = vel;
 
-    spider.vel.rotation = rot_dir as f32 * 1.2;
+    if vel.length() > 0.0 {
+        let angle = vel.to_angle();
+        let angle_vel = (angle - spider.pose.rotation) * 10.0;
+        spider.vel.rotation = angle_vel;
+    } else {
+        spider.vel.rotation = 0.0;
+    }
 
     if input.just_pressed_debounced(Key::Space) {
-        println!("Toggle drifting!");
         spider.toggle_drifting();
     }
 }
