@@ -100,26 +100,30 @@ struct Spider {
     is_drifting: bool,
 }
 
-impl Spider {
-    fn new(angle: f32) -> Self {
-        let legs = (0..6)
-            .map(|i| {
-                let a = i as f32 / 6.0 * 2.0 * bary_core::prelude::PI;
-                Leg {
-                    desired_angle: a,
-                    min_length: MIN_LEG_LENGTH,
-                    max_length: MAX_LEG_LENGTH,
-                    foot_position: Vec2::ZERO,
-                    target_foot_position: rotate(Vec2::X, a) * 2.0,
-                    state: LegState::Travelling,
-                }
-            })
-            .collect();
+fn make_legs(n: usize) -> Vec<Leg> {
+    let angle_offset = bary_core::prelude::PI / n as f32;
 
+    (0..n)
+        .map(|i| {
+            let a = angle_offset + i as f32 / n as f32 * 2.0 * bary_core::prelude::PI;
+            Leg {
+                desired_angle: a,
+                min_length: MIN_LEG_LENGTH,
+                max_length: MAX_LEG_LENGTH,
+                foot_position: Vec2::ZERO,
+                target_foot_position: rotate(Vec2::X, a) * 2.0,
+                state: LegState::Travelling,
+            }
+        })
+        .collect()
+}
+
+impl Spider {
+    fn new(angle: f32, n_legs: usize) -> Self {
         Self {
             pose: Isometry2d::from_xya(0.0, 0.0, angle),
             vel: Isometry2d::ZERO,
-            legs,
+            legs: make_legs(n_legs),
             mass: 1.0,
             is_drifting: false,
         }
@@ -163,6 +167,7 @@ impl Spider {
 }
 
 struct World {
+    time: f32,
     spiders: Vec<Spider>,
     camera: Camera,
 }
@@ -248,20 +253,28 @@ fn update_spider(spider: &mut Spider, dt: f32) {
         leg.update(spider.pose, dt);
     }
 
-    // for leg in &spider.legs {
-    //     if leg.state == LegState::Grappled {
-    //         spider.vel.translation *= 0.99;
-    //     }
-    // }
+    if spider.vel.translation.length() > 0.0 {
+        let angle = spider.vel.translation.to_angle();
+        let angle_vel = (angle - spider.pose.rotation) * 10.0;
+        spider.vel.rotation = angle_vel;
+    } else {
+        spider.vel.rotation = 0.0;
+    }
 
     spider.pose.translation += spider.vel.translation * dt;
     spider.pose.rotation += spider.vel.rotation * dt;
 }
 
 fn update_world(world: &mut World, dt: f32) {
+    world.time += dt;
+
     for spider in &mut world.spiders {
         update_spider(spider, dt);
     }
+
+    let vel = Vec2::new(world.time.cos(), world.time.sin()) * 10.0;
+
+    world.spiders[1].vel.translation = vel;
 
     world.camera.isometry.translation +=
         (world.spiders[0].pose.translation - world.camera.isometry.translation) * 1.0;
@@ -269,7 +282,8 @@ fn update_world(world: &mut World, dt: f32) {
 
 fn make_world() -> World {
     World {
-        spiders: vec![Spider::new(0.4), Spider::new(0.0)],
+        time: 0.0,
+        spiders: vec![Spider::new(0.4, 6), Spider::new(0.0, 3)],
         camera: Camera {
             isometry: Isometry2d::ZERO,
             zoom: 70.0,
@@ -300,14 +314,6 @@ fn process_input(world: &mut World, input: &InputState) {
     let rot_dir = l as i8 - r as i8;
 
     spider.vel.translation = vel;
-
-    if vel.length() > 0.0 {
-        let angle = vel.to_angle();
-        let angle_vel = (angle - spider.pose.rotation) * 10.0;
-        spider.vel.rotation = angle_vel;
-    } else {
-        spider.vel.rotation = 0.0;
-    }
 
     if input.just_pressed_debounced(Key::Space) {
         spider.toggle_drifting();
