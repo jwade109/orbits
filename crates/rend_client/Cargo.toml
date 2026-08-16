@@ -1,0 +1,12 @@
+[package]
+name = "rend_client"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+enum-iterator = "2.3.0"
+glfw = "0.59.0"
+glm = "0.3.0"
+pollster = "1.0.1"
+rand = "0.10.2"
+rend = { path = "../rend" }

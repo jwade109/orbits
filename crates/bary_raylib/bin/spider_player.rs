@@ -52,7 +52,7 @@ impl Leg {
         let p = self.desired_foot_pos(spider);
         let a = self.foot_position;
         let dist_from_desired = p.distance(a);
-        dist_from_desired > self.desired_length()
+        dist_from_desired > MIN_LEG_LENGTH
             || self.extension_state(spider.translation) != ExtensionState::Nominal
     }
 
@@ -75,8 +75,11 @@ impl Leg {
         if self.state == LegState::Retracted {
             return;
         }
+        let c = self.foot_position;
         let p = self.desired_foot_pos(spider);
-        self.target_foot_position = p; // vround(p / 2.0).as_vec2() * 2.0;
+        let u = p - c;
+        let u = u.normalize_or_zero() * u.length().clamp(0.0, MIN_LEG_LENGTH);
+        self.target_foot_position = p + u * 0.7; // vround(p / 2.0).as_vec2() * 2.0;
         self.state = LegState::Travelling;
     }
 
