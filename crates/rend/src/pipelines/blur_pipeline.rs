@@ -3,6 +3,7 @@ use wgpu::*;
 
 pub struct BlurPipeline {
     pipeline: RenderPipeline,
+    mesh: Mesh,
 }
 
 pub fn material_bind_group_layout(device: &Device, label: &str) -> BindGroupLayout {
@@ -13,6 +14,7 @@ pub fn material_bind_group_layout(device: &Device, label: &str) -> BindGroupLayo
 
 impl BlurPipeline {
     pub fn new(device: &Device, config: &SurfaceConfiguration) -> Self {
+        let mesh = make_quad(device);
         let bgl = material_bind_group_layout(device, "BlurPipeline Bind Group Layout");
         let shader = Shader::from_path("crates/rend/shaders/blur_shader.wgsl");
 
@@ -27,13 +29,13 @@ impl BlurPipeline {
             true,
         );
 
-        Self { pipeline }
+        Self { pipeline, mesh }
     }
 
-    pub fn blur_pass(&self, rp: &mut RenderPass, mesh: &Mesh, material: &BindGroup) {
+    pub fn blur_pass(&self, rp: &mut RenderPass, material: &BindGroup) {
         rp.set_pipeline(&self.pipeline);
         rp.set_bind_group(0, material, &[]);
-        mesh.set_as_active(rp);
-        rp.draw_indexed(0..mesh.index_count(), 0, 0..1);
+        self.mesh.set_as_active(rp);
+        rp.draw_indexed(0..self.mesh.index_count(), 0, 0..1);
     }
 }

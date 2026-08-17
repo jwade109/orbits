@@ -9,7 +9,8 @@ edition = "2021"
 glfw = "0.59.0"
 wgpu = "23.0.1"
 pollster = "0.4.0"
-glm = "*"
+glm = "0.3.0"
+glam = { version = "0.30.9", features = ["serde"] }
 num-traits = "0.2.19"
 clap = { version = "4.6.2", features = ["derive"] }
 bytemuck = { version = "1.25.2", features = ["derive"] }

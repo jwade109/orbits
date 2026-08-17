@@ -1,3 +1,5 @@
+use crate::Texture;
+
 pub struct Renderer<'a> {
     pub instance: wgpu::Instance,
     pub surface: wgpu::Surface<'a>,
@@ -70,5 +72,43 @@ impl<'a> Renderer<'a> {
             queue,
             config,
         }
+    }
+}
+
+impl<'a> Renderer<'a> {
+    pub fn get_render_pass<'b>(
+        &self,
+        command_encoder: &'b mut wgpu::CommandEncoder,
+        clear_color: Option<wgpu::Color>,
+        view: &wgpu::TextureView,
+        depth_texture: &Texture,
+    ) -> wgpu::RenderPass<'b> {
+        let depth_stencil_attachment = Some(wgpu::RenderPassDepthStencilAttachment {
+            view: &depth_texture.view,
+            depth_ops: Some(wgpu::Operations {
+                load: wgpu::LoadOp::Clear(1.0),
+                store: wgpu::StoreOp::Store,
+            }),
+            stencil_ops: None,
+        });
+
+        let load = clear_color.map_or(wgpu::LoadOp::Load, |c| wgpu::LoadOp::Clear(c));
+
+        let render_pass_descriptor = wgpu::RenderPassDescriptor {
+            label: Some("Render Pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load,
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment,
+            occlusion_query_set: None,
+            timestamp_writes: None,
+        };
+
+        command_encoder.begin_render_pass(&render_pass_descriptor)
     }
 }

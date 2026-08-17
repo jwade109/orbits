@@ -139,9 +139,14 @@ impl RenderCommands {
         builder
     }
 
-    pub fn line(&mut self, start: Vec2d, end: Vec2d) -> LineBuilder<'_> {
-        let builder = LineBuilder::new(self, start, end);
+    pub fn line(&mut self, start: impl Into<Vec2d>, end: impl Into<Vec2d>) -> LineBuilder<'_> {
+        let builder = LineBuilder::new(self, start.into(), end.into());
         builder
+    }
+
+    pub fn text(&mut self, p: Vec2d, text: &str, font_size: f64) {
+        let font_id = self.fonts.keys().next().unwrap();
+        self.paragraph(*font_id, font_size, p.x, p.y, text, None);
     }
 
     pub fn paragraph(

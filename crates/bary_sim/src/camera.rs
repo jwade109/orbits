@@ -15,3 +15,11 @@ impl Default for Camera {
         }
     }
 }
+
+impl Camera {
+    pub fn world_to_screen(&self, p: Vec2, screen_width: Vec2) -> Vec2 {
+        let mut scaled = (p - self.isometry.translation) * self.zoom;
+        scaled.y *= -1.0;
+        scaled + screen_width / 2.0
+    }
+}

@@ -237,38 +237,6 @@ impl<'a> RenderState<'a> {
             .submit(std::iter::once(command_encoder.finish()));
     }
 
-    fn draw_shadows(&self, incoming: &wgpu::BindGroup, view: &wgpu::TextureView, time: f32) {
-        let mut command_encoder = self
-            .renderer
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-
-        let mut rp = self.get_render_pass(&mut command_encoder, None, &view);
-
-        let mouse_pos = self.window.get_cursor_pos();
-
-        let shader_params = ShaderParams {
-            mouse: (mouse_pos.0 as f32, mouse_pos.1 as f32),
-            time,
-            resolution: (
-                self.window.get_size().0 as f32,
-                self.window.get_size().1 as f32,
-            ),
-        };
-
-        self.pipelines.shadow_pipeline.shadow_pass(
-            &mut rp,
-            &self.renderer.queue,
-            &shader_params,
-            incoming,
-        );
-
-        drop(rp);
-        self.renderer
-            .queue
-            .submit(std::iter::once(command_encoder.finish()));
-    }
-
     fn clear(&self, view: &wgpu::TextureView, color: Color) {
         let mut command_encoder = self
             .renderer
@@ -482,33 +450,8 @@ impl<'a> RenderState<'a> {
         clear_color: Option<wgpu::Color>,
         view: &wgpu::TextureView,
     ) -> wgpu::RenderPass<'b> {
-        let depth_stencil_attachment = Some(wgpu::RenderPassDepthStencilAttachment {
-            view: &self.depth_texture.view,
-            depth_ops: Some(wgpu::Operations {
-                load: wgpu::LoadOp::Clear(1.0),
-                store: wgpu::StoreOp::Store,
-            }),
-            stencil_ops: None,
-        });
-
-        let load = clear_color.map_or(wgpu::LoadOp::Load, |c| wgpu::LoadOp::Clear(c));
-
-        let render_pass_descriptor = wgpu::RenderPassDescriptor {
-            label: Some("Render Pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load,
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment,
-            occlusion_query_set: None,
-            timestamp_writes: None,
-        };
-
-        command_encoder.begin_render_pass(&render_pass_descriptor)
+        self.renderer
+            .get_render_pass(command_encoder, clear_color, view, &self.depth_texture)
     }
 
     fn blur_pass(&self, incoming: &Texture, outgoing: &wgpu::TextureView) {
@@ -519,11 +462,9 @@ impl<'a> RenderState<'a> {
 
         let mut rp = self.get_render_pass(&mut command_encoder, None, &outgoing);
 
-        let mesh = make_quad(&self.renderer.device);
-
         self.pipelines
             .blur_pipeline
-            .blur_pass(&mut rp, &mesh, &incoming.bind_group);
+            .blur_pass(&mut rp, &incoming.bind_group);
 
         drop(rp);
         self.renderer
@@ -566,8 +507,10 @@ impl<'a> RenderState<'a> {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        self.clear(&view, Color::rgb(117, 186, 255, 1.0));
-        // self.draw_3d(meshes, &view);
+        self.clear(&self.im_tex_1.view, Color::rgb(117, 186, 255, 1.0));
+        // self.draw_lava(&view, 0.0);
+        // self.draw_3d(&[], &view);
+        self.blur_pass(&self.im_tex_1, &view);
         self.apply_geometry_commands(commands, &view);
 
         self.renderer.device.poll(wgpu::Maintain::wait());

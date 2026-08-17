@@ -12,11 +12,20 @@ pollster = "1.0.1"
 rand = "0.10.2"
 rend = { path = "../rend" }
 bary_ui = { path = "../bary_ui" }
+bary_core = { path = "../bary_core" }
+bary_input = { path = "../bary_input" }
+bary_ipc = { path = "../bary_ipc" }
+bary_sim = { path = "../bary_sim" }
+rdev = { version = "0.5.3", features = ["serde", "serialize"] }
 
 [[bin]]
 name = "rend_client"
-path = "src/rend_client.rs"
+path = "src/rend_client/main.rs"
 
 [[bin]]
 name = "kira_test"
 path = "src/kira_test.rs"
+
+[[bin]]
+name = "spider"
+path = "src/spider/main.rs"

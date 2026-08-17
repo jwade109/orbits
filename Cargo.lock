@@ -3612,6 +3612,7 @@ dependencies = [
  "bytemuck",
  "clap 4.6.6",
  "enum-iterator",
+ "glam 0.30.10",
  "glfw",
  "glm",
  "image",
@@ -3630,6 +3631,10 @@ dependencies = [
 name = "rend_client"
 version = "0.1.0"
 dependencies = [
+ "bary_core",
+ "bary_input",
+ "bary_ipc",
+ "bary_sim",
  "bary_ui",
  "enum-iterator",
  "glfw",
@@ -3637,6 +3642,7 @@ dependencies = [
  "kira",
  "pollster 1.0.1",
  "rand 0.10.2",
+ "rdev",
  "rend",
 ]
 

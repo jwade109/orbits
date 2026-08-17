@@ -1,0 +1,203 @@
+use bary_core::prelude::*;
+use bary_input::InputState;
+use bary_ipc::{MessageQueue, new_message_queue};
+use bary_sim::Camera;
+use glfw::*;
+use rend::*;
+use std::{collections::BTreeMap, thread::JoinHandle, time::Instant};
+mod rend_app;
+use crate::rend_app::*;
+use crate::world::*;
+mod world;
+
+fn to_glm(p: bary_core::prelude::Vec2) -> Vec2d {
+    Vec2d::new(p.x.into(), p.y.into())
+}
+
+fn draw_spider(cmd: &mut RenderCommands, spider: &Spider, cam: &Camera, screen_width: Vec2) {
+    let s = to_glm(cam.world_to_screen(spider.pose.translation, screen_width));
+
+    for leg in &spider.legs {
+        if leg.state == LegState::Retracted {
+            continue;
+        }
+        let e = to_glm(cam.world_to_screen(leg.foot_position, screen_width));
+        cmd.line(s, e);
+    }
+    cmd.circle(s.x, s.y).radius(20.0);
+}
+
+fn draw_world(cmd: &mut RenderCommands, world: &World, screen_width: Vec2) {
+    // let cam = to_raylib_camera(&world.camera, screen_dims);
+    // let mut draw_handle = handle.begin_mode2D(cam);
+    // let d = &mut draw_handle;
+
+    // for x in (-20..=20).step_by(2) {
+    //     for y in (-20..=20).step_by(2) {
+    //         fill_circle(d, Vec2::new(x as f32, y as f32), 0.05, Color::RED);
+    //     }
+    // }
+
+    let p = world.camera.world_to_screen(Vec2::ZERO, screen_width);
+
+    cmd.text(to_glm(p), "SPIDERBOI", 2.0 * world.camera.zoom as f64);
+
+    let cam = &world.camera;
+
+    let n_lines = 500;
+    let spacing = 10;
+
+    for x in -n_lines..=n_lines {
+        let x = x * spacing;
+        let s = Vec2::new(x as f32, -10000.0);
+        let e = Vec2::new(x as f32, 10000.0);
+        cmd.line(
+            to_glm(cam.world_to_screen(s, screen_width)),
+            to_glm(cam.world_to_screen(e, screen_width)),
+        )
+        .color(Color::GRAY)
+        .thickness(3.0);
+        let s = Vec2::new(-10000.0, x as f32);
+        let e = Vec2::new(10000.0, x as f32);
+        cmd.line(
+            to_glm(cam.world_to_screen(s, screen_width)),
+            to_glm(cam.world_to_screen(e, screen_width)),
+        )
+        .color(Color::GRAY)
+        .thickness(3.0);
+    }
+
+    for spider in &world.spiders {
+        draw_spider(cmd, spider, cam, screen_width);
+    }
+}
+
+struct SpiderApp<'a> {
+    last: Instant,
+    world: World,
+    input_state: InputState,
+    rs: RenderState<'a>,
+    _input_thread: JoinHandle<()>,
+    input_queue: MessageQueue<rdev::Event>,
+}
+
+impl<'a> SpiderApp<'a> {
+    async fn new(window: &'a mut glfw::Window) -> Self {
+        let mut rs = RenderState::new(window).await;
+        let input_queue = new_message_queue();
+        let thread_copy = input_queue.clone();
+
+        let _input_thread = std::thread::spawn(|| {
+            if let Err(error) = rdev::listen(move |e| thread_copy.push(e)) {
+                println!("Error: {:?}", error)
+            }
+        });
+
+        rs.load_font("consolas");
+        rs.load_font("cambria");
+        rs.load_font("garamond");
+        rs.load_font("arial");
+        rs.load_font("calibri");
+
+        rs.window.set_framebuffer_size_polling(true);
+        rs.window.set_key_polling(true);
+        rs.window.set_mouse_button_polling(true);
+        rs.window.set_pos_polling(true);
+
+        Self {
+            last: Instant::now(),
+            rs,
+            world: make_world(),
+            input_state: InputState::default(),
+            _input_thread,
+            input_queue,
+        }
+    }
+}
+
+impl<'a> RendApp for SpiderApp<'a> {
+    fn update(&mut self) {
+        while let Some(event) = self.input_queue.pop() {
+            self.input_state
+                .process_rdev_event(&event, self.rs.window.is_focused());
+        }
+
+        let now = Instant::now();
+        update_world(&mut self.world, (now - self.last).as_secs_f32());
+        self.last = now;
+        process_input(&mut self.world, &self.input_state);
+
+        self.input_state.on_frame_boundary();
+    }
+
+    fn emit_render_commands(&self) -> RenderCommands {
+        let font_info: BTreeMap<usize, FontInfo> = self
+            .rs
+            .fonts
+            .iter()
+            .map(|(id, (font, _sprite))| (*id, font.clone()))
+            .collect();
+        let mut cmd = RenderCommands::new(font_info);
+        let (width, height) = self.rs.window.get_size();
+        let dims = Vec2::new(width as f32, height as f32);
+        draw_world(&mut cmd, &self.world, dims);
+
+        cmd
+    }
+
+    fn on_event(&mut self, _event: &glfw::WindowEvent) {}
+
+    fn render(&mut self, commands: &RenderCommands) {
+        match self.rs.render(&commands) {
+            Ok(Some(drawable)) => {
+                drawable.present();
+            }
+            Ok(None) => (),
+            Err(SurfaceError::Lost | SurfaceError::Outdated) => {
+                self.rs.update_surface();
+                self.rs.resize(self.rs.window.get_size());
+            }
+            Err(e) => eprintln!("{:?}", e),
+        }
+    }
+
+    fn should_close(&self) -> bool {
+        // todo!()
+        self.rs.window.should_close()
+    }
+}
+
+fn run(
+    mut glfw: glfw::Glfw,
+    events: glfw::GlfwReceiver<(f64, glfw::WindowEvent)>,
+    mut app: impl RendApp,
+) {
+    while !app.should_close() {
+        glfw.poll_events();
+
+        for (_, event) in glfw::flush_messages(&events) {
+            app.on_event(&event);
+        }
+
+        app.update();
+
+        let commands = app.emit_render_commands();
+        app.render(&commands);
+    }
+}
+
+async fn init() {
+    let mut glfw = glfw::init(fail_on_errors!()).unwrap();
+    glfw.window_hint(WindowHint::ClientApi(ClientApiHint::NoApi));
+    let (mut window, events) = glfw
+        .create_window(1200, 950, "It's WGPU time.", glfw::WindowMode::Windowed)
+        .unwrap();
+
+    window.maximize();
+
+    run(glfw, events, SpiderApp::new(&mut window).await);
+}
+
+fn main() {
+    pollster::block_on(init());
+}
