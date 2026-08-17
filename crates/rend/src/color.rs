@@ -28,6 +28,10 @@ impl Color {
         Self::new(val, val, val, a)
     }
 
+    pub const fn alpha(self, a: f64) -> Self {
+        Self::new(self.r, self.g, self.b, a)
+    }
+
     pub const fn to_vec(&self) -> glm::Vec4 {
         glm::Vec4 {
             x: self.r as f32,

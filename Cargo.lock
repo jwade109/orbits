@@ -3630,9 +3630,11 @@ dependencies = [
 name = "rend_client"
 version = "0.1.0"
 dependencies = [
+ "bary_ui",
  "enum-iterator",
  "glfw",
  "glm",
+ "kira",
  "pollster 1.0.1",
  "rand 0.10.2",
  "rend",

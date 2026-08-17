@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut i = 0;
     for suffix in ["bass", "high", "mids"] {
         let freq = (i + 1) as f64 / 10.0;
-        let path = format!("winter-morning-sea-smoke-{suffix}.ogg");
+        let path = format!("assets/sfx/winter-morning-sea-smoke-{suffix}.ogg");
         sounds.push((path.clone(), StaticSoundData::from_file(path)?, freq));
         i += 3;
     }

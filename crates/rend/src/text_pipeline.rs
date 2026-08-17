@@ -1,6 +1,5 @@
 use crate::*;
 use glm::{Mat4, Vec3, Vec4};
-use std::num::NonZeroU32;
 use wgpu::*;
 
 pub struct TextPipeline {
@@ -8,6 +7,7 @@ pub struct TextPipeline {
     colors: BufferResource,
     range_info: BufferResource,
     transforms: BufferResource,
+    mesh: Mesh,
 }
 
 pub struct BufferResource {
@@ -83,6 +83,7 @@ impl TextPipeline {
     pub const MAX_CHARS_PER_PASS: usize = 480;
 
     pub fn new(rd: &Renderer) -> Self {
+        let mesh = make_quad(&rd.device);
         let size = std::mem::size_of::<GpuSampleInfo>();
         assert!(size == 4 * 8);
         let range_info = make_array_resource(
@@ -124,6 +125,7 @@ impl TextPipeline {
             colors,
             range_info,
             transforms,
+            mesh,
         }
     }
 
@@ -174,7 +176,7 @@ impl TextPipeline {
         }
     }
 
-    pub fn draw_text(&self, rp: &mut RenderPass, mesh: &Mesh, material: &SpriteMaterial, n: usize) {
+    pub fn draw_text(&self, rp: &mut RenderPass, material: &SpriteMaterial, n: usize) {
         rp.set_pipeline(&self.pipeline);
 
         rp.set_bind_group(0, &material.bind_group, &[]);
@@ -184,8 +186,8 @@ impl TextPipeline {
 
         let n = n.min(Self::MAX_CHARS_PER_PASS);
 
-        mesh.set_as_active(rp);
-        rp.draw_indexed(0..mesh.index_count(), 0, 0..n as u32);
+        self.mesh.set_as_active(rp);
+        rp.draw_indexed(0..self.mesh.index_count(), 0, 0..n as u32);
     }
 }
 

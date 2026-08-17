@@ -7,6 +7,16 @@ edition = "2024"
 enum-iterator = "2.3.0"
 glfw = "0.59.0"
 glm = "0.3.0"
+kira = "0.12.3"
 pollster = "1.0.1"
 rand = "0.10.2"
 rend = { path = "../rend" }
+bary_ui = { path = "../bary_ui" }
+
+[[bin]]
+name = "rend_client"
+path = "src/rend_client.rs"
+
+[[bin]]
+name = "kira_test"
+path = "src/kira_test.rs"

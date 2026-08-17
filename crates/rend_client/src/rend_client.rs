@@ -1,27 +1,45 @@
 mod camera;
-mod game_objects;
-
-use std::collections::{BTreeMap, HashSet};
-use std::time::Instant;
-
+mod world;
+use bary_ui::example_layout;
 use glfw::{Action, ClientApiHint, Key, WindowHint, fail_on_errors};
 use glm::*;
 use rend::*;
+use std::collections::{BTreeMap, HashSet};
+mod rend_app;
 
 use crate::camera::*;
-use crate::game_objects::*;
+use crate::rend_app::*;
+use crate::world::*;
 
 fn make_commands(
     commands: &mut RenderCommands,
     frames: u32,
-    font_index: i32,
+    font_name: &str,
     font_size: f64,
     time: f64,
+    width: f32,
+    height: f32,
 ) {
-    let fonts = commands.fonts.keys().collect::<Vec<_>>();
-    let font_id = *fonts[(font_index % fonts.len() as i32) as usize];
+    let layout = example_layout(width, height);
 
-    let font = commands.fonts.get(&font_id).unwrap();
+    for node in layout.iter() {
+        let aabb = node.aabb();
+        let pos = Vec2d::new(aabb.lower().x as f64, aabb.lower().y as f64);
+        let dims = Vec2d::new(aabb.span.x as f64, aabb.span.y as f64);
+        commands.rect(pos, dims, 0.0, Color::GRAY.alpha(0.2));
+    }
+
+    let (font_id, font) = commands
+        .fonts
+        .iter()
+        .find_map(|(id, f)| {
+            if f.name == font_name {
+                Some((*id, f))
+            } else {
+                None
+            }
+        })
+        .unwrap();
 
     let info = format!("({} frames) {} {:0.2} px", frames, font.name, font_size);
 
@@ -56,7 +74,7 @@ fn make_commands(
 
     let layout_width = 1700.0;
 
-    commands.paragraph(*fonts[0], 40.0, 200.0, 100.0, &info, None);
+    commands.paragraph(font_id, 40.0, 200.0, 100.0, &info, None);
     commands.paragraph(font_id, font_size, 200.0, 200.0, &text, Some(layout_width));
 
     // commands.rect(
@@ -234,148 +252,146 @@ fn make_camera_controls(keys: &HashSet<Key>) -> CameraControls {
     ctrls
 }
 
-async fn run() {
-    let mut glfw = glfw::init(fail_on_errors!()).unwrap();
-    glfw.window_hint(WindowHint::ClientApi(ClientApiHint::NoApi));
-    let (mut window, events) = glfw
-        .create_window(800, 600, "It's WGPU time.", glfw::WindowMode::Windowed)
-        .unwrap();
+struct DemoApp<'a> {
+    keys_pressed: HashSet<Key>,
+    world: World,
+    rs: RenderState<'a>,
+}
 
-    let mut rs = RenderState::new(&mut window).await;
+impl<'a> DemoApp<'a> {
+    async fn new(window: &'a mut glfw::Window) -> Self {
+        let mut rs = RenderState::new(window).await;
+        let world = make_world(&mut rs);
 
-    rs.window.set_framebuffer_size_polling(true);
-    rs.window.set_key_polling(true);
-    rs.window.set_mouse_button_polling(true);
-    rs.window.set_pos_polling(true);
+        rs.window.set_framebuffer_size_polling(true);
+        rs.window.set_key_polling(true);
+        rs.window.set_mouse_button_polling(true);
+        rs.window.set_pos_polling(true);
 
-    let mut keys_pressed = HashSet::new();
+        Self {
+            keys_pressed: HashSet::new(),
+            world,
+            rs,
+        }
+    }
+}
 
-    let mut world = make_world(&mut rs);
+impl<'a> RendApp for DemoApp<'a> {
+    fn update(&mut self) {
+        let ctrls = make_camera_controls(&self.keys_pressed);
+        self.world.update(16.67 / 1000.0, &ctrls);
 
-    let mut font_index = 0i32;
-    let mut font_size = 48.0f64;
-    let mut target_font_size = 48.0f64;
+        self.rs.update(
+            self.world.camera.to_projection_matrix(&self.rs.window),
+            self.world.time,
+        );
+    }
 
-    let font_info: BTreeMap<usize, FontInfo> = rs
-        .fonts
-        .iter()
-        .map(|(id, (font, _sprite))| (*id, font.clone()))
-        .collect();
-
-    let start = Instant::now();
-
-    // let mut paused = false;
-    let mut view_selector = ViewSelector::World3d;
-    let mut draw_wireframes = false;
-
-    let mut frames = 0;
-
-    while !rs.window.should_close() {
-        glfw.poll_events();
-
-        rs.update(world.camera.to_projection_matrix(&rs.window), world.time);
-
-        font_size += (target_font_size - font_size) * 0.03;
+    fn emit_render_commands(&self) -> RenderCommands {
+        let font_info: BTreeMap<usize, FontInfo> = self
+            .rs
+            .fonts
+            .iter()
+            .map(|(id, (font, _sprite))| (*id, font.clone()))
+            .collect();
 
         let mut commands = RenderCommands::new(font_info.clone());
 
-        let now = Instant::now();
-
+        let (width, height) = self.rs.window.get_size();
         make_commands(
             &mut commands,
-            frames,
-            font_index,
-            font_size,
-            (now - start).as_secs_f64(),
+            0,
+            "Consolas",
+            48.0,
+            self.world.time as f64,
+            width as f32,
+            height as f32,
         );
 
-        let ctrls = make_camera_controls(&keys_pressed);
+        commands
+    }
 
-        world.update(16.67 / 1000.0, &ctrls);
-
-        for (_, event) in glfw::flush_messages(&events) {
-            match event {
-                glfw::WindowEvent::Key(key, _, Action::Press, _) => {
-                    keys_pressed.insert(key);
-                }
-                glfw::WindowEvent::Key(key, _, Action::Release, _) => {
-                    keys_pressed.remove(&key);
-                }
-                _ => (),
-            }
-
-            match event {
-                glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
-                    rs.window.set_should_close(true)
-                }
-                // glfw::WindowEvent::Key(Key::Space, _, Action::Press, _) => {
-                //     paused ^= true;
-                // }
-                glfw::WindowEvent::Key(Key::Z, _, Action::Press, _) => {
-                    draw_wireframes ^= true;
-                }
-                glfw::WindowEvent::Key(Key::Right, _, Action::Press, _) => {
-                    view_selector = enum_iterator::next_cycle(&view_selector);
-                }
-                glfw::WindowEvent::Key(Key::Left, _, Action::Press, _) => {
-                    view_selector = enum_iterator::previous_cycle(&view_selector);
-                }
-
-                glfw::WindowEvent::Key(Key::M, _, Action::Press, _) => {
-                    font_index += 1;
-                    font_index = font_index.clamp(0, rs.fonts.len() as i32 - 1);
-                }
-                glfw::WindowEvent::Key(Key::N, _, Action::Press, _) => {
-                    font_index -= 1;
-                    font_index = font_index.clamp(0, rs.fonts.len() as i32 - 1);
-                }
-
-                glfw::WindowEvent::Key(Key::L, _, Action::Press, _) => {
-                    target_font_size *= 1.1;
-                    target_font_size = target_font_size.clamp(10.0, 250.0);
-                }
-                glfw::WindowEvent::Key(Key::K, _, Action::Press, _) => {
-                    target_font_size /= 1.1;
-                    target_font_size = target_font_size.clamp(10.0, 250.0);
-                }
-
-                //Window was moved
-                glfw::WindowEvent::Pos(..) => {
-                    rs.update_surface();
-                    rs.resize(rs.window.get_size());
-                }
-
-                //Window was resized
-                glfw::WindowEvent::FramebufferSize(width, height) => {
-                    rs.update_surface();
-                    rs.resize((width, height));
-                }
-                _ => {}
-            }
-        }
-
-        frames += 1;
-
-        match rs.render(
-            view_selector,
-            draw_wireframes,
-            &world.quads,
-            &commands,
-            world.time,
-        ) {
+    fn render(&mut self, commands: &RenderCommands) {
+        match self.rs.render(&commands) {
             Ok(Some(drawable)) => {
                 drawable.present();
             }
             Ok(None) => (),
             Err(SurfaceError::Lost | SurfaceError::Outdated) => {
-                rs.update_surface();
-                rs.resize(rs.window.get_size());
+                self.rs.update_surface();
+                self.rs.resize(self.rs.window.get_size());
             }
             Err(e) => eprintln!("{:?}", e),
         }
     }
+
+    fn on_event(&mut self, event: &glfw::WindowEvent) {
+        match event {
+            glfw::WindowEvent::Key(key, _, Action::Press, _) => {
+                self.keys_pressed.insert(*key);
+            }
+            glfw::WindowEvent::Key(key, _, Action::Release, _) => {
+                self.keys_pressed.remove(key);
+            }
+            _ => (),
+        }
+
+        match event {
+            glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
+                self.rs.window.set_should_close(true)
+            }
+
+            //Window was moved
+            glfw::WindowEvent::Pos(..) => {
+                self.rs.update_surface();
+                self.rs.resize(self.rs.window.get_size());
+            }
+
+            //Window was resized
+            glfw::WindowEvent::FramebufferSize(width, height) => {
+                self.rs.update_surface();
+                self.rs.resize((*width, *height));
+            }
+            _ => {}
+        }
+    }
+
+    fn should_close(&self) -> bool {
+        self.rs.window.should_close()
+    }
+}
+
+fn run(
+    mut glfw: glfw::Glfw,
+    events: glfw::GlfwReceiver<(f64, glfw::WindowEvent)>,
+    mut app: impl RendApp,
+) {
+    while !app.should_close() {
+        glfw.poll_events();
+
+        for (_, event) in glfw::flush_messages(&events) {
+            app.on_event(&event);
+        }
+
+        app.update();
+
+        let commands = app.emit_render_commands();
+        app.render(&commands);
+    }
+}
+
+async fn init() {
+    let mut glfw = glfw::init(fail_on_errors!()).unwrap();
+    glfw.window_hint(WindowHint::ClientApi(ClientApiHint::NoApi));
+    let (mut window, events) = glfw
+        .create_window(1200, 950, "It's WGPU time.", glfw::WindowMode::Windowed)
+        .unwrap();
+
+    window.maximize();
+
+    run(glfw, events, DemoApp::new(&mut window).await);
 }
 
 fn main() {
-    pollster::block_on(run());
+    pollster::block_on(init());
 }
