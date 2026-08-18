@@ -7,7 +7,9 @@ use rend::*;
 use std::{collections::BTreeMap, thread::JoinHandle, time::Instant};
 mod rend_app;
 use crate::rend_app::*;
+use crate::tweens::{AnimationStates, Tween};
 use crate::world::*;
+mod tweens;
 mod world;
 
 fn to_glm(p: bary_core::prelude::Vec2) -> Vec2d {
@@ -17,21 +19,50 @@ fn to_glm(p: bary_core::prelude::Vec2) -> Vec2d {
 fn draw_spider(cmd: &mut RenderCommands, spider: &Spider, cam: &Camera, screen_width: Vec2) {
     let s = to_glm(cam.world_to_screen(spider.pose.translation, screen_width));
 
+    cmd.circle(s.x, s.y)
+        .radius(cam.zoom as f64 * 3.0)
+        .inner_radius(cam.zoom as f64 * 1.5)
+        .color(Color::ORANGE.alpha(0.2));
+
+    cmd.circle(s.x, s.y)
+        .radius(cam.zoom as f64 * 2.7)
+        .inner_radius(cam.zoom as f64 * 1.8)
+        .color(Color::ORANGE.alpha(0.2));
+
     for leg in &spider.legs {
         if leg.state == LegState::Retracted {
             continue;
         }
         let e = to_glm(cam.world_to_screen(leg.foot_position, screen_width));
-        cmd.line(s, e);
+        cmd.line(s, e).thickness(0.5 * cam.zoom as f64);
     }
-    cmd.circle(s.x, s.y).radius(200.0).inner_radius(120.0);
+
+    let r = cmd
+        .circle(s.x, s.y)
+        .diameter(cam.zoom as f64)
+        .color(Color::BLUE);
 }
 
-fn draw_world(cmd: &mut RenderCommands, world: &World, screen_width: Vec2) {
+fn draw_world(
+    cmd: &mut RenderCommands,
+    input: &InputState,
+    world: &World,
+    screen_width: Vec2,
+    mouse: DVec2,
+    anim: &AnimationStates,
+) {
     let cam = &world.camera;
     let p = world.camera.world_to_screen(Vec2::ZERO, screen_width);
 
-    let text = format!("SPIDERBOI\n{}", world.ticks);
+    let mouse_world = cam.screen_to_world(mouse.as_vec2(), screen_width);
+
+    let mut lines = vec!["SPIDERBOI".to_string(), format!("{} ticks", world.ticks)];
+
+    for anim in anim.animations() {
+        lines.push(format!("{anim:?}"));
+    }
+
+    let text = lines.join("\n");
     cmd.text(to_glm(p), text, 2.0 * cam.zoom as f64);
 
     let n_lines = 500;
@@ -57,14 +88,35 @@ fn draw_world(cmd: &mut RenderCommands, world: &World, screen_width: Vec2) {
         .thickness(3.0);
     }
 
-    for spider in &world.spiders {
+    let clicked = input.is_key_pressed(rdev::Button::Left);
+
+    for (i, spider) in world.spiders.iter().enumerate() {
         draw_spider(cmd, spider, cam, screen_width);
+
+        let s = spider.pose.translation;
+        let mouseover = s.distance(mouse_world) < 3.0;
+        let t1 = anim.anim(("spider_select", i), Tween::Exponential, 0.26, mouseover);
+        let t2 = anim.anim(
+            ("spider_click", i),
+            Tween::Exponential,
+            0.20,
+            mouseover && clicked,
+        );
+        let t1 = 0.6 + t1 * 0.4;
+
+        cmd.circle_new(cam.world_to_screen(s, screen_width).into())
+            .inner_radius(100.0 * t1 + 50.0 - 23.0 * t2)
+            .radius(180.0 * t1 + 23.0 * t2)
+            .color(Color::ORANGE);
     }
+
+    cmd.circle_new(mouse).diameter(20.0).color(Color::RED);
 }
 
 struct SpiderApp<'a> {
     last: Instant,
     world: World,
+    animations: AnimationStates,
     input_state: InputState,
     rs: RenderState<'a>,
     _input_thread: JoinHandle<()>,
@@ -99,6 +151,7 @@ impl<'a> SpiderApp<'a> {
             last: Instant::now(),
             rs,
             world: make_world(),
+            animations: AnimationStates::new(),
             input_state: InputState::default(),
             _input_thread,
             input_queue,
@@ -109,14 +162,16 @@ impl<'a> SpiderApp<'a> {
 
 impl<'a> RendApp for SpiderApp<'a> {
     fn update(&mut self) {
+        let now = Instant::now();
+        let dt = (now - self.last).as_secs_f64();
+
+        self.animations.update(dt);
         while let Some(event) = self.input_queue.pop() {
             self.input_state
                 .process_rdev_event(&event, self.rs.window.is_focused());
         }
 
-        let now = Instant::now();
-        update_world(&mut self.world, (now - self.last).as_secs_f32());
-        self.last = now;
+        update_world(&mut self.world, dt as f32);
         process_input(&mut self.world, &self.input_state);
 
         if self.input_state.is_key_pressed(rdev::Key::Escape) {
@@ -124,6 +179,8 @@ impl<'a> RendApp for SpiderApp<'a> {
         }
 
         self.input_state.on_frame_boundary();
+
+        self.last = now;
     }
 
     fn emit_render_commands(&self) -> RenderCommands {
@@ -137,8 +194,18 @@ impl<'a> RendApp for SpiderApp<'a> {
         let mut cmd = RenderCommands::new(font_info);
         let (width, height) = self.rs.window.get_size();
         let dims = Vec2::new(width as f32, height as f32);
-        draw_world(&mut cmd, &self.world, dims);
-
+        let mouse = DVec2::new(
+            self.rs.window.get_cursor_pos().0,
+            self.rs.window.get_cursor_pos().1,
+        );
+        draw_world(
+            &mut cmd,
+            &self.input_state,
+            &self.world,
+            dims,
+            mouse,
+            &self.animations,
+        );
         cmd
     }
 

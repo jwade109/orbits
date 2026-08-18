@@ -1,3 +1,5 @@
+use glam::DVec2;
+
 use crate::{Color, FontInfo};
 use std::collections::BTreeMap;
 
@@ -140,6 +142,11 @@ impl RenderCommands {
         builder
     }
 
+    pub fn circle_new(&mut self, p: DVec2) -> CircleBuilder<'_> {
+        let builder: CircleBuilder<'_> = CircleBuilder::new(self, p.x, p.y);
+        builder
+    }
+
     pub fn line(&mut self, start: impl Into<Vec2d>, end: impl Into<Vec2d>) -> LineBuilder<'_> {
         let builder = LineBuilder::new(self, start.into(), end.into());
         builder
@@ -241,7 +248,7 @@ impl<'a> CircleBuilder<'a> {
             commands,
             x,
             y,
-            inner_radius: 0.0,
+            inner_radius: -20.0,
             outer_radius: 50.0,
             color: Color::new(0.0, 0.3, 1.0, 0.8),
         }
@@ -277,7 +284,10 @@ impl<'a> Drop for CircleBuilder<'a> {
             outer_radius: self.outer_radius,
             color: self.color,
         };
-        self.commands.enqueue(RenderCommand::Circle(circle));
+
+        if self.inner_radius < self.outer_radius && self.outer_radius > 0.0 {
+            self.commands.enqueue(RenderCommand::Circle(circle));
+        }
     }
 }
 

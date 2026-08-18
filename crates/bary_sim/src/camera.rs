@@ -22,4 +22,10 @@ impl Camera {
         scaled.y *= -1.0;
         scaled + screen_width / 2.0
     }
+
+    pub fn screen_to_world(&self, p: Vec2, screen_width: Vec2) -> Vec2 {
+        let p = p - screen_width / 2.0;
+        let p = p.with_y(-p.y);
+        p / self.zoom + self.isometry.translation
+    }
 }
