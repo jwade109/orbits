@@ -61,6 +61,10 @@ impl AnimationStates {
             }
             anim.actual_duration = anim.actual_duration.clamp(0.0, anim.max_duration);
         }
+
+        self.animations
+            .borrow_mut()
+            .retain(|_, a| a.actual_duration > 0.0 || a.state)
     }
 
     pub fn animations(&self) -> Vec<(&'static str, u64, Tween, f64)> {
@@ -90,7 +94,7 @@ impl AnimationStates {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-struct AnimId {
+pub struct AnimId {
     id: &'static str,
     num: u64,
 }

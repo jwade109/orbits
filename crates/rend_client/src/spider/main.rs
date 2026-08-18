@@ -52,43 +52,53 @@ fn draw_world(
     anim: &AnimationStates,
 ) {
     let cam = &world.camera;
-    let p = world.camera.world_to_screen(Vec2::ZERO, screen_width);
 
-    let mouse_world = cam.screen_to_world(mouse.as_vec2(), screen_width);
+    {
+        let n_lines = 500;
+        let spacing = 10;
 
-    let mut lines = vec!["SPIDERBOI".to_string(), format!("{} ticks", world.ticks)];
-
-    for anim in anim.animations() {
-        lines.push(format!("{anim:?}"));
+        for x in -n_lines..=n_lines {
+            let x = x * spacing;
+            let s = Vec2::new(x as f32, -10000.0);
+            let e = Vec2::new(x as f32, 10000.0);
+            cmd.line(
+                to_glm(cam.world_to_screen(s, screen_width)),
+                to_glm(cam.world_to_screen(e, screen_width)),
+            )
+            .color(Color::GRAY)
+            .thickness(3.0);
+            let s = Vec2::new(-10000.0, x as f32);
+            let e = Vec2::new(10000.0, x as f32);
+            cmd.line(
+                to_glm(cam.world_to_screen(s, screen_width)),
+                to_glm(cam.world_to_screen(e, screen_width)),
+            )
+            .color(Color::GRAY)
+            .thickness(3.0);
+        }
     }
 
-    let text = lines.join("\n");
-    cmd.text(to_glm(p), text, 2.0 * cam.zoom as f64);
+    {
+        let pw = Vec2::ZERO;
+        let ps = world.camera.world_to_screen(pw, screen_width);
 
-    let n_lines = 500;
-    let spacing = 10;
+        let mut lines = vec!["SPIDERBOI".to_string(), format!("{} ticks", world.ticks)];
 
-    for x in -n_lines..=n_lines {
-        let x = x * spacing;
-        let s = Vec2::new(x as f32, -10000.0);
-        let e = Vec2::new(x as f32, 10000.0);
-        cmd.line(
-            to_glm(cam.world_to_screen(s, screen_width)),
-            to_glm(cam.world_to_screen(e, screen_width)),
-        )
-        .color(Color::GRAY)
-        .thickness(3.0);
-        let s = Vec2::new(-10000.0, x as f32);
-        let e = Vec2::new(10000.0, x as f32);
-        cmd.line(
-            to_glm(cam.world_to_screen(s, screen_width)),
-            to_glm(cam.world_to_screen(e, screen_width)),
-        )
-        .color(Color::GRAY)
-        .thickness(3.0);
+        for (id, num, tween, state) in anim.animations() {
+            lines.push(format!("{} {} {:?} {:0.2}", id, num, tween, state));
+        }
+
+        let text = lines.join("\n");
+        let qs = cmd.text(to_glm(ps), &text, 2.0 * cam.zoom as f64);
+
+        cmd.text(Vec2d::new(20.0, 20.0), text, 32.0);
+
+        cmd.frame(to_glm(ps), to_glm(qs.as_vec2()), 0.3 * cam.zoom as f64);
     }
 
     let clicked = input.is_key_pressed(rdev::Button::Left);
+
+    let mouse_world = cam.screen_to_world(mouse.as_vec2(), screen_width);
 
     for (i, spider) in world.spiders.iter().enumerate() {
         draw_spider(cmd, spider, cam, screen_width);

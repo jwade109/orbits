@@ -52,7 +52,7 @@ impl Leg {
 
     fn update(&mut self, dt: f32) {
         if self.state == LegState::Travelling {
-            let max_speed = 65.0;
+            let max_speed = 20.0;
             let max_delta = max_speed * dt;
             let u = self.target_foot_position - self.foot_position;
             let delta = max_delta.min(u.length());
@@ -205,7 +205,9 @@ pub fn update_world(world: &mut World, dt: f32) {
         update_spider(spider, dt);
     }
 
-    let vel = Vec2::new(world.time.cos(), world.time.sin()) * 10.0;
+    let t = world.time / 4.0;
+
+    let vel = Vec2::new(t.cos(), t.sin()) * 4.0;
 
     world.spiders[1].vel.translation = vel;
 
@@ -217,7 +219,7 @@ pub fn make_world() -> World {
     World {
         ticks: 0,
         time: 0.0,
-        spiders: vec![Spider::new(0.4, 6), Spider::new(0.0, 3)],
+        spiders: vec![Spider::new(0.4, 6), Spider::new(0.0, 8)],
         camera: Camera {
             isometry: Isometry2d::ZERO,
             zoom: 30.0,
@@ -243,7 +245,7 @@ pub fn process_input(world: &mut World, input: &InputState) {
     let x_pull = -(w as i8) + e as i8;
     let y_pull = -(s as i8) + n as i8;
 
-    let speed = 16.0;
+    let speed = 3.0;
 
     let dir = Vec2::new(x_pull as f32, y_pull as f32).normalize_or_zero();
 

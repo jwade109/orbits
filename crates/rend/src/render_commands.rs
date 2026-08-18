@@ -152,9 +152,18 @@ impl RenderCommands {
         builder
     }
 
-    pub fn text(&mut self, p: Vec2d, text: impl AsRef<str>, font_size: f64) {
+    pub fn text(&mut self, p: Vec2d, text: impl AsRef<str>, font_size: f64) -> DVec2 {
         let font_id = self.fonts.keys().next().unwrap();
-        self.paragraph(*font_id, font_size, p.x, p.y, text.as_ref(), None);
+        self.paragraph(*font_id, font_size, p.x, p.y, text.as_ref(), None)
+    }
+
+    pub fn frame(&mut self, p: Vec2d, q: Vec2d, t: f64) {
+        let a = Vec2d::new(p.x, q.y);
+        let b = Vec2d::new(q.x, p.y);
+        self.line(p, a).thickness(t);
+        self.line(a, q).thickness(t);
+        self.line(q, b).thickness(t);
+        self.line(b, p).thickness(t);
     }
 
     pub fn paragraph(
@@ -165,7 +174,7 @@ impl RenderCommands {
         y_origin: f64,
         text: &str,
         layout_width: Option<f64>,
-    ) {
+    ) -> DVec2 {
         // TODO this is terrible
         let font = self.fonts.get(&font_id).unwrap().clone();
 
@@ -177,6 +186,8 @@ impl RenderCommands {
         let mut y = y_origin;
 
         let mut char_commands = Vec::new();
+
+        let mut extent = DVec2::ZERO;
 
         for ch in text.chars() {
             if ch == '\n' {
@@ -205,6 +216,9 @@ impl RenderCommands {
             let pos = Vec2d::new(xt, yt);
             let dims = Vec2d::new(w, h);
 
+            extent.x = extent.x.max(pos.x + dims.x);
+            extent.y = extent.y.max(pos.y + dims.y);
+
             if ch != ' ' {
                 char_commands.push(CharCommand {
                     pos,
@@ -230,6 +244,8 @@ impl RenderCommands {
         let batch = BatchRenderCommand::Char(font_id, char_commands);
 
         self.commands.push(batch);
+
+        extent
     }
 }
 

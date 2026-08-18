@@ -491,7 +491,7 @@ impl<'a> RenderState<'a> {
         for cmd in commands.commands() {
             match cmd {
                 BatchRenderCommand::Char(font_id, c) => self.draw_ui(&view, *font_id, &c),
-                // BatchRenderCommand::Rect(c) => self.draw_rectangles(view, &c),
+                BatchRenderCommand::Rect(c) => self.draw_rectangles(view, &c),
                 BatchRenderCommand::Circle(c) => self.draw_circles(view, &c),
                 BatchRenderCommand::Line(c) => self.draw_lines(view, &c),
                 _ => (),

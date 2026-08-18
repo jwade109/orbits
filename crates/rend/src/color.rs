@@ -14,7 +14,12 @@ impl Color {
     pub const BLUE: Self = Self::new(0.0, 0.0, 1.0, 1.0);
     pub const GREEN: Self = Self::new(0.0, 1.0, 0.0, 1.0);
     pub const BROWN: Self = Self::new(0.4, 0.2, 0.0, 1.0);
-    pub const ORANGE: Self = Self::new(1.0, 0.3, 0.0, 1.0);
+
+    // "rgb(255, 90, 0)"
+    pub const ORANGE: Self = Self::rgb(255, 90, 0, 1.0);
+
+    // "rgb(137, 255, 251)"
+    pub const SKY: Self = Self::rgb(137, 255, 251, 1.0);
 
     pub const fn new(r: f64, g: f64, b: f64, a: f64) -> Self {
         Self { r, g, b, a }
