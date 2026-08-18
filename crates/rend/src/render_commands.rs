@@ -83,7 +83,8 @@ pub struct CharCommand {
 pub struct CircleCommand {
     pub x: f64,
     pub y: f64,
-    pub radius: f64,
+    pub inner_radius: f64,
+    pub outer_radius: f64,
     pub color: Color,
 }
 
@@ -144,9 +145,9 @@ impl RenderCommands {
         builder
     }
 
-    pub fn text(&mut self, p: Vec2d, text: &str, font_size: f64) {
+    pub fn text(&mut self, p: Vec2d, text: impl AsRef<str>, font_size: f64) {
         let font_id = self.fonts.keys().next().unwrap();
-        self.paragraph(*font_id, font_size, p.x, p.y, text, None);
+        self.paragraph(*font_id, font_size, p.x, p.y, text.as_ref(), None);
     }
 
     pub fn paragraph(
@@ -229,7 +230,8 @@ pub struct CircleBuilder<'a> {
     commands: &'a mut RenderCommands,
     x: f64,
     y: f64,
-    r: f64,
+    inner_radius: f64,
+    outer_radius: f64,
     color: Color,
 }
 
@@ -239,18 +241,24 @@ impl<'a> CircleBuilder<'a> {
             commands,
             x,
             y,
-            r: 50.0,
+            inner_radius: 0.0,
+            outer_radius: 50.0,
             color: Color::new(0.0, 0.3, 1.0, 0.8),
         }
     }
 
     pub fn radius(&mut self, radius: f64) -> &mut Self {
-        self.r = radius;
+        self.outer_radius = radius;
+        self
+    }
+
+    pub fn inner_radius(&mut self, radius: f64) -> &mut Self {
+        self.inner_radius = radius;
         self
     }
 
     pub fn diameter(&mut self, diameter: f64) -> &mut Self {
-        self.r = diameter / 2.0;
+        self.outer_radius = diameter / 2.0;
         self
     }
 
@@ -265,7 +273,8 @@ impl<'a> Drop for CircleBuilder<'a> {
         let circle = CircleCommand {
             x: self.x,
             y: self.y,
-            radius: self.r,
+            inner_radius: self.inner_radius,
+            outer_radius: self.outer_radius,
             color: self.color,
         };
         self.commands.enqueue(RenderCommand::Circle(circle));

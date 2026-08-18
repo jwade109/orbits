@@ -1,3 +1,4 @@
+use crate::Texture;
 use crate::*;
 use glm::{Mat4, Vec3, Vec4};
 use wgpu::*;
@@ -96,7 +97,7 @@ impl TextPipeline {
         let transforms =
             make_array_resource(&rd.device, Self::MAX_CHARS_PER_PASS, 64, "Text transforms");
 
-        let bgl = material_bind_group_layout(&rd.device, "SpriteMaterial Bind Group Layout");
+        let bgl = material_bind_group_layout(&rd.device, "Texture Bind Group Layout");
 
         let mut builder = PipelineBuilder::new(&rd.device);
         let shader = Shader::from_path("crates/rend/shaders/text_shader.wgsl");
@@ -176,7 +177,7 @@ impl TextPipeline {
         }
     }
 
-    pub fn draw_text(&self, rp: &mut RenderPass, material: &SpriteMaterial, n: usize) {
+    pub fn draw_text(&self, rp: &mut RenderPass, material: &Texture, n: usize) {
         rp.set_pipeline(&self.pipeline);
 
         rp.set_bind_group(0, &material.bind_group, &[]);

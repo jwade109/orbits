@@ -24,25 +24,15 @@ fn draw_spider(cmd: &mut RenderCommands, spider: &Spider, cam: &Camera, screen_w
         let e = to_glm(cam.world_to_screen(leg.foot_position, screen_width));
         cmd.line(s, e);
     }
-    cmd.circle(s.x, s.y).radius(20.0);
+    cmd.circle(s.x, s.y).radius(200.0).inner_radius(120.0);
 }
 
 fn draw_world(cmd: &mut RenderCommands, world: &World, screen_width: Vec2) {
-    // let cam = to_raylib_camera(&world.camera, screen_dims);
-    // let mut draw_handle = handle.begin_mode2D(cam);
-    // let d = &mut draw_handle;
-
-    // for x in (-20..=20).step_by(2) {
-    //     for y in (-20..=20).step_by(2) {
-    //         fill_circle(d, Vec2::new(x as f32, y as f32), 0.05, Color::RED);
-    //     }
-    // }
-
+    let cam = &world.camera;
     let p = world.camera.world_to_screen(Vec2::ZERO, screen_width);
 
-    cmd.text(to_glm(p), "SPIDERBOI", 2.0 * world.camera.zoom as f64);
-
-    let cam = &world.camera;
+    let text = format!("SPIDERBOI\n{}", world.ticks);
+    cmd.text(to_glm(p), text, 2.0 * cam.zoom as f64);
 
     let n_lines = 500;
     let spacing = 10;
@@ -79,6 +69,7 @@ struct SpiderApp<'a> {
     rs: RenderState<'a>,
     _input_thread: JoinHandle<()>,
     input_queue: MessageQueue<rdev::Event>,
+    should_exit: bool,
 }
 
 impl<'a> SpiderApp<'a> {
@@ -93,11 +84,11 @@ impl<'a> SpiderApp<'a> {
             }
         });
 
-        rs.load_font("consolas");
-        rs.load_font("cambria");
-        rs.load_font("garamond");
-        rs.load_font("arial");
-        rs.load_font("calibri");
+        rs.resources.load_font(&rs.renderer, "consolas");
+        rs.resources.load_font(&rs.renderer, "cambria");
+        rs.resources.load_font(&rs.renderer, "garamond");
+        rs.resources.load_font(&rs.renderer, "arial");
+        rs.resources.load_font(&rs.renderer, "calibri");
 
         rs.window.set_framebuffer_size_polling(true);
         rs.window.set_key_polling(true);
@@ -111,6 +102,7 @@ impl<'a> SpiderApp<'a> {
             input_state: InputState::default(),
             _input_thread,
             input_queue,
+            should_exit: false,
         }
     }
 }
@@ -127,12 +119,17 @@ impl<'a> RendApp for SpiderApp<'a> {
         self.last = now;
         process_input(&mut self.world, &self.input_state);
 
+        if self.input_state.is_key_pressed(rdev::Key::Escape) {
+            self.should_exit = true;
+        }
+
         self.input_state.on_frame_boundary();
     }
 
     fn emit_render_commands(&self) -> RenderCommands {
         let font_info: BTreeMap<usize, FontInfo> = self
             .rs
+            .resources
             .fonts
             .iter()
             .map(|(id, (font, _sprite))| (*id, font.clone()))
@@ -163,7 +160,7 @@ impl<'a> RendApp for SpiderApp<'a> {
 
     fn should_close(&self) -> bool {
         // todo!()
-        self.rs.window.should_close()
+        self.rs.window.should_close() || self.should_exit
     }
 }
 

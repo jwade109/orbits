@@ -32,19 +32,61 @@ struct Pipelines {
     line_pipeline: LinePipeline,
 }
 
+pub struct RenderResources {
+    pub fonts: HashMap<usize, (FontInfo, Texture)>,
+    pub meshes: HashMap<usize, Mesh>,
+    pub textures: HashMap<usize, Texture>,
+    pub next_resource_id: usize,
+}
+
+impl RenderResources {
+    pub fn spawn_mesh(&mut self, mesh: Mesh) -> usize {
+        let id = self.next_resource_id;
+        self.next_resource_id += 1;
+        self.meshes.insert(id, mesh);
+        id
+    }
+
+    pub fn load_texture(&mut self, rd: &Renderer, path: &str) -> usize {
+        let sprite = Texture::load_sprite(path, rd).unwrap();
+        let id = self.next_resource_id;
+        self.next_resource_id += 1;
+        self.textures.insert(id, sprite);
+        id
+    }
+
+    pub fn load_font(&mut self, rd: &Renderer, name: &str) -> usize {
+        println!("Loading font {name}");
+        let data_path = format!("assets/font_textures/{name}/font_data.json");
+        let texture_path = format!("assets/font_textures/{name}/font.png");
+        let texture = Texture::load_sprite(&texture_path, rd).unwrap();
+        let font = FontInfo::from_file(&data_path).unwrap();
+        let id = self.next_resource_id;
+        self.next_resource_id += 1;
+        self.fonts.insert(id, (font, texture));
+        id
+    }
+
+    pub fn spawn_ground_plane(
+        &mut self,
+        device: &wgpu::Device,
+        x: i32,
+        z: i32,
+        n_quads: u16,
+    ) -> usize {
+        let mesh = make_rough_ground_plane(device, Vec2::new(x as f32, z as f32), n_quads);
+        self.spawn_mesh(mesh)
+    }
+}
+
 pub struct RenderState<'a> {
     pub renderer: Renderer<'a>,
+    pub resources: RenderResources,
+    pub window: &'a mut glfw::Window,
 
     pipelines: Pipelines,
 
-    pub window: &'a mut glfw::Window,
-
-    pub fonts: HashMap<usize, (FontInfo, SpriteMaterial)>,
-    meshes: HashMap<usize, Mesh>,
-    textures: HashMap<usize, SpriteMaterial>,
-    next_resource_id: usize,
-
-    invincible: SpriteMaterial,
+    invincible: Texture,
     depth_texture: Texture,
     im_tex_1: Texture,
     im_tex_2: Texture,
@@ -56,7 +98,7 @@ impl<'a> RenderState<'a> {
     pub async fn new(window: &'a mut glfw::Window) -> Self {
         let renderer = Renderer::new(window).await;
 
-        let bgl = material_bind_group_layout(&renderer.device, "SpriteMaterial Bind Group Layout");
+        let bgl = material_bind_group_layout(&renderer.device, "Texture Bind Group Layout");
 
         let ubo_bind_group_layout = {
             let mut builder = BindGroupLayoutBuilder::new(&renderer.device);
@@ -71,8 +113,7 @@ impl<'a> RenderState<'a> {
             mapped_at_creation: false,
         });
 
-        let invincible = SpriteMaterial::load("assets/invincible.jpg", &renderer).unwrap();
-
+        let invincible = Texture::load_sprite("assets/invincible.jpg", &renderer).unwrap();
         let depth_texture = Texture::depth_texture(&renderer, "depth_texture");
         let im_tex_1 = Texture::blank_texture(&renderer, "im_tex_1");
         let im_tex_2 = Texture::blank_texture(&renderer, "im_tex_2");
@@ -119,23 +160,29 @@ impl<'a> RenderState<'a> {
 
         let shadow_pipeline = ShadowPipeline::new(&renderer);
 
-        Self {
-            renderer,
-            window,
-            pipelines: Pipelines {
-                lava_lamp_pipeline,
-                blur_pipeline,
-                shadow_pipeline,
-                standard_3d_pipeline,
-                single_color_pipeline,
-                text_pipeline,
-                circle_pipeline,
-                line_pipeline,
-            },
+        let resources = RenderResources {
             fonts: HashMap::new(),
             meshes: HashMap::new(),
             textures: HashMap::new(),
             next_resource_id: 0,
+        };
+
+        let pipelines = Pipelines {
+            lava_lamp_pipeline,
+            blur_pipeline,
+            shadow_pipeline,
+            standard_3d_pipeline,
+            single_color_pipeline,
+            text_pipeline,
+            circle_pipeline,
+            line_pipeline,
+        };
+
+        Self {
+            renderer,
+            window,
+            pipelines,
+            resources,
             common_shader_info: SingleUBO {
                 buffer: uniform_buffer,
                 bind_group: uniform_bind_group,
@@ -145,42 +192,6 @@ impl<'a> RenderState<'a> {
             im_tex_1,
             im_tex_2,
         }
-    }
-
-    pub fn spawn_mesh(&mut self, mesh: Mesh) -> usize {
-        let id = self.next_resource_id;
-        self.next_resource_id += 1;
-        self.meshes.insert(id, mesh);
-        id
-    }
-
-    pub fn load_texture(&mut self, path: &str) -> usize {
-        let sprite = SpriteMaterial::load(path, &self.renderer).unwrap();
-        let id = self.next_resource_id;
-        self.next_resource_id += 1;
-        self.textures.insert(id, sprite);
-        id
-    }
-
-    pub fn load_font(&mut self, name: &str) -> usize {
-        println!("Loading font {name}");
-        let data_path = format!("assets/font_textures/{name}/font_data.json");
-        let texture_path = format!("assets/font_textures/{name}/font.png");
-        let texture = SpriteMaterial::load(&texture_path, &self.renderer).unwrap();
-        let font = FontInfo::from_file(&data_path).unwrap();
-        let id = self.next_resource_id;
-        self.next_resource_id += 1;
-        self.fonts.insert(id, (font, texture));
-        id
-    }
-
-    pub fn spawn_ground_plane(&mut self, x: i32, z: i32, n_quads: u16) -> usize {
-        let mesh = make_rough_ground_plane(
-            &self.renderer.device,
-            Vec2::new(x as f32, z as f32),
-            n_quads,
-        );
-        self.spawn_mesh(mesh)
     }
 
     pub fn resize(&mut self, new_size: (i32, i32)) {
@@ -273,7 +284,11 @@ impl<'a> RenderState<'a> {
             );
         }
 
-        rp.set_bind_group(1, &self.textures.values().next().unwrap().bind_group, &[]);
+        rp.set_bind_group(
+            1,
+            &self.resources.textures.values().next().unwrap().bind_group,
+            &[],
+        );
 
         for i in 0..meshes.len() {
             let bg = self
@@ -282,7 +297,7 @@ impl<'a> RenderState<'a> {
                 .transforms()
                 .bind_group(i);
 
-            let Some(mesh) = self.meshes.get(&meshes[i].mesh_id) else {
+            let Some(mesh) = self.resources.meshes.get(&meshes[i].mesh_id) else {
                 println!("Failed to get mesh of type {:?}", meshes[i].mesh_id);
                 continue;
             };
@@ -393,7 +408,7 @@ impl<'a> RenderState<'a> {
         let (sx, sy) = self.window.get_size();
         let screen = Vec2d::new(sx as f64, sy as f64);
 
-        let (font, material) = self.fonts.get(&font_id).unwrap();
+        let (font, material) = self.resources.fonts.get(&font_id).unwrap();
 
         for chunk in commands.chunks(TextPipeline::MAX_CHARS_PER_PASS) {
             let mut command_encoder = self
@@ -476,9 +491,10 @@ impl<'a> RenderState<'a> {
         for cmd in commands.commands() {
             match cmd {
                 BatchRenderCommand::Char(font_id, c) => self.draw_ui(&view, *font_id, &c),
-                BatchRenderCommand::Rect(c) => self.draw_rectangles(view, &c),
+                // BatchRenderCommand::Rect(c) => self.draw_rectangles(view, &c),
                 BatchRenderCommand::Circle(c) => self.draw_circles(view, &c),
                 BatchRenderCommand::Line(c) => self.draw_lines(view, &c),
+                _ => (),
             }
         }
     }
@@ -507,10 +523,10 @@ impl<'a> RenderState<'a> {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        self.clear(&self.im_tex_1.view, Color::rgb(117, 186, 255, 1.0));
+        self.clear(&view, Color::rgb(117, 186, 255, 1.0));
         // self.draw_lava(&view, 0.0);
         // self.draw_3d(&[], &view);
-        self.blur_pass(&self.im_tex_1, &view);
+        // self.blur_pass(&self.im_tex_1, &view);
         self.apply_geometry_commands(commands, &view);
 
         self.renderer.device.poll(wgpu::Maintain::wait());

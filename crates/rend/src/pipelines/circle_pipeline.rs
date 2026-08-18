@@ -69,22 +69,23 @@ impl CirclePipeline {
         );
     }
 
-    pub fn set_radius(&self, queue: &Queue, i: usize, radius: f32) {
+    pub fn set_radius(&self, queue: &Queue, i: usize, inner_radius: f32, outer_radius: f32) {
         // the stride is 16 here because that's the minimum.
-        // the element is 4 bytes large
-        queue.write_buffer(&self.radius.buffer, 16 * i as u64, any_as_u8_slice(&radius));
+        // the element is 8 bytes large
+        let data: [f32; 2] = [inner_radius, outer_radius];
+        queue.write_buffer(&self.radius.buffer, 16 * i as u64, any_as_u8_slice(&data));
     }
 
     pub fn assign_buffer_data(&self, queue: &Queue, commands: &[CircleCommand], screen: Vec2d) {
         for (i, cmd) in commands.iter().enumerate() {
-            let ul_x = cmd.x - cmd.radius;
-            let ul_y = cmd.y - cmd.radius;
+            let ul_x = cmd.x - cmd.outer_radius;
+            let ul_y = cmd.y - cmd.outer_radius;
             let pos = Vec2d::new(ul_x, ul_y);
-            let dims = Vec2d::new(cmd.radius, cmd.radius) * 2.0;
+            let dims = Vec2d::new(cmd.outer_radius, cmd.outer_radius) * 2.0;
             let transform = screen_space_transform(pos, dims, screen, 0.0);
             self.set_transform(queue, i, &transform);
             self.set_color(queue, i, cmd.color);
-            self.set_radius(queue, i, cmd.radius as f32);
+            self.set_radius(queue, i, cmd.inner_radius as f32, cmd.outer_radius as f32);
         }
     }
 

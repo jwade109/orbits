@@ -155,25 +155,31 @@ fn make_commands(
 }
 
 fn make_world(rs: &mut RenderState) -> World {
-    let quad_id = rs.spawn_mesh(make_quad(&rs.renderer.device));
-    let cube_id = rs.spawn_mesh(make_cube(
+    let quad_id = rs.resources.spawn_mesh(make_quad(&rs.renderer.device));
+
+    let cube_id = rs.resources.spawn_mesh(make_cube(
         &rs.renderer.device,
         Vec4::new(1.0, 0.6, 0.6, 0.4),
     ));
-    let tetra_id = rs.spawn_mesh(make_tetrahedron(&rs.renderer.device));
-    let nine_gon_id = rs.spawn_mesh(make_n_gon(&rs.renderer.device, 9));
 
-    rs.load_font("cambria");
-    rs.load_font("consolas");
-    rs.load_font("garamond");
-    rs.load_font("arial");
-    rs.load_font("calibri");
+    let tetra_id = rs
+        .resources
+        .spawn_mesh(make_tetrahedron(&rs.renderer.device));
+    let nine_gon_id = rs.resources.spawn_mesh(make_n_gon(&rs.renderer.device, 9));
+
+    rs.resources.load_font(&rs.renderer, "cambria");
+    rs.resources.load_font(&rs.renderer, "consolas");
+    rs.resources.load_font(&rs.renderer, "garamond");
+    rs.resources.load_font(&rs.renderer, "arial");
+    rs.resources.load_font(&rs.renderer, "calibri");
 
     let mut world = World::new();
 
     for x in [-100, 0, 100] {
         for z in [-100, 0, 100] {
-            let id = rs.spawn_ground_plane(x, z, 100);
+            let id = rs
+                .resources
+                .spawn_ground_plane(&rs.renderer.device, x, z, 100);
             world.ground_plane(x, z, id);
         }
     }
@@ -290,6 +296,7 @@ impl<'a> RendApp for DemoApp<'a> {
     fn emit_render_commands(&self) -> RenderCommands {
         let font_info: BTreeMap<usize, FontInfo> = self
             .rs
+            .resources
             .fonts
             .iter()
             .map(|(id, (font, _sprite))| (*id, font.clone()))

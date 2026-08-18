@@ -162,6 +162,7 @@ impl Spider {
 }
 
 pub struct World {
+    pub ticks: u64,
     pub time: f32,
     pub spiders: Vec<Spider>,
     pub camera: Camera,
@@ -198,6 +199,7 @@ fn update_spider(spider: &mut Spider, dt: f32) {
 
 pub fn update_world(world: &mut World, dt: f32) {
     world.time += dt;
+    world.ticks += 1;
 
     for spider in &mut world.spiders {
         update_spider(spider, dt);
@@ -213,6 +215,7 @@ pub fn update_world(world: &mut World, dt: f32) {
 
 pub fn make_world() -> World {
     World {
+        ticks: 0,
         time: 0.0,
         spiders: vec![Spider::new(0.4, 6), Spider::new(0.0, 3)],
         camera: Camera {
