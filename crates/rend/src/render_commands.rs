@@ -1,9 +1,6 @@
-use glam::DVec2;
-
 use crate::{Color, FontInfo};
+use glam::DVec2;
 use std::collections::BTreeMap;
-
-pub type Vec2d = glm::Vector2<f64>;
 
 #[derive(Debug, Clone)]
 pub enum RenderCommand {
@@ -67,16 +64,16 @@ impl BatchRenderCommand {
 
 #[derive(Debug, Clone, Copy)]
 pub struct RectCommand {
-    pub pos: Vec2d,
-    pub dims: Vec2d,
+    pub pos: DVec2,
+    pub dims: DVec2,
     pub angle: f64,
     pub color: Color,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct CharCommand {
-    pub pos: Vec2d,
-    pub dims: Vec2d,
+    pub pos: DVec2,
+    pub dims: DVec2,
     pub c: char,
     pub color: Color,
 }
@@ -92,8 +89,8 @@ pub struct CircleCommand {
 
 #[derive(Debug, Clone, Copy)]
 pub struct LineCommand {
-    pub start: Vec2d,
-    pub end: Vec2d,
+    pub start: DVec2,
+    pub end: DVec2,
     pub thickness: f64,
     pub color: Color,
 }
@@ -128,7 +125,7 @@ impl RenderCommands {
         }
     }
 
-    pub fn rect(&mut self, pos: Vec2d, dims: Vec2d, angle: f64, color: Color) {
+    pub fn rect(&mut self, pos: DVec2, dims: DVec2, angle: f64, color: Color) {
         self.enqueue(RenderCommand::Rect(RectCommand {
             pos,
             dims,
@@ -147,19 +144,19 @@ impl RenderCommands {
         builder
     }
 
-    pub fn line(&mut self, start: impl Into<Vec2d>, end: impl Into<Vec2d>) -> LineBuilder<'_> {
+    pub fn line(&mut self, start: impl Into<DVec2>, end: impl Into<DVec2>) -> LineBuilder<'_> {
         let builder = LineBuilder::new(self, start.into(), end.into());
         builder
     }
 
-    pub fn text(&mut self, p: Vec2d, text: impl AsRef<str>, font_size: f64) -> DVec2 {
+    pub fn text(&mut self, p: DVec2, text: impl AsRef<str>, font_size: f64) -> DVec2 {
         let font_id = self.fonts.keys().next().unwrap();
         self.paragraph(*font_id, font_size, p.x, p.y, text.as_ref(), None)
     }
 
-    pub fn frame(&mut self, p: Vec2d, q: Vec2d, t: f64) {
-        let a = Vec2d::new(p.x, q.y);
-        let b = Vec2d::new(q.x, p.y);
+    pub fn frame(&mut self, p: DVec2, q: DVec2, t: f64) {
+        let a = DVec2::new(p.x, q.y);
+        let b = DVec2::new(q.x, p.y);
         self.line(p, a).thickness(t);
         self.line(a, q).thickness(t);
         self.line(q, b).thickness(t);
@@ -213,8 +210,8 @@ impl RenderCommands {
 
             let color = Color::WHITE;
 
-            let pos = Vec2d::new(xt, yt);
-            let dims = Vec2d::new(w, h);
+            let pos = DVec2::new(xt, yt);
+            let dims = DVec2::new(w, h);
 
             extent.x = extent.x.max(pos.x + dims.x);
             extent.y = extent.y.max(pos.y + dims.y);
@@ -309,14 +306,14 @@ impl<'a> Drop for CircleBuilder<'a> {
 
 pub struct LineBuilder<'a> {
     commands: &'a mut RenderCommands,
-    start: Vec2d,
-    end: Vec2d,
+    start: DVec2,
+    end: DVec2,
     thickness: f64,
     color: Color,
 }
 
 impl<'a> LineBuilder<'a> {
-    fn new(commands: &'a mut RenderCommands, start: Vec2d, end: Vec2d) -> Self {
+    fn new(commands: &'a mut RenderCommands, start: DVec2, end: DVec2) -> Self {
         Self {
             commands,
             start,

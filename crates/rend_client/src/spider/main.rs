@@ -12,8 +12,8 @@ use crate::world::*;
 mod tweens;
 mod world;
 
-fn to_glm(p: bary_core::prelude::Vec2) -> Vec2d {
-    Vec2d::new(p.x.into(), p.y.into())
+fn to_glm(p: bary_core::prelude::Vec2) -> DVec2 {
+    DVec2::new(p.x.into(), p.y.into())
 }
 
 fn draw_spider(cmd: &mut RenderCommands, spider: &Spider, cam: &Camera, screen_width: Vec2) {
@@ -91,7 +91,7 @@ fn draw_world(
         let text = lines.join("\n");
         let qs = cmd.text(to_glm(ps), &text, 2.0 * cam.zoom as f64);
 
-        cmd.text(Vec2d::new(20.0, 20.0), text, 32.0);
+        cmd.text(DVec2::new(20.0, 20.0), text, 32.0);
 
         cmd.frame(to_glm(ps), to_glm(qs.as_vec2()), 0.3 * cam.zoom as f64);
     }

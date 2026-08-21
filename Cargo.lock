@@ -3637,6 +3637,7 @@ dependencies = [
  "bary_sim",
  "bary_ui",
  "enum-iterator",
+ "glam 0.30.10",
  "glfw",
  "glm",
  "kira",

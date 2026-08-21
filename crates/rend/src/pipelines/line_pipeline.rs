@@ -1,4 +1,5 @@
 use crate::*;
+use glam::DVec2;
 use glm::Vec4;
 use wgpu::*;
 
@@ -44,8 +45,8 @@ impl LinePipeline {
         &self,
         queue: &Queue,
         i: usize,
-        start: Vec2d,
-        end: Vec2d,
+        start: DVec2,
+        end: DVec2,
         color: Vec4,
         t: f64,
         sx: f64,

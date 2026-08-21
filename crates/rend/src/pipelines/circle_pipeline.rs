@@ -1,5 +1,6 @@
 use crate::Color;
 use crate::*;
+use glam::DVec2;
 use glm::Mat4;
 use wgpu::*;
 
@@ -76,12 +77,12 @@ impl CirclePipeline {
         queue.write_buffer(&self.radius.buffer, 16 * i as u64, any_as_u8_slice(&data));
     }
 
-    pub fn assign_buffer_data(&self, queue: &Queue, commands: &[CircleCommand], screen: Vec2d) {
+    pub fn assign_buffer_data(&self, queue: &Queue, commands: &[CircleCommand], screen: DVec2) {
         for (i, cmd) in commands.iter().enumerate() {
             let ul_x = cmd.x - cmd.outer_radius;
             let ul_y = cmd.y - cmd.outer_radius;
-            let pos = Vec2d::new(ul_x, ul_y);
-            let dims = Vec2d::new(cmd.outer_radius, cmd.outer_radius) * 2.0;
+            let pos = DVec2::new(ul_x, ul_y);
+            let dims = DVec2::new(cmd.outer_radius, cmd.outer_radius) * 2.0;
             let transform = screen_space_transform(pos, dims, screen, 0.0);
             self.set_transform(queue, i, &transform);
             self.set_color(queue, i, cmd.color);

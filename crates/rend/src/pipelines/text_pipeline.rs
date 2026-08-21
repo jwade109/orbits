@@ -1,5 +1,6 @@
 use crate::Texture;
 use crate::*;
+use glam::DVec2;
 use glm::{Mat4, Vec3, Vec4};
 use wgpu::*;
 
@@ -166,7 +167,7 @@ impl TextPipeline {
         queue: &Queue,
         commands: &[CharCommand],
         font: &FontInfo,
-        screen: Vec2d,
+        screen: DVec2,
     ) {
         for (i, text) in commands.iter().enumerate() {
             let range = font.get_sample_range(text.c).unwrap();
@@ -192,7 +193,7 @@ impl TextPipeline {
     }
 }
 
-pub fn screen_space_transform(pos: Vec2d, dims: Vec2d, screen: Vec2d, _angle: f64) -> Mat4 {
+pub fn screen_space_transform(pos: DVec2, dims: DVec2, screen: DVec2, _angle: f64) -> Mat4 {
     // let aspect_ratio = (sx / sy) as f32;
 
     let width_scale = dims.x / screen.x;

@@ -317,7 +317,7 @@ impl<'a> RenderState<'a> {
 
     fn draw_circles(&self, view: &wgpu::TextureView, commands: &[CircleCommand]) {
         let (sx, sy) = self.window.get_size();
-        let screen = Vec2d::new(sx as f64, sy as f64);
+        let screen = glam::DVec2::new(sx as f64, sy as f64);
 
         for chunk in commands.chunks(CirclePipeline::MAX_CHARS_PER_PASS) {
             let mut command_encoder = self
@@ -374,7 +374,7 @@ impl<'a> RenderState<'a> {
 
     fn draw_rectangles(&self, view: &wgpu::TextureView, commands: &[RectCommand]) {
         let (sx, sy) = self.window.get_size();
-        let screen = Vec2d::new(sx as f64, sy as f64);
+        let screen = glam::DVec2::new(sx as f64, sy as f64);
 
         for cmd in commands {
             let mut command_encoder = self
@@ -406,7 +406,7 @@ impl<'a> RenderState<'a> {
 
     fn draw_ui(&self, view: &wgpu::TextureView, font_id: usize, commands: &[CharCommand]) {
         let (sx, sy) = self.window.get_size();
-        let screen = Vec2d::new(sx as f64, sy as f64);
+        let screen = glam::DVec2::new(sx as f64, sy as f64);
 
         let (font, material) = self.resources.fonts.get(&font_id).unwrap();
 
