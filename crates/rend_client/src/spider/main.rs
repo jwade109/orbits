@@ -12,19 +12,15 @@ use crate::world::*;
 mod tweens;
 mod world;
 
-fn to_glm(p: bary_core::prelude::Vec2) -> DVec2 {
-    DVec2::new(p.x.into(), p.y.into())
-}
+fn draw_spider(cmd: &mut RenderCommands, spider: &Spider, cam: &Camera, screen_width: DVec2) {
+    let s = cam.world_to_screen(spider.pose.translation.as_dvec2(), screen_width);
 
-fn draw_spider(cmd: &mut RenderCommands, spider: &Spider, cam: &Camera, screen_width: Vec2) {
-    let s = to_glm(cam.world_to_screen(spider.pose.translation, screen_width));
-
-    cmd.circle(s.x, s.y)
+    cmd.circle_new(s)
         .radius(cam.zoom as f64 * 3.0)
         .inner_radius(cam.zoom as f64 * 1.5)
         .color(Color::ORANGE.alpha(0.2));
 
-    cmd.circle(s.x, s.y)
+    cmd.circle_new(s)
         .radius(cam.zoom as f64 * 2.7)
         .inner_radius(cam.zoom as f64 * 1.8)
         .color(Color::ORANGE.alpha(0.2));
@@ -33,12 +29,11 @@ fn draw_spider(cmd: &mut RenderCommands, spider: &Spider, cam: &Camera, screen_w
         if leg.state == LegState::Retracted {
             continue;
         }
-        let e = to_glm(cam.world_to_screen(leg.foot_position, screen_width));
+        let e = cam.world_to_screen(leg.foot_position, screen_width);
         cmd.line(s, e).thickness(0.5 * cam.zoom as f64);
     }
 
-    let r = cmd
-        .circle(s.x, s.y)
+    cmd.circle_new(s)
         .diameter(cam.zoom as f64)
         .color(Color::BLUE);
 }
@@ -47,7 +42,7 @@ fn draw_world(
     cmd: &mut RenderCommands,
     input: &InputState,
     world: &World,
-    screen_width: Vec2,
+    screen_width: DVec2,
     mouse: DVec2,
     anim: &AnimationStates,
 ) {
@@ -59,19 +54,19 @@ fn draw_world(
 
         for x in -n_lines..=n_lines {
             let x = x * spacing;
-            let s = Vec2::new(x as f32, -10000.0);
-            let e = Vec2::new(x as f32, 10000.0);
+            let s = DVec2::new(x as f64, -10000.0);
+            let e = DVec2::new(x as f64, 10000.0);
             cmd.line(
-                to_glm(cam.world_to_screen(s, screen_width)),
-                to_glm(cam.world_to_screen(e, screen_width)),
+                cam.world_to_screen(s, screen_width),
+                cam.world_to_screen(e, screen_width),
             )
             .color(Color::GRAY)
             .thickness(3.0);
-            let s = Vec2::new(-10000.0, x as f32);
-            let e = Vec2::new(10000.0, x as f32);
+            let s = DVec2::new(-10000.0, x as f64);
+            let e = DVec2::new(10000.0, x as f64);
             cmd.line(
-                to_glm(cam.world_to_screen(s, screen_width)),
-                to_glm(cam.world_to_screen(e, screen_width)),
+                cam.world_to_screen(s, screen_width),
+                cam.world_to_screen(e, screen_width),
             )
             .color(Color::GRAY)
             .thickness(3.0);
@@ -79,7 +74,7 @@ fn draw_world(
     }
 
     {
-        let pw = Vec2::ZERO;
+        let pw = DVec2::ZERO;
         let ps = world.camera.world_to_screen(pw, screen_width);
 
         let mut lines = vec!["SPIDERBOI".to_string(), format!("{} ticks", world.ticks)];
@@ -89,21 +84,21 @@ fn draw_world(
         }
 
         let text = lines.join("\n");
-        let qs = cmd.text(to_glm(ps), &text, 2.0 * cam.zoom as f64);
+        let qs = cmd.text(ps, &text, 2.0 * cam.zoom as f64);
 
         cmd.text(DVec2::new(20.0, 20.0), text, 32.0);
 
-        cmd.frame(to_glm(ps), to_glm(qs.as_vec2()), 0.3 * cam.zoom as f64);
+        cmd.frame(ps, qs, 0.3 * cam.zoom as f64);
     }
 
     let clicked = input.is_key_pressed(rdev::Button::Left);
 
-    let mouse_world = cam.screen_to_world(mouse.as_vec2(), screen_width);
+    let mouse_world = cam.screen_to_world(mouse, screen_width);
 
     for (i, spider) in world.spiders.iter().enumerate() {
         draw_spider(cmd, spider, cam, screen_width);
 
-        let s = spider.pose.translation;
+        let s = spider.pose.translation.as_dvec2();
         let mouseover = s.distance(mouse_world) < 3.0;
         let t1 = anim.anim(("spider_select", i), Tween::Exponential, 0.26, mouseover);
         let t2 = anim.anim(
@@ -114,7 +109,7 @@ fn draw_world(
         );
         let t1 = 0.6 + t1 * 0.4;
 
-        cmd.circle_new(cam.world_to_screen(s, screen_width).into())
+        cmd.circle_new(cam.world_to_screen(s, screen_width))
             .inner_radius(100.0 * t1 + 50.0 - 23.0 * t2)
             .radius(180.0 * t1 + 23.0 * t2)
             .color(Color::ORANGE);
@@ -181,7 +176,7 @@ impl<'a> RendApp for SpiderApp<'a> {
                 .process_rdev_event(&event, self.rs.window.is_focused());
         }
 
-        update_world(&mut self.world, dt as f32);
+        update_world(&mut self.world, dt as f64);
         process_input(&mut self.world, &self.input_state);
 
         if self.input_state.is_key_pressed(rdev::Key::Escape) {
@@ -203,7 +198,7 @@ impl<'a> RendApp for SpiderApp<'a> {
             .collect();
         let mut cmd = RenderCommands::new(font_info);
         let (width, height) = self.rs.window.get_size();
-        let dims = Vec2::new(width as f32, height as f32);
+        let dims = DVec2::new(width as f64, height as f64);
         let mouse = DVec2::new(
             self.rs.window.get_cursor_pos().0,
             self.rs.window.get_cursor_pos().1,

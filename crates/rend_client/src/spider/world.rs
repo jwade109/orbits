@@ -17,29 +17,29 @@ pub enum ExtensionState {
     UnderExtended,
 }
 
-pub const MIN_LEG_LENGTH: f32 = 0.6;
-pub const MAX_LEG_LENGTH: f32 = 3.0;
+pub const MIN_LEG_LENGTH: f64 = 0.6;
+pub const MAX_LEG_LENGTH: f64 = 3.0;
 
 pub struct Leg {
-    pub min_length: f32,
-    pub max_length: f32,
-    pub desired_angle: f32,
-    pub foot_position: Vec2,
-    pub target_foot_position: Vec2,
+    pub min_length: f64,
+    pub max_length: f64,
+    pub desired_angle: f64,
+    pub foot_position: DVec2,
+    pub target_foot_position: DVec2,
     pub state: LegState,
 }
 
 impl Leg {
-    fn desired_length(&self) -> f32 {
+    fn desired_length(&self) -> f64 {
         (self.max_length + self.min_length) / 2.0
     }
 
-    pub fn desired_offset(&self, spider_angle: f32) -> Vec2 {
-        rotate(Vec2::X, self.desired_angle + spider_angle) * self.desired_length()
+    pub fn desired_offset(&self, spider_angle: f64) -> DVec2 {
+        rotate_f64(DVec2::X, self.desired_angle as f64 + spider_angle) * self.desired_length()
     }
 
-    fn desired_foot_pos(&self, spider: Isometry2d) -> Vec2 {
-        self.desired_offset(spider.rotation) + spider.translation
+    fn desired_foot_pos(&self, spider: Isometry2d) -> DVec2 {
+        self.desired_offset(spider.rotation as f64) + spider.translation.as_dvec2()
     }
 
     fn should_replant(&self, spider: Isometry2d) -> bool {
@@ -47,10 +47,10 @@ impl Leg {
         let a = self.foot_position;
         let dist_from_desired = p.distance(a);
         dist_from_desired > MIN_LEG_LENGTH
-            || self.extension_state(spider.translation) != ExtensionState::Nominal
+            || self.extension_state(spider.translation.as_dvec2()) != ExtensionState::Nominal
     }
 
-    fn update(&mut self, dt: f32) {
+    fn update(&mut self, dt: f64) {
         if self.state == LegState::Travelling {
             let max_speed = 20.0;
             let max_delta = max_speed * dt;
@@ -77,7 +77,7 @@ impl Leg {
         self.state = LegState::Travelling;
     }
 
-    fn extension_state(&self, spider: Vec2) -> ExtensionState {
+    fn extension_state(&self, spider: DVec2) -> ExtensionState {
         let l = spider.distance(self.foot_position);
         if l < self.min_length {
             ExtensionState::UnderExtended
@@ -97,17 +97,17 @@ pub struct Spider {
 }
 
 fn make_legs(n: usize) -> Vec<Leg> {
-    let angle_offset = bary_core::prelude::PI / n as f32;
+    let angle_offset = bary_core::prelude::PI_64 / n as f64;
 
     (0..n)
         .map(|i| {
-            let a = angle_offset + i as f32 / n as f32 * 2.0 * bary_core::prelude::PI;
+            let a = angle_offset + i as f64 / n as f64 * 2.0 * bary_core::prelude::PI_64;
             Leg {
                 desired_angle: a,
                 min_length: MIN_LEG_LENGTH,
                 max_length: MAX_LEG_LENGTH,
-                foot_position: Vec2::ZERO,
-                target_foot_position: rotate(Vec2::X, a) * 2.0,
+                foot_position: DVec2::ZERO,
+                target_foot_position: rotate_f64(DVec2::X, a) * 2.0,
                 state: LegState::Travelling,
             }
         })
@@ -115,9 +115,9 @@ fn make_legs(n: usize) -> Vec<Leg> {
 }
 
 impl Spider {
-    fn new(angle: f32, n_legs: usize) -> Self {
+    fn new(angle: f64, n_legs: usize) -> Self {
         Self {
-            pose: Isometry2d::from_xya(0.0, 0.0, angle),
+            pose: Isometry2d::from_xya(0.0, 0.0, angle as f32),
             vel: Isometry2d::ZERO,
             legs: make_legs(n_legs),
             is_drifting: false,
@@ -139,7 +139,7 @@ impl Spider {
 
         if !self.is_drifting {
             for leg in &mut self.legs {
-                leg.foot_position = self.pose.translation;
+                leg.foot_position = self.pose.translation.as_dvec2();
                 leg.target_foot_position = leg.desired_foot_pos(self.pose);
                 leg.state = LegState::Travelling;
             }
@@ -163,12 +163,12 @@ impl Spider {
 
 pub struct World {
     pub ticks: u64,
-    pub time: f32,
+    pub time: f64,
     pub spiders: Vec<Spider>,
     pub camera: Camera,
 }
 
-fn update_spider(spider: &mut Spider, dt: f32) {
+fn update_spider(spider: &mut Spider, dt: f64) {
     let n_moving = spider
         .legs
         .iter()
@@ -193,11 +193,11 @@ fn update_spider(spider: &mut Spider, dt: f32) {
         spider.vel.rotation = 0.0;
     }
 
-    spider.pose.translation += spider.vel.translation * dt;
-    spider.pose.rotation += spider.vel.rotation * dt;
+    spider.pose.translation += spider.vel.translation * dt as f32;
+    spider.pose.rotation += spider.vel.rotation * dt as f32;
 }
 
-pub fn update_world(world: &mut World, dt: f32) {
+pub fn update_world(world: &mut World, dt: f64) {
     world.time += dt;
     world.ticks += 1;
 
@@ -207,9 +207,9 @@ pub fn update_world(world: &mut World, dt: f32) {
 
     let t = world.time / 4.0;
 
-    let vel = Vec2::new(t.cos(), t.sin()) * 4.0;
+    let vel = DVec2::new(t.cos(), t.sin()) * 4.0;
 
-    world.spiders[1].vel.translation = vel;
+    world.spiders[1].vel.translation = vel.as_vec2();
 
     world.camera.isometry.translation +=
         (world.spiders[0].pose.translation - world.camera.isometry.translation) * 1.0;
@@ -247,13 +247,13 @@ pub fn process_input(world: &mut World, input: &InputState) {
 
     let speed = 3.0;
 
-    let dir = Vec2::new(x_pull as f32, y_pull as f32).normalize_or_zero();
+    let dir = DVec2::new(x_pull as f64, y_pull as f64).normalize_or_zero();
 
     let vel = dir * speed;
 
     let spider = &mut world.spiders[0];
 
-    spider.vel.translation = vel;
+    spider.vel.translation = vel.as_vec2();
 
     if input.just_pressed_debounced(Key::Space) {
         spider.toggle_drifting();

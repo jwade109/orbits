@@ -17,15 +17,15 @@ impl Default for Camera {
 }
 
 impl Camera {
-    pub fn world_to_screen(&self, p: Vec2, screen_width: Vec2) -> Vec2 {
-        let mut scaled = (p - self.isometry.translation) * self.zoom;
+    pub fn world_to_screen(&self, p: DVec2, screen_width: DVec2) -> DVec2 {
+        let mut scaled = (p - self.isometry.translation.as_dvec2()) * self.zoom as f64;
         scaled.y *= -1.0;
         scaled + screen_width / 2.0
     }
 
-    pub fn screen_to_world(&self, p: Vec2, screen_width: Vec2) -> Vec2 {
+    pub fn screen_to_world(&self, p: DVec2, screen_width: DVec2) -> DVec2 {
         let p = p - screen_width / 2.0;
         let p = p.with_y(-p.y);
-        p / self.zoom + self.isometry.translation
+        p / self.zoom as f64 + self.isometry.translation.as_dvec2()
     }
 }

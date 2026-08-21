@@ -1,9 +1,9 @@
 mod camera;
 mod world;
 use bary_ui::example_layout;
+use glam::DVec2;
 use glfw::{Action, ClientApiHint, Key, WindowHint, fail_on_errors};
 use glm::*;
-use glam::DVec2;
 use rend::*;
 use std::collections::{BTreeMap, HashSet};
 mod rend_app;
@@ -99,7 +99,7 @@ fn make_commands(
 
     {
         commands
-            .circle(700.0, 500.0)
+            .circle_new(DVec2::new(700.0, 500.0))
             .diameter(320.0)
             .color(Color::BLACK);
         commands
@@ -117,11 +117,11 @@ fn make_commands(
     }
 
     commands
-        .circle(700.0, 500.0)
+        .circle_new(DVec2::new(700.0, 500.0))
         .diameter(300.0)
         .color(Color::RED);
     commands
-        .circle(700.0, 500.0)
+        .circle_new(DVec2::new(700.0, 500.0))
         .diameter(112.0)
         .color(Color::WHITE);
     commands

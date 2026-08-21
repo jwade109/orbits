@@ -134,12 +134,13 @@ impl RenderCommands {
         }));
     }
 
-    pub fn circle(&mut self, x: f64, y: f64) -> CircleBuilder<'_> {
+    pub fn circle_old(&mut self, x: f64, y: f64) -> CircleBuilder<'_> {
         let builder: CircleBuilder<'_> = CircleBuilder::new(self, x, y);
         builder
     }
 
-    pub fn circle_new(&mut self, p: DVec2) -> CircleBuilder<'_> {
+    pub fn circle_new(&mut self, p: impl Into<DVec2>) -> CircleBuilder<'_> {
+        let p = p.into();
         let builder: CircleBuilder<'_> = CircleBuilder::new(self, p.x, p.y);
         builder
     }
@@ -149,12 +150,15 @@ impl RenderCommands {
         builder
     }
 
-    pub fn text(&mut self, p: DVec2, text: impl AsRef<str>, font_size: f64) -> DVec2 {
+    pub fn text(&mut self, p: impl Into<DVec2>, text: impl AsRef<str>, font_size: f64) -> DVec2 {
+        let p = p.into();
         let font_id = self.fonts.keys().next().unwrap();
         self.paragraph(*font_id, font_size, p.x, p.y, text.as_ref(), None)
     }
 
-    pub fn frame(&mut self, p: DVec2, q: DVec2, t: f64) {
+    pub fn frame(&mut self, p: impl Into<DVec2>, q: impl Into<DVec2>, t: f64) {
+        let p = p.into();
+        let q = q.into();
         let a = DVec2::new(p.x, q.y);
         let b = DVec2::new(q.x, p.y);
         self.line(p, a).thickness(t);
