@@ -1,5 +1,6 @@
 use bary_core::prelude::*;
 use bary_input::InputState;
+use bary_orbital::Asteroid;
 use bary_sim::Camera;
 use rdev::Key;
 
@@ -163,9 +164,11 @@ impl Spider {
 
 pub struct World {
     pub ticks: u64,
+    pub current_font_id: usize,
     pub time: f64,
     pub spiders: Vec<Spider>,
     pub camera: Camera,
+    pub asteroid: Asteroid,
 }
 
 fn update_spider(spider: &mut Spider, dt: f64) {
@@ -218,12 +221,14 @@ pub fn update_world(world: &mut World, dt: f64) {
 pub fn make_world() -> World {
     World {
         ticks: 0,
+        current_font_id: 0,
         time: 0.0,
         spiders: vec![Spider::new(0.4, 6), Spider::new(0.0, 8)],
         camera: Camera {
             isometry: Isometry2d::ZERO,
             zoom: 30.0,
         },
+        asteroid: Asteroid::random(179.0, Some(9471)),
     }
 }
 

@@ -3,7 +3,7 @@ use rend::RenderCommands;
 pub trait RendApp {
     fn update(&mut self);
 
-    fn emit_render_commands(&self) -> RenderCommands;
+    fn emit_render_commands(&mut self) -> RenderCommands;
 
     fn on_event(&mut self, event: &glfw::WindowEvent);
 

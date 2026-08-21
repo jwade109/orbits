@@ -98,13 +98,16 @@ pub struct LineCommand {
 pub struct RenderCommands {
     pub fonts: BTreeMap<usize, FontInfo>,
     commands: Vec<BatchRenderCommand>,
+    pub current_font_id: usize,
 }
 
 impl RenderCommands {
     pub fn new(fonts: BTreeMap<usize, FontInfo>) -> Self {
+        let current_font_id = *fonts.keys().next().unwrap();
         Self {
             fonts,
             commands: Vec::new(),
+            current_font_id,
         }
     }
 
@@ -125,21 +128,16 @@ impl RenderCommands {
         }
     }
 
-    pub fn rect(&mut self, pos: DVec2, dims: DVec2, angle: f64, color: Color) {
-        self.enqueue(RenderCommand::Rect(RectCommand {
-            pos,
-            dims,
-            angle,
-            color,
-        }));
+    pub fn apply(&mut self, cmd: BatchRenderCommand) {
+        self.commands.push(cmd);
     }
 
-    pub fn circle_old(&mut self, x: f64, y: f64) -> CircleBuilder<'_> {
-        let builder: CircleBuilder<'_> = CircleBuilder::new(self, x, y);
-        builder
+    pub fn rect(&mut self, p: impl Into<DVec2>) -> RectBuilder<'_> {
+        let p = p.into();
+        RectBuilder::new(self, p)
     }
 
-    pub fn circle_new(&mut self, p: impl Into<DVec2>) -> CircleBuilder<'_> {
+    pub fn circle(&mut self, p: impl Into<DVec2>) -> CircleBuilder<'_> {
         let p = p.into();
         let builder: CircleBuilder<'_> = CircleBuilder::new(self, p.x, p.y);
         builder
@@ -150,21 +148,34 @@ impl RenderCommands {
         builder
     }
 
-    pub fn text(&mut self, p: impl Into<DVec2>, text: impl AsRef<str>, font_size: f64) -> DVec2 {
-        let p = p.into();
-        let font_id = self.fonts.keys().next().unwrap();
-        self.paragraph(*font_id, font_size, p.x, p.y, text.as_ref(), None)
+    pub fn linestring(&mut self, points: Vec<DVec2>) -> LineStringBuilder<'_> {
+        let builder = LineStringBuilder::new(self, points);
+        builder
     }
 
-    pub fn frame(&mut self, p: impl Into<DVec2>, q: impl Into<DVec2>, t: f64) {
+    pub fn text(
+        &mut self,
+        p: impl Into<DVec2>,
+        text: impl AsRef<str>,
+        font_size: f64,
+    ) -> (BatchRenderCommand, DVec2) {
+        let p = p.into();
+        self.paragraph(
+            self.current_font_id,
+            font_size,
+            p.x,
+            p.y,
+            text.as_ref(),
+            None,
+        )
+    }
+
+    pub fn frame(&mut self, p: impl Into<DVec2>, q: impl Into<DVec2>) -> LineStringBuilder<'_> {
         let p = p.into();
         let q = q.into();
         let a = DVec2::new(p.x, q.y);
         let b = DVec2::new(q.x, p.y);
-        self.line(p, a).thickness(t);
-        self.line(a, q).thickness(t);
-        self.line(q, b).thickness(t);
-        self.line(b, p).thickness(t);
+        self.linestring(vec![p, a, q, b, p])
     }
 
     pub fn paragraph(
@@ -175,10 +186,37 @@ impl RenderCommands {
         y_origin: f64,
         text: &str,
         layout_width: Option<f64>,
-    ) -> DVec2 {
-        // TODO this is terrible
-        let font = self.fonts.get(&font_id).unwrap().clone();
+    ) -> (BatchRenderCommand, DVec2) {
+        let font = self.fonts.get(&font_id).unwrap();
+        TextBuilder::new(
+            font,
+            font_id,
+            font_size,
+            x_origin,
+            y_origin,
+            text,
+            layout_width,
+        )
+    }
+}
 
+pub struct TextBuilder<'a> {
+    commands: &'a mut RenderCommands,
+    command: BatchRenderCommand,
+    extent: DVec2,
+}
+
+impl<'a> TextBuilder<'a> {
+    pub fn new(
+        font: &FontInfo,
+        font_id: usize,
+        font_size: f64,
+        x_origin: f64,
+        y_origin: f64,
+        text: &str,
+        layout_width: Option<f64>,
+    ) -> (BatchRenderCommand, DVec2) {
+        // TODO this is terrible
         let font_size = font_size / font.size as f64;
 
         let mut col_offset = 0;
@@ -188,7 +226,7 @@ impl RenderCommands {
 
         let mut char_commands = Vec::new();
 
-        let mut extent = DVec2::ZERO;
+        let mut bottom_right = DVec2::ZERO;
 
         for ch in text.chars() {
             if ch == '\n' {
@@ -217,8 +255,8 @@ impl RenderCommands {
             let pos = DVec2::new(xt, yt);
             let dims = DVec2::new(w, h);
 
-            extent.x = extent.x.max(pos.x + dims.x);
-            extent.y = extent.y.max(pos.y + dims.y);
+            bottom_right.x = bottom_right.x.max(pos.x + dims.x);
+            bottom_right.y = bottom_right.y.max(pos.y + dims.y);
 
             if ch != ' ' {
                 char_commands.push(CharCommand {
@@ -242,11 +280,10 @@ impl RenderCommands {
             }
         }
 
-        let batch = BatchRenderCommand::Char(font_id, char_commands);
+        let cmd = BatchRenderCommand::Char(font_id, char_commands);
+        let extent = bottom_right - DVec2::new(x_origin, y_origin);
 
-        self.commands.push(batch);
-
-        extent
+        (cmd, extent)
     }
 }
 
@@ -278,6 +315,12 @@ impl<'a> CircleBuilder<'a> {
 
     pub fn inner_radius(&mut self, radius: f64) -> &mut Self {
         self.inner_radius = radius;
+        self
+    }
+
+    pub fn radii(&mut self, inner: f64, outer: f64) -> &mut Self {
+        self.inner_radius = inner;
+        self.outer_radius = outer;
         self
     }
 
@@ -347,5 +390,86 @@ impl<'a> Drop for LineBuilder<'a> {
             color: self.color,
         };
         self.commands.enqueue(RenderCommand::Line(line));
+    }
+}
+
+pub struct RectBuilder<'a> {
+    commands: &'a mut RenderCommands,
+    pos: DVec2,
+    dims: DVec2,
+    angle: f64,
+    color: Color,
+}
+
+impl<'a> RectBuilder<'a> {
+    pub fn new(commands: &'a mut RenderCommands, pos: DVec2) -> Self {
+        Self {
+            commands,
+            pos,
+            dims: DVec2::splat(70.0),
+            angle: 0.0,
+            color: Color::new(0.2, 1.0, 0.2, 1.0),
+        }
+    }
+
+    pub fn dims(&mut self, dims: DVec2) -> &mut Self {
+        self.dims = dims;
+        self
+    }
+
+    pub fn color(&mut self, color: Color) -> &mut Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'a> Drop for RectBuilder<'a> {
+    fn drop(&mut self) {
+        let cmd = RectCommand {
+            pos: self.pos,
+            dims: self.dims,
+            angle: self.angle,
+            color: self.color,
+        };
+        self.commands.enqueue(RenderCommand::Rect(cmd));
+    }
+}
+
+pub struct LineStringBuilder<'a> {
+    commands: &'a mut RenderCommands,
+    points: Vec<DVec2>,
+    color: Color,
+    thickness: f64,
+}
+
+impl<'a> LineStringBuilder<'a> {
+    fn new(commands: &'a mut RenderCommands, points: Vec<DVec2>) -> Self {
+        Self {
+            commands,
+            points,
+            thickness: 10.0,
+            color: Color::new(0.0, 0.0, 0.0, 1.0),
+        }
+    }
+
+    pub fn thickness(&mut self, thickness: f64) -> &mut Self {
+        self.thickness = thickness;
+        self
+    }
+
+    pub fn color(&mut self, color: Color) -> &mut Self {
+        self.color = color;
+        self
+    }
+}
+
+impl<'a> Drop for LineStringBuilder<'a> {
+    fn drop(&mut self) {
+        for points in self.points.windows(2) {
+            self.commands
+                .line(points[0], points[1])
+                .color(self.color)
+                .thickness(self.thickness);
+        }
     }
 }

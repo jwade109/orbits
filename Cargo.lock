@@ -3634,6 +3634,7 @@ dependencies = [
  "bary_core",
  "bary_input",
  "bary_ipc",
+ "bary_orbital",
  "bary_sim",
  "bary_ui",
  "enum-iterator",

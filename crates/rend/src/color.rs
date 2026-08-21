@@ -6,6 +6,10 @@ pub struct Color {
     pub a: f64,
 }
 
+fn lerp(a: f64, b: f64, t: f64) -> f64 {
+    a + (b - a) * t
+}
+
 impl Color {
     pub const WHITE: Self = Self::new(1.0, 1.0, 1.0, 1.0);
     pub const BLACK: Self = Self::new(0.0, 0.0, 0.0, 1.0);
@@ -35,6 +39,15 @@ impl Color {
 
     pub const fn alpha(self, a: f64) -> Self {
         Self::new(self.r, self.g, self.b, a)
+    }
+
+    pub fn mix(&self, other: Self, t: f64) -> Self {
+        Self::new(
+            lerp(self.r, other.r, t),
+            lerp(self.g, other.g, t),
+            lerp(self.b, other.b, t),
+            lerp(self.a, other.a, t),
+        )
     }
 
     pub const fn to_vec(&self) -> glm::Vec4 {

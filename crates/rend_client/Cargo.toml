@@ -16,6 +16,7 @@ bary_core = { path = "../bary_core" }
 bary_input = { path = "../bary_input" }
 bary_ipc = { path = "../bary_ipc" }
 bary_sim = { path = "../bary_sim" }
+bary_orbital = { path = "../bary_orbital" }
 rdev = { version = "0.5.3", features = ["serde", "serialize"] }
 glam = { version = "0.30.9", features = ["serde"] }
 

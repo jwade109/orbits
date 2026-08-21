@@ -27,7 +27,7 @@ fn make_commands(
         let aabb = node.aabb();
         let pos = DVec2::new(aabb.lower().x as f64, aabb.lower().y as f64);
         let dims = DVec2::new(aabb.span.x as f64, aabb.span.y as f64);
-        commands.rect(pos, dims, 0.0, Color::GRAY.alpha(0.2));
+        commands.rect(pos).dims(dims).color(Color::GRAY.alpha(0.2));
     }
 
     let (font_id, font) = commands
@@ -99,7 +99,7 @@ fn make_commands(
 
     {
         commands
-            .circle_new(DVec2::new(700.0, 500.0))
+            .circle((700.0, 500.0))
             .diameter(320.0)
             .color(Color::BLACK);
         commands
@@ -117,19 +117,19 @@ fn make_commands(
     }
 
     commands
-        .circle_new(DVec2::new(700.0, 500.0))
+        .circle((700.0, 500.0))
         .diameter(300.0)
         .color(Color::RED);
     commands
-        .circle_new(DVec2::new(700.0, 500.0))
+        .circle((700.0, 500.0))
         .diameter(112.0)
         .color(Color::WHITE);
     commands
-        .line(DVec2::new(700.0, 500.0), DVec2::new(1200.0, 900.0))
+        .line((700.0, 500.0), (1200.0, 900.0))
         .color(Color::WHITE)
         .thickness(18.0);
     commands
-        .line(DVec2::new(700.0, 500.0), DVec2::new(1200.0, 900.0))
+        .line((700.0, 500.0), (1200.0, 900.0))
         .color(Color::GREEN)
         .thickness(12.0);
 

@@ -1,81 +1,152 @@
 use bary_core::prelude::*;
 use bary_input::InputState;
 use bary_ipc::{MessageQueue, new_message_queue};
-use bary_sim::Camera;
+use bary_orbital::Asteroid;
 use glfw::*;
 use rend::*;
 use std::{collections::BTreeMap, thread::JoinHandle, time::Instant};
 mod rend_app;
 use crate::rend_app::*;
 use crate::tweens::{AnimationStates, Tween};
+use crate::viewport::Viewport;
 use crate::world::*;
 mod tweens;
+mod viewport;
 mod world;
 
-fn draw_spider(cmd: &mut RenderCommands, spider: &Spider, cam: &Camera, screen_width: DVec2) {
-    let s = cam.world_to_screen(spider.pose.translation.as_dvec2(), screen_width);
+fn draw_spider(cmd: &mut RenderCommands, spider: &Spider, view: &Viewport) {
+    let s = view.world_to_screen(spider.pose.translation.as_dvec2());
 
-    cmd.circle_new(s)
-        .radius(cam.zoom as f64 * 3.0)
-        .inner_radius(cam.zoom as f64 * 1.5)
+    cmd.circle(s)
+        .radius(view.zoom() * 3.0)
+        .inner_radius(view.zoom() * 1.5)
         .color(Color::ORANGE.alpha(0.2));
 
-    cmd.circle_new(s)
-        .radius(cam.zoom as f64 * 2.7)
-        .inner_radius(cam.zoom as f64 * 1.8)
+    cmd.circle(s)
+        .radius(view.zoom() * 2.7)
+        .inner_radius(view.zoom() * 1.8)
         .color(Color::ORANGE.alpha(0.2));
 
     for leg in &spider.legs {
         if leg.state == LegState::Retracted {
             continue;
         }
-        let e = cam.world_to_screen(leg.foot_position, screen_width);
-        cmd.line(s, e).thickness(0.5 * cam.zoom as f64);
+        let e = view.world_to_screen(leg.foot_position);
+        cmd.line(s, e).thickness(0.5 * view.zoom());
     }
 
-    cmd.circle_new(s)
-        .diameter(cam.zoom as f64)
-        .color(Color::BLUE);
+    cmd.circle(s).diameter(view.zoom()).color(Color::BLUE);
+
+    draw_isometry(cmd, spider.pose, view);
+}
+
+fn draw_asteroid(cmd: &mut RenderCommands, ast: &Asteroid, view: &Viewport) {
+    let mut draw_outline = |scale: f64, thickness: f64| {
+        let points = linspace_f64(0.0, 2.0 * PI_64, 100)
+            .iter()
+            .map(|theta| {
+                let r = ast.radius_at(*theta as f32) as f64;
+                let x = r * theta.cos() * scale;
+                let y = r * theta.sin() * scale;
+                view.world_to_screen((x, y))
+            })
+            .collect();
+
+        cmd.linestring(points).thickness(thickness);
+    };
+
+    draw_outline(1.0, 10.0);
+    draw_outline(0.9, 9.0);
+    draw_outline(0.8, 8.0);
+    draw_outline(0.7, 7.0);
+    draw_outline(0.6, 6.0);
+}
+
+fn draw_isometry(cmd: &mut RenderCommands, iso: Isometry2d, view: &Viewport) {
+    let c = iso.translation.as_dvec2();
+    let x = c + rotate_f64(DVec2::X, iso.rotation as f64) * 3.0;
+    let y = c + rotate_f64(DVec2::Y, iso.rotation as f64) * 3.0;
+
+    let c = view.world_to_screen(c);
+    let x = view.world_to_screen(x);
+    let y = view.world_to_screen(y);
+
+    cmd.line(c, x).color(Color::RED);
+    cmd.line(c, y).color(Color::GREEN);
+    cmd.circle(c).radii(0.8, 1.0).color(Color::BLUE.alpha(0.6));
+}
+
+fn draw_button(
+    cmd: &mut RenderCommands,
+    text: &str,
+    p: DVec2,
+    mouse: DVec2,
+    input: &InputState,
+) -> (DVec2, bool) {
+    let (tcmd, extent) = cmd.text(p, text, 32.0);
+    let aabb = AABB::from_arbitrary(p.as_vec2(), (p + extent).as_vec2());
+    let contains = aabb.contains(mouse.as_vec2());
+    let alpha = contains as u8 as f64 * 0.3 + 0.3;
+    cmd.rect(p).dims(extent).color(Color::BLUE.alpha(alpha));
+    cmd.apply(tcmd);
+    (extent, input.just_pressed(rdev::Button::Left) && contains)
+}
+
+fn draw_grid_lines(cmd: &mut RenderCommands, view: &Viewport) {
+    let n_lines = 500;
+    let spacing = 10;
+
+    for x in -n_lines..=n_lines {
+        let x = x * spacing;
+        let s = DVec2::new(x as f64, -10000.0);
+        let e = DVec2::new(x as f64, 10000.0);
+        cmd.line(view.world_to_screen(s), view.world_to_screen(e))
+            .color(Color::GRAY)
+            .thickness(3.0);
+        let s = DVec2::new(-10000.0, x as f64);
+        let e = DVec2::new(10000.0, x as f64);
+        cmd.line(view.world_to_screen(s), view.world_to_screen(e))
+            .color(Color::GRAY)
+            .thickness(3.0);
+    }
+}
+
+fn draw_font_ui(cmd: &mut RenderCommands, mouse: DVec2, input: &InputState, new_font_id: &mut usize) {
+    let fonts = cmd.fonts.clone();
+
+    let mut p = DVec2::new(30.0, 120.0);
+    for (font_id, font) in fonts {
+        let text = format!("{} {}", font_id, font.name);
+        let (e, clicked) = draw_button(cmd, &text, p, mouse, input);
+        if clicked {
+            *new_font_id = font_id;
+        }
+        p.y += e.y + 15.0;
+    }
 }
 
 fn draw_world(
     cmd: &mut RenderCommands,
     input: &InputState,
-    world: &World,
+    world: &mut World,
     screen_width: DVec2,
     mouse: DVec2,
     anim: &AnimationStates,
 ) {
     let cam = &world.camera;
 
-    {
-        let n_lines = 500;
-        let spacing = 10;
+    let view = Viewport::new(world.camera, screen_width);
 
-        for x in -n_lines..=n_lines {
-            let x = x * spacing;
-            let s = DVec2::new(x as f64, -10000.0);
-            let e = DVec2::new(x as f64, 10000.0);
-            cmd.line(
-                cam.world_to_screen(s, screen_width),
-                cam.world_to_screen(e, screen_width),
-            )
-            .color(Color::GRAY)
-            .thickness(3.0);
-            let s = DVec2::new(-10000.0, x as f64);
-            let e = DVec2::new(10000.0, x as f64);
-            cmd.line(
-                cam.world_to_screen(s, screen_width),
-                cam.world_to_screen(e, screen_width),
-            )
-            .color(Color::GRAY)
-            .thickness(3.0);
-        }
-    }
+    draw_grid_lines(cmd, &view);
+    draw_asteroid(cmd, &world.asteroid, &view);
+
+    draw_font_ui(cmd, mouse, input, &mut world.current_font_id);
+
+    cmd.current_font_id = world.current_font_id;
 
     {
-        let pw = DVec2::ZERO;
-        let ps = world.camera.world_to_screen(pw, screen_width);
+        let pw = DVec2::splat(0.0);
+        let ps = view.world_to_screen(pw);
 
         let mut lines = vec!["SPIDERBOI".to_string(), format!("{} ticks", world.ticks)];
 
@@ -84,19 +155,24 @@ fn draw_world(
         }
 
         let text = lines.join("\n");
-        let qs = cmd.text(ps, &text, 2.0 * cam.zoom as f64);
+        let (text_cmd, extent) = cmd.text(ps, &text, view.meters(2.0));
+        cmd.apply(text_cmd);
+        cmd.frame(ps, ps + extent).thickness(view.meters(0.3));
 
-        cmd.text(DVec2::new(20.0, 20.0), text, 32.0);
-
-        cmd.frame(ps, qs, 0.3 * cam.zoom as f64);
+        let (text_cmd, extent) = cmd.text((20.0, 20.0), &text, 32.0);
+        cmd.rect((20.0, 20.0))
+            .dims(extent + DVec2::splat(30.0))
+            .color(Color::GRAY);
+        cmd.apply(text_cmd);
     }
 
-    let clicked = input.is_key_pressed(rdev::Button::Left);
+    let lclicked = input.is_key_pressed(rdev::Button::Left);
+    let rclicked = input.is_key_pressed(rdev::Button::Right);
 
-    let mouse_world = cam.screen_to_world(mouse, screen_width);
+    let mouse_world = view.screen_to_world(mouse);
 
     for (i, spider) in world.spiders.iter().enumerate() {
-        draw_spider(cmd, spider, cam, screen_width);
+        draw_spider(cmd, spider, &view);
 
         let s = spider.pose.translation.as_dvec2();
         let mouseover = s.distance(mouse_world) < 3.0;
@@ -105,17 +181,25 @@ fn draw_world(
             ("spider_click", i),
             Tween::Exponential,
             0.20,
-            mouseover && clicked,
+            mouseover && lclicked,
+        );
+        let t3 = anim.anim(
+            ("spider_rclick", i),
+            Tween::Exponential,
+            0.20,
+            mouseover && rclicked,
         );
         let t1 = 0.6 + t1 * 0.4;
 
-        cmd.circle_new(cam.world_to_screen(s, screen_width))
+        let color = Color::ORANGE.mix(Color::GREEN, t3);
+
+        cmd.circle(cam.world_to_screen(s, screen_width))
             .inner_radius(100.0 * t1 + 50.0 - 23.0 * t2)
             .radius(180.0 * t1 + 23.0 * t2)
-            .color(Color::ORANGE);
+            .color(color);
     }
 
-    cmd.circle_new(mouse).diameter(20.0).color(Color::RED);
+    cmd.circle(mouse).diameter(20.0).color(Color::RED);
 }
 
 struct SpiderApp<'a> {
@@ -167,6 +251,8 @@ impl<'a> SpiderApp<'a> {
 
 impl<'a> RendApp for SpiderApp<'a> {
     fn update(&mut self) {
+        self.input_state.on_frame_boundary();
+
         let now = Instant::now();
         let dt = (now - self.last).as_secs_f64();
 
@@ -183,12 +269,10 @@ impl<'a> RendApp for SpiderApp<'a> {
             self.should_exit = true;
         }
 
-        self.input_state.on_frame_boundary();
-
         self.last = now;
     }
 
-    fn emit_render_commands(&self) -> RenderCommands {
+    fn emit_render_commands(&mut self) -> RenderCommands {
         let font_info: BTreeMap<usize, FontInfo> = self
             .rs
             .resources
@@ -206,7 +290,7 @@ impl<'a> RendApp for SpiderApp<'a> {
         draw_world(
             &mut cmd,
             &self.input_state,
-            &self.world,
+            &mut self.world,
             dims,
             mouse,
             &self.animations,
