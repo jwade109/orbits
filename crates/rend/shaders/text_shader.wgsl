@@ -2,7 +2,7 @@
 @group(0) @binding(1) var the_sampler: sampler;
 @group(1) @binding(0) var<uniform> color_array: array<vec4<f32>, MAX_CHARS_PER_PASS>;
 @group(2) @binding(0) var<uniform> sample_info_array: array<SampleInfo, MAX_CHARS_PER_PASS>;
-@group(3) @binding(0) var<uniform> transforms_array: array<mat4x4<f32>, MAX_CHARS_PER_PASS>;
+@group(3) @binding(0) var<uniform> transforms_array: array<TextTransform, MAX_CHARS_PER_PASS>;
 
 const MAX_CHARS_PER_PASS: u32 = 480;
 
@@ -17,45 +17,84 @@ struct SampleInfo {
     _pad2: u32,
 };
 
+struct TextTransform {
+    x:      f32,
+    y:      f32,
+    width:  f32,
+    height: f32,
+    angle:  f32,
+    sx:     f32,
+    sy:     f32,
+    _pad:   f32,
+}
+
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
-    @location(0) position: vec3<f32>,
-    @location(1) color: vec4<f32>,
-    @location(2) tex_coord: vec2<f32>,
+    @builtin(vertex_index) vertex_index: u32,
 };
 
 struct VertexShaderOutput {
     @builtin(position) position: vec4<f32>,
-    @location(0) tex_coord: vec2<f32>,
-    @location(1) instance_index: u32,
+    @location(0) instance_index: u32,
+    @location(1) uv: vec2f,
 };
+
+fn rotate_vector(p: vec2<f32>, angle: f32) -> vec2<f32> {
+    let cs = cos(angle);
+    let sn = sin(angle);
+    return vec2<f32>(p.x * cs - p.y * sn, p.x * sn + p.y * cs);
+}
 
 @vertex
 fn vs_main(vertex: Vertex) -> VertexShaderOutput {
     var out: VertexShaderOutput;
 
-    let sample_data = sample_info_array[vertex.instance_index];
+    let data = transforms_array[vertex.instance_index];
+    let sample = sample_info_array[vertex.instance_index];
 
-    out.position = transforms_array[vertex.instance_index] * vec4<f32>(vertex.position, 1.0);
-    out.tex_coord = vertex.tex_coord;
-    out.tex_coord.y = 1.0 - out.tex_coord.y;
-    out.instance_index = vertex.instance_index;
+    let root = vec2f(data.x, data.y);
+    let dx = data.width;
+    let dy = data.height;
 
-    let start_x = f32(sample_data.origin_x) / f32(sample_data.image_width);
-    let start_y = f32(sample_data.origin_y) / f32(sample_data.image_height);
+    let w = data.sx;
+    let h = data.sy;
 
-    let dims_x = f32(sample_data.sample_width) / f32(sample_data.image_width);
-    let dims_y = f32(sample_data.sample_height) / f32(sample_data.image_height);
+    let a = root;
+    let b = root + rotate_vector(vec2<f32>(dx,  0.0), data.angle);
+    let c = root + rotate_vector(vec2<f32>(dx,  dy),  data.angle);
+    let d = root + rotate_vector(vec2<f32>(0.0, dy),  data.angle);
 
-    out.tex_coord.x = start_x + dims_x * out.tex_coord.x;
-    out.tex_coord.y = start_y + dims_y * out.tex_coord.y;
+    let dims = vec2<f32>(w, h);
 
+    let positions = array<vec2<f32>, 4>(
+        a / dims,
+        b / dims,
+        c / dims,
+        d / dims,
+    );
+
+    let uvs = array<vec2<f32>, 4>(
+        vec2f(0.0, 1.0),
+        vec2f(1.0, 1.0),
+        vec2f(1.0, 0.0),
+        vec2f(0.0, 0.0),
+    );
+
+    var uv = uvs[vertex.vertex_index];
+
+    uv.x = (f32(sample.origin_x) + uv.x * f32(sample.sample_width)) / f32(sample.image_width);
+    uv.y = (f32(sample.origin_y) + uv.y * f32(sample.sample_height)) / f32(sample.image_height);
+
+    var pos = positions[vertex.vertex_index] * 2.0 - 1.0;
+    out.position = vec4<f32>(pos, 1.0, 1.0);
+    out.uv = uv;
     return out;
 }
 
 @fragment
 fn fs_main(in: VertexShaderOutput) -> @location(0) vec4<f32> {
-    var c = textureSample(the_texture, the_sampler, in.tex_coord);
+    // return vec4f(in.uv, 0.0, 1.0);
+    var c = textureSample(the_texture, the_sampler, in.uv);
     c.x = pow(c.x, 2.0);
     c.y = pow(c.y, 2.0);
     c.z = pow(c.z, 2.0);
@@ -65,9 +104,12 @@ fn fs_main(in: VertexShaderOutput) -> @location(0) vec4<f32> {
     let col = color_array[in.instance_index];
 
     // for debugging
-    if l < 0.03 {
-        return vec4<f32>(1.0, 0.0, 0.0, 0.3);
-    }
+    // if l < 0.03 {
+    //     return vec4<f32>(1.0, 0.0, 0.0, 0.3);
+    // }
 
-    return vec4<f32>(col.xyz, col.w * smoothstep(0.14, 0.21, l));
+    // let alpha = sqrt(sqrt(round(l * 5.0) / 5.0));
+    let alpha = smoothstep(0.16, 0.21, l);
+
+    return vec4<f32>(col.xyz, col.w * alpha);
 }

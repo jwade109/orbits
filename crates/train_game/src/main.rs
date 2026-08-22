@@ -180,8 +180,7 @@ fn draw_world(
         let text = lines.join("\n");
 
         {
-            let iso = Isometry2d::from_pos(pw.as_vec2());
-            let iso = view.w2s_iso(iso);
+            let iso = view.w2s_iso(pw.into());
             let (text_cmd, extent) = cmd.text(iso, &text, view.meters(2.0));
             cmd.rect(iso).dims(extent).color(Color::LIGHT_BLUE);
             cmd.apply(text_cmd);
@@ -260,6 +259,9 @@ impl<'a> SpiderApp<'a> {
         rs.resources.load_font(&rs.renderer, "garamond");
         rs.resources.load_font(&rs.renderer, "arial");
         rs.resources.load_font(&rs.renderer, "calibri");
+        rs.resources.load_font(&rs.renderer, "verdana");
+        rs.resources.load_font(&rs.renderer, "impact");
+        rs.resources.load_font(&rs.renderer, "courier_new");
 
         rs.window.set_framebuffer_size_polling(true);
         rs.window.set_key_polling(true);

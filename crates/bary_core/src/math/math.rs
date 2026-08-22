@@ -301,7 +301,7 @@ mod tests {
 
     #[test]
     fn into_isometry_frame() {
-        let iso = Isometry2d::new((3.4, 12.1).into(), 0.3);
+        let iso = Isometry2d::new((3.4, 12.1), 0.3);
 
         let point = Vec2::new(17.3, 20.9);
 

@@ -235,11 +235,11 @@ pub fn make_world() -> World {
 pub fn process_input(world: &mut World, input: &InputState, dt: f64) {
     if input.is_key_pressed(Key::Minus) {
         world.camera.zoom /= 1.03;
-        world.camera.zoom = world.camera.zoom.clamp(1.0, 70.0);
+        world.camera.zoom = world.camera.zoom.clamp(1.0, 200.0);
     }
     if input.is_key_pressed(Key::Equal) {
         world.camera.zoom *= 1.03;
-        world.camera.zoom = world.camera.zoom.clamp(1.0, 70.0);
+        world.camera.zoom = world.camera.zoom.clamp(1.0, 200.0);
     }
 
     let n = input.is_key_pressed(Key::KeyW);

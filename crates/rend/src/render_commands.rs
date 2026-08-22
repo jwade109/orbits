@@ -75,6 +75,7 @@ pub struct RectCommand {
 pub struct CharCommand {
     pub pos: DVec2,
     pub dims: DVec2,
+    pub angle: f64,
     pub c: char,
     pub color: Color,
 }
@@ -160,16 +161,18 @@ impl RenderCommands {
         let x = c + rotate_f64(DVec2::X, iso.rotation as f64) * length;
         let y = c + rotate_f64(DVec2::Y, iso.rotation as f64) * length;
 
-        self.line(c, x).color(Color::RED);
-        self.line(c, y).color(Color::GREEN);
+        self.line(c, x).thickness(6.0).color(Color::RED);
+        self.line(c, y).thickness(6.0).color(Color::GREEN);
     }
 
     pub fn text(
-        &self,
+        &mut self,
         iso: impl Into<Isometry2d>,
         text: impl AsRef<str>,
         font_size: f64,
     ) -> (BatchRenderCommand, DVec2) {
+        let iso = iso.into();
+        self.isometry(iso, 30.0);
         self.paragraph(iso, self.current_font_id, font_size, text.as_ref(), None)
     }
 
@@ -209,27 +212,27 @@ impl<'a> TextBuilder<'a> {
         text: &str,
         layout_width: Option<f64>,
     ) -> (BatchRenderCommand, DVec2) {
-        // TODO this is terrible
+        let iso = iso.into();
         let font_size = font_size / font.size as f64;
 
+        let right = iso.local_x().as_dvec2();
+        let down = -iso.local_y().as_dvec2();
+
         let mut col_offset = 0;
+        let mut row = 0;
 
-        let iso = iso.into();
-        let x_origin = iso.translation.x as f64;
-        let y_origin = iso.translation.y as f64;
-
-        let mut x = x_origin;
-        let mut y = y_origin;
+        let mut cursor = iso.translation.as_dvec2();
 
         let mut char_commands = Vec::new();
-
-        let mut bottom_right = DVec2::ZERO;
+        let mut sum_x = 0.0;
 
         for ch in text.chars() {
             if ch == '\n' {
-                y += font.size as f64 * font_size;
-                x = x_origin;
+                row += 1;
+                cursor =
+                    iso.translation.as_dvec2() + down * row as f64 * font.size as f64 * font_size;
                 col_offset = 0;
+                sum_x = 0.0;
                 continue;
             }
 
@@ -241,46 +244,39 @@ impl<'a> TextBuilder<'a> {
                 continue;
             }
 
-            let w = data.width as f64 * font_size;
-            let h = data.height as f64 * font_size;
-
-            let xt = x - data.origin_x as f64 * font_size;
-            let yt = y - data.origin_y as f64 * font_size + font.size as f64 * font_size;
-
-            let color = Color::WHITE;
-
-            let pos = DVec2::new(xt, yt);
-            let dims = DVec2::new(w, h);
-
-            bottom_right.x = bottom_right.x.max(pos.x + dims.x);
-            bottom_right.y = bottom_right.y.max(pos.y + dims.y);
-
             if ch != ' ' {
+                let dims = DVec2::new(data.width as f64, data.height as f64) * font_size;
+                let yoff = (data.origin_y as f64 - data.height as f64) * font_size;
+                let xoff = data.origin_x as f64 * font_size;
+                let pos = cursor - yoff * down - xoff * right;
                 char_commands.push(CharCommand {
                     pos,
                     dims,
                     c: ch,
-                    color,
+                    color: Color::WHITE,
+                    angle: iso.rotation as f64,
                 });
             }
 
             col_offset += 1;
 
-            x += data.advance as f64 * font_size;
+            let delta_x = data.advance as f64 * font_size;
+            cursor += right * delta_x;
+            sum_x += delta_x;
 
             if let Some(layout_width) = layout_width {
-                if ch == ' ' && x + w > x_origin + layout_width {
-                    y += font.size as f64 * font_size;
-                    x = x_origin;
+                if ch == ' ' && sum_x > layout_width {
+                    row += 1;
+                    cursor = iso.translation.as_dvec2() + down * row as f64;
                     col_offset = 0;
+                    sum_x = 0.0;
                 }
             }
         }
 
         let cmd = BatchRenderCommand::Char(font_id, char_commands);
-        let extent = bottom_right - DVec2::new(x_origin, y_origin);
 
-        (cmd, extent)
+        (cmd, DVec2::splat(100.0))
     }
 }
 

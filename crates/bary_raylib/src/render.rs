@@ -1152,15 +1152,15 @@ fn draw_test_isos(d: &mut RaylibDrawHandle) {
     let test_isos = [
         (
             Color::RED,
-            Isometry2d::new((10.0, 20.0).into(), 40.0f32.to_radians()),
+            Isometry2d::new((10.0, 20.0), 40.0f32.to_radians()),
         ),
         (
             Color::GREEN,
-            Isometry2d::new((40.0, 12.0).into(), -10.0f32.to_radians()),
+            Isometry2d::new((40.0, 12.0), -10.0f32.to_radians()),
         ),
         (
             Color::BLUE,
-            Isometry2d::new((70.0, 50.0).into(), d.get_time() as f32),
+            Isometry2d::new((70.0, 50.0), d.get_time() as f32),
         ),
     ];
 

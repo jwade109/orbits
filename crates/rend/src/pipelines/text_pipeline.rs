@@ -18,6 +18,33 @@ pub struct BufferResource {
     pub layout: BindGroupLayout,
 }
 
+struct TextTransform {
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+    angle: f32,
+    sx: f32,
+    sy: f32,
+}
+
+const NUM_F32_IN_TEXT_TRANSFORM: usize = 8;
+
+impl TextTransform {
+    fn to_gpu(&self) -> [f32; NUM_F32_IN_TEXT_TRANSFORM] {
+        [
+            self.x,
+            self.y,
+            self.width,
+            self.height,
+            self.angle,
+            self.sx,
+            self.sy,
+            0.0,
+        ]
+    }
+}
+
 pub fn make_array_resource(
     device: &Device,
     n_elements: usize,
@@ -95,8 +122,13 @@ impl TextPipeline {
             "Text range info",
         );
         let colors = make_array_resource(&rd.device, Self::MAX_CHARS_PER_PASS, 16, "Text colors");
-        let transforms =
-            make_array_resource(&rd.device, Self::MAX_CHARS_PER_PASS, 64, "Text transforms");
+
+        let transforms = make_array_resource(
+            &rd.device,
+            Self::MAX_CHARS_PER_PASS,
+            NUM_F32_IN_TEXT_TRANSFORM * 4,
+            "Text transforms",
+        );
 
         let bgl = material_bind_group_layout(&rd.device, "Texture Bind Group Layout");
 
@@ -131,15 +163,15 @@ impl TextPipeline {
         }
     }
 
-    pub fn set_color(&self, queue: &Queue, i: usize, color: Vec4) {
+    fn set_color(&self, queue: &Queue, i: usize, color: Vec4) {
         queue.write_buffer(&self.colors.buffer, 16 * i as u64, any_as_u8_slice(&color));
     }
 
-    pub fn set_transform(&self, queue: &Queue, i: usize, transform: &Mat4) {
+    fn set_transform(&self, queue: &Queue, i: usize, transform: TextTransform) {
         queue.write_buffer(
             &self.transforms.buffer,
-            64 * i as u64,
-            any_as_u8_slice(transform),
+            32 * i as u64,
+            any_as_u8_slice(&transform.to_gpu()),
         );
     }
 
@@ -171,10 +203,19 @@ impl TextPipeline {
     ) {
         for (i, text) in commands.iter().enumerate() {
             let range = font.get_sample_range(text.c).unwrap();
-            let pos = text.pos.with_y(screen.y - text.pos.y - text.dims.y);
-            let transform = screen_space_transform(pos, text.dims, screen, 0.0);
+
+            let transform = TextTransform {
+                x: text.pos.x as f32,
+                y: text.pos.y as f32,
+                width: text.dims.x as f32,
+                height: text.dims.y as f32,
+                sx: screen.x as f32,
+                sy: screen.y as f32,
+                angle: text.angle as f32,
+            };
+
             self.set_range(queue, i, &range);
-            self.set_transform(queue, i, &transform);
+            self.set_transform(queue, i, transform);
             self.set_color(queue, i, text.color.to_vec())
         }
     }

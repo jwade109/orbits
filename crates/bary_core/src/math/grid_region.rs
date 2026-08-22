@@ -322,15 +322,9 @@ mod tests {
 
         assert_eq!(gp.origin(), (1, 1).into());
 
-        assert_eq!(
-            gp.origin_isometry(),
-            Isometry2d::new((0.25, 0.25).into(), 0.0)
-        );
+        assert_eq!(gp.origin_isometry(), Isometry2d::new((0.25, 0.25), 0.0));
 
-        assert_eq!(
-            gp.center_isometry(),
-            Isometry2d::new((0.75, 0.625).into(), 0.0)
-        );
+        assert_eq!(gp.center_isometry(), Isometry2d::new((0.75, 0.625), 0.0));
     }
 
     #[test]
@@ -361,12 +355,12 @@ mod tests {
 
         assert_eq!(
             gp.origin_isometry(),
-            Isometry2d::new((1.75, 0.75).into(), (PI / 2.0).into())
+            Isometry2d::new((1.75, 0.75), (PI / 2.0).into())
         );
 
         assert_eq!(
             gp.center_isometry(),
-            Isometry2d::new((1.5, 1.125).into(), (PI / 2.0).into())
+            Isometry2d::new((1.5, 1.125), (PI / 2.0).into())
         );
     }
 
@@ -400,12 +394,12 @@ mod tests {
 
         assert_eq!(
             gp.origin_isometry(),
-            Isometry2d::new((3.75, 2.25).into(), PI.into())
+            Isometry2d::new((3.75, 2.25), PI.into())
         );
 
         assert_eq!(
             gp.center_isometry(),
-            Isometry2d::new((3.375, 1.75).into(), PI.into())
+            Isometry2d::new((3.375, 1.75), PI.into())
         );
     }
 
@@ -446,12 +440,12 @@ mod tests {
 
         assert_eq!(
             gp.origin_isometry(),
-            Isometry2d::new((0.5, 4.25).into(), (1.5 * PI).into())
+            Isometry2d::new((0.5, 4.25), (1.5 * PI).into())
         );
 
         assert_eq!(
             gp.center_isometry(),
-            Isometry2d::new((1.75, 1.125).into(), (1.5 * PI).into())
+            Isometry2d::new((1.75, 1.125), (1.5 * PI).into())
         );
     }
 

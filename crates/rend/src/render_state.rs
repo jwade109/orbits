@@ -525,9 +525,9 @@ impl<'a> RenderState<'a> {
         self.clear(&view, Color::rgb(117, 186, 255, 1.0));
         // self.draw_lava(&view, 0.0);
         // self.draw_3d(&[], &view);
-        // self.blur_pass(&self.im_tex_1, &view);
 
         self.apply_geometry_commands(commands, &view);
+        // self.blur_pass(&self.im_tex_1, &view);
 
         self.renderer.device.poll(wgpu::Maintain::wait());
 

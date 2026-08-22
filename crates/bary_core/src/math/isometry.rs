@@ -143,9 +143,9 @@ mod tests {
 
     #[test]
     fn isometry_mul() {
-        let a = Isometry2d::new((2.3, 4.0).into(), 0.1);
-        let b = Isometry2d::new((0.5, -3.4).into(), 0.6);
-        let c = Isometry2d::new((-0.4, 12.1).into(), -0.9);
+        let a = Isometry2d::new((2.3, 4.0), 0.1);
+        let b = Isometry2d::new((0.5, -3.4), 0.6);
+        let c = Isometry2d::new((-0.4, 12.1), -0.9);
 
         let iso = a * b * c;
 
