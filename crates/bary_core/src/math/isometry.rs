@@ -137,6 +137,15 @@ impl From<DVec2> for Isometry2d {
     }
 }
 
+impl From<(DVec2, f64)> for Isometry2d {
+    fn from((pos, angle): (DVec2, f64)) -> Self {
+        Self {
+            translation: pos.as_vec2(),
+            rotation: angle as f32,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

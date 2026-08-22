@@ -19,6 +19,8 @@ bary_sim = { path = "../bary_sim" }
 bary_orbital = { path = "../bary_orbital" }
 rdev = { version = "0.5.3", features = ["serde", "serialize"] }
 glam = { version = "0.30.9", features = ["serde"] }
+bincode = "1.3.3"
+serde = { version = "1.0.229", features = ["derive"] }
 
 [[bin]]
 name = "kira_test"

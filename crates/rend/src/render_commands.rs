@@ -223,7 +223,6 @@ impl<'a> TextBuilder<'a> {
         color: Color,
     ) -> (BatchRenderCommand, DVec2) {
         let iso = iso.into();
-        let font_size = font_size / font.size as f64;
 
         let right = iso.local_x().as_dvec2();
         let down = -iso.local_y().as_dvec2();
@@ -231,16 +230,19 @@ impl<'a> TextBuilder<'a> {
         let mut col_offset = 0;
         let mut row = 0;
 
-        let mut cursor = iso.translation.as_dvec2();
+        let mut cursor = iso.translation.as_dvec2() + down * font_size;
+
+        let font_size = font_size / font.size as f64;
 
         let mut char_commands = Vec::new();
         let mut sum_x = 0.0;
+        let mut max_sum_x: f64 = 0.0;
 
         for ch in text.chars() {
             if ch == '\n' {
                 row += 1;
-                cursor =
-                    iso.translation.as_dvec2() + down * row as f64 * font.size as f64 * font_size;
+                cursor = iso.translation.as_dvec2()
+                    + down * (row + 1) as f64 * font.size as f64 * font_size;
                 col_offset = 0;
                 sum_x = 0.0;
                 continue;
@@ -274,10 +276,12 @@ impl<'a> TextBuilder<'a> {
             cursor += right * delta_x;
             sum_x += delta_x;
 
+            max_sum_x = max_sum_x.max(sum_x);
+
             if let Some(layout_width) = layout_width {
                 if ch == ' ' && sum_x > layout_width {
                     row += 1;
-                    cursor = iso.translation.as_dvec2() + down * row as f64;
+                    cursor = iso.translation.as_dvec2() + down * (row + 1) as f64;
                     col_offset = 0;
                     sum_x = 0.0;
                 }
@@ -286,7 +290,9 @@ impl<'a> TextBuilder<'a> {
 
         let cmd = BatchRenderCommand::Char(font_id, char_commands);
 
-        (cmd, DVec2::new(200.0, 50.0))
+        let extent = DVec2::new(max_sum_x, (row + 1) as f64 * (font.size as f64 * font_size));
+
+        (cmd, extent)
     }
 }
 
@@ -402,6 +408,7 @@ pub struct RectBuilder<'a> {
     dims: DVec2,
     angle: f64,
     color: Color,
+    centered: bool,
 }
 
 impl<'a> RectBuilder<'a> {
@@ -413,6 +420,7 @@ impl<'a> RectBuilder<'a> {
             dims: DVec2::splat(70.0),
             angle: iso.rotation as f64,
             color: Color::new(0.2, 1.0, 0.2, 1.0),
+            centered: false,
         }
     }
 
@@ -430,12 +438,28 @@ impl<'a> RectBuilder<'a> {
         self.angle = angle;
         self
     }
+
+    pub fn centered(&mut self) -> &mut Self {
+        self.centered = true;
+        self
+    }
 }
 
 impl<'a> Drop for RectBuilder<'a> {
     fn drop(&mut self) {
+        let pos = if self.centered {
+            let iso = Isometry2d::ZERO.with_rotation(self.angle as f32);
+            let x = iso.local_x().as_dvec2();
+            let y = iso.local_y().as_dvec2();
+            let d = self.dims / 2.0;
+            let off = x * d.x + y * d.y;
+            self.pos - off
+        } else {
+            self.pos
+        };
+
         let cmd = RectCommand {
-            pos: self.pos,
+            pos,
             dims: self.dims,
             angle: self.angle,
             color: self.color,

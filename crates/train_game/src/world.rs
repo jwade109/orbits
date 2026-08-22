@@ -1,18 +1,16 @@
-use std::{collections::BTreeSet, time::Instant};
+use std::time::Instant;
 
 use bary_core::prelude::*;
 use bary_input::InputState;
 use bary_sim::Camera;
 use rdev::Key;
 
-use crate::{
-    bezier::BezierCurve,
-    track::{
-        Node, TrackSegment, despawn_node, pathfind, spawn_new_node, spawn_new_track,
-        spawn_three_way_junction,
-    },
-    viewport::Viewport,
+use crate::persistence::*;
+use crate::track::{
+    Node, TrackSegment, despawn_node, pathfind, spawn_new_node, spawn_new_track,
+    spawn_three_way_junction,
 };
+use crate::viewport::Viewport;
 
 pub struct World {
     pub ticks: u64,
@@ -27,6 +25,30 @@ pub struct World {
     pub spawner: EntitySpawner,
     pub nodes: Components<Node>,
     pub segments: Components<TrackSegment>,
+}
+
+impl World {
+    pub fn new() -> Self {
+        Self {
+            ticks: 0,
+            current_font_id: 0,
+            time: 0.0,
+            camera: Camera {
+                isometry: Isometry2d::ZERO,
+                zoom: 15.0,
+            },
+            target_camera: Camera {
+                isometry: Isometry2d::ZERO,
+                zoom: 30.0,
+            },
+            selected_nodes: Vec::new(),
+            hovered_node: None,
+            pressed_node: None,
+            spawner: EntitySpawner::default(),
+            nodes: Components::default(),
+            segments: Components::default(),
+        }
+    }
 }
 
 pub fn update_world(world: &mut World, dt: f64, mouse: DVec2, screen_width: DVec2) {
@@ -54,25 +76,7 @@ pub fn update_world(world: &mut World, dt: f64, mouse: DVec2, screen_width: DVec
 }
 
 pub fn make_world() -> World {
-    let mut world = World {
-        ticks: 0,
-        current_font_id: 0,
-        time: 0.0,
-        camera: Camera {
-            isometry: Isometry2d::ZERO,
-            zoom: 15.0,
-        },
-        target_camera: Camera {
-            isometry: Isometry2d::ZERO,
-            zoom: 30.0,
-        },
-        selected_nodes: Vec::new(),
-        hovered_node: None,
-        pressed_node: None,
-        spawner: EntitySpawner::default(),
-        nodes: Components::default(),
-        segments: Components::default(),
-    };
+    let mut world = World::new();
 
     let points = vec![
         DVec2::new(10.0, 34.0),
@@ -122,10 +126,10 @@ pub fn process_input(
 
     world.target_camera.zoom = world.target_camera.zoom.clamp(1.0, 200.0);
 
-    let n = input.is_key_pressed(Key::KeyW);
-    let w = input.is_key_pressed(Key::KeyA);
-    let s = input.is_key_pressed(Key::KeyS);
-    let e = input.is_key_pressed(Key::KeyD);
+    let n = input.is_key_pressed(Key::KeyW) && !input.is_key_pressed(Key::ControlLeft);
+    let w = input.is_key_pressed(Key::KeyA) && !input.is_key_pressed(Key::ControlLeft);
+    let s = input.is_key_pressed(Key::KeyS) && !input.is_key_pressed(Key::ControlLeft);
+    let e = input.is_key_pressed(Key::KeyD) && !input.is_key_pressed(Key::ControlLeft);
 
     let x_pull = -(w as i8) + e as i8;
     let y_pull = -(s as i8) + n as i8;
@@ -152,7 +156,13 @@ pub fn process_input(
     let shift = input.is_key_pressed(Key::ShiftLeft);
 
     if input.just_pressed(Key::KeyC) {
-        spawn_new_node(world, mouse_world);
+        let new_id = spawn_new_node(world, mouse_world);
+        if !world.selected_nodes.is_empty() {
+            let mut nodes = world.selected_nodes.clone();
+            nodes.push(new_id);
+            spawn_new_track(world, nodes);
+            world.selected_nodes = vec![new_id];
+        }
     }
 
     if input.just_pressed(Key::KeyV) {
@@ -204,5 +214,29 @@ pub fn process_input(
         && input.just_pressed_debounced(Key::KeyJ)
     {
         spawn_three_way_junction(world, ids[0], ids[1], ids[2]);
+    }
+
+    let mouse_world = view.screen_to_world(mouse);
+
+    let now = Instant::now();
+    if let Some((node_id, time)) = world.pressed_node {
+        let delta = now - time;
+        if delta.as_secs_f64() > 0.6
+            && let Some(node) = world.nodes.try_get_mut(node_id).ok()
+        {
+            node.pos = mouse_world;
+        }
+    }
+
+    if input.is_key_pressed(Key::ControlLeft) && input.just_pressed_debounced(Key::KeyS) {
+        if save_world(world, "train_world").is_none() {
+            println!("Failed to save!");
+        }
+    }
+
+    if input.is_key_pressed(Key::ControlLeft) && input.just_pressed_debounced(Key::KeyL) {
+        if load_world(world, "train_world").is_none() {
+            println!("Failed to load");
+        }
     }
 }

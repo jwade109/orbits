@@ -3638,6 +3638,7 @@ dependencies = [
  "bary_orbital",
  "bary_sim",
  "bary_ui",
+ "bincode",
  "enum-iterator",
  "glam 0.30.10",
  "glfw",
@@ -3647,6 +3648,7 @@ dependencies = [
  "rand 0.10.2",
  "rdev",
  "rend",
+ "serde",
 ]
 
 [[package]]

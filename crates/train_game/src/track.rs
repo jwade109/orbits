@@ -1,9 +1,11 @@
 use std::collections::BTreeSet;
 
-use crate::world::World;
-use bary_core::prelude::Ent;
+use crate::{bezier::BezierCurve, world::World};
+use bary_core::prelude::{Components, Ent};
 use glam::DVec2;
+use serde::{Deserialize, Serialize};
 
+#[derive(Deserialize, Serialize)]
 pub struct Node {
     pub pos: DVec2,
     pub tracks: BTreeSet<Ent>,
@@ -18,6 +20,7 @@ impl Node {
     }
 }
 
+#[derive(Deserialize, Serialize)]
 pub struct TrackSegment {
     pub nodes: Vec<Ent>,
 }
@@ -34,6 +37,16 @@ impl TrackSegment {
     pub fn is_connected_at_end(&self, id: Ent) -> bool {
         let [a, b] = self.end_nodes();
         a == id || b == id
+    }
+
+    pub fn to_bezier(&self, nodes: &Components<Node>) -> Option<BezierCurve> {
+        let pos: Option<Vec<DVec2>> = self
+            .nodes
+            .iter()
+            .map(|id| nodes.get(*id).map(|n| n.pos))
+            .collect();
+        let pos = pos?;
+        BezierCurve::new(pos)
     }
 }
 

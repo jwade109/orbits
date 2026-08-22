@@ -10,16 +10,18 @@ use glfw::*;
 use rend::*;
 use std::{collections::BTreeMap, thread::JoinHandle, time::Instant};
 
+mod persistence;
 mod bezier;
 mod draw;
 mod event_bus;
+mod railcar;
 mod rend_app;
 mod track;
 mod tweens;
 mod viewport;
 mod world;
 
-struct SpiderApp<'a> {
+struct TrainApp<'a> {
     last: Instant,
     world: World,
     animations: AnimationStates,
@@ -30,7 +32,7 @@ struct SpiderApp<'a> {
     should_exit: bool,
 }
 
-impl<'a> SpiderApp<'a> {
+impl<'a> TrainApp<'a> {
     async fn new(window: &'a mut glfw::Window) -> Self {
         let mut rs = RenderState::new(window).await;
         let input_queue = new_message_queue();
@@ -69,7 +71,7 @@ impl<'a> SpiderApp<'a> {
     }
 }
 
-impl<'a> RendApp for SpiderApp<'a> {
+impl<'a> RendApp for TrainApp<'a> {
     fn update(&mut self) {
         self.input_state.on_frame_boundary();
 
@@ -194,7 +196,7 @@ async fn init() {
 
     window.maximize();
 
-    run(glfw, events, SpiderApp::new(&mut window).await);
+    run(glfw, events, TrainApp::new(&mut window).await);
 }
 
 fn main() {

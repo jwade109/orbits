@@ -1,6 +1,7 @@
 use bary_core::prelude::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct Camera {
     pub isometry: Isometry2d,
     /// camera zoom in raylib units, or whatever
