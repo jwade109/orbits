@@ -13,9 +13,9 @@ impl Isometry2d {
         rotation: 0.0,
     };
 
-    pub fn new(translation: Vec2, rotation: f32) -> Self {
+    pub fn new(translation: impl Into<Vec2>, rotation: f32) -> Self {
         Self {
-            translation,
+            translation: translation.into(),
             rotation,
         }
     }
@@ -101,6 +101,15 @@ impl From<(f32, f32, f32)> for Isometry2d {
     }
 }
 
+impl From<(f32, f32)> for Isometry2d {
+    fn from((x, y): (f32, f32)) -> Self {
+        Self {
+            translation: Vec2::new(x, y),
+            rotation: 0.0,
+        }
+    }
+}
+
 impl From<(Vec2, f32)> for Isometry2d {
     fn from((translation, rotation): (Vec2, f32)) -> Self {
         Self {
@@ -114,6 +123,15 @@ impl From<Vec2> for Isometry2d {
     fn from(translation: Vec2) -> Self {
         Self {
             translation,
+            rotation: 0.0,
+        }
+    }
+}
+
+impl From<DVec2> for Isometry2d {
+    fn from(translation: DVec2) -> Self {
+        Self {
+            translation: translation.as_vec2(),
             rotation: 0.0,
         }
     }

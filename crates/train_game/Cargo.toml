@@ -21,13 +21,9 @@ rdev = { version = "0.5.3", features = ["serde", "serialize"] }
 glam = { version = "0.30.9", features = ["serde"] }
 
 [[bin]]
-name = "rend_client"
-path = "src/rend_client/main.rs"
-
-[[bin]]
 name = "kira_test"
 path = "src/kira_test.rs"
 
 [[bin]]
-name = "spider"
-path = "src/spider/main.rs"
+name = "choochoo"
+path = "src/main.rs"

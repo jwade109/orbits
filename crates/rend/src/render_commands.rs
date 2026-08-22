@@ -1,4 +1,5 @@
 use crate::{Color, FontInfo};
+use bary_core::prelude::{rotate_f64, Isometry2d, PI_64};
 use glam::DVec2;
 use std::collections::BTreeMap;
 
@@ -132,7 +133,7 @@ impl RenderCommands {
         self.commands.push(cmd);
     }
 
-    pub fn rect(&mut self, p: impl Into<DVec2>) -> RectBuilder<'_> {
+    pub fn rect(&mut self, p: impl Into<Isometry2d>) -> RectBuilder<'_> {
         let p = p.into();
         RectBuilder::new(self, p)
     }
@@ -153,21 +154,23 @@ impl RenderCommands {
         builder
     }
 
+    pub fn isometry(&mut self, iso: impl Into<Isometry2d>, length: f64) {
+        let iso = iso.into();
+        let c = iso.translation.as_dvec2();
+        let x = c + rotate_f64(DVec2::X, iso.rotation as f64) * length;
+        let y = c + rotate_f64(DVec2::Y, iso.rotation as f64) * length;
+
+        self.line(c, x).color(Color::RED);
+        self.line(c, y).color(Color::GREEN);
+    }
+
     pub fn text(
-        &mut self,
-        p: impl Into<DVec2>,
+        &self,
+        iso: impl Into<Isometry2d>,
         text: impl AsRef<str>,
         font_size: f64,
     ) -> (BatchRenderCommand, DVec2) {
-        let p = p.into();
-        self.paragraph(
-            self.current_font_id,
-            font_size,
-            p.x,
-            p.y,
-            text.as_ref(),
-            None,
-        )
+        self.paragraph(iso, self.current_font_id, font_size, text.as_ref(), None)
     }
 
     pub fn frame(&mut self, p: impl Into<DVec2>, q: impl Into<DVec2>) -> LineStringBuilder<'_> {
@@ -179,24 +182,15 @@ impl RenderCommands {
     }
 
     pub fn paragraph(
-        &mut self,
+        &self,
+        iso: impl Into<Isometry2d>,
         font_id: usize,
         font_size: f64,
-        x_origin: f64,
-        y_origin: f64,
         text: &str,
         layout_width: Option<f64>,
     ) -> (BatchRenderCommand, DVec2) {
         let font = self.fonts.get(&font_id).unwrap();
-        TextBuilder::new(
-            font,
-            font_id,
-            font_size,
-            x_origin,
-            y_origin,
-            text,
-            layout_width,
-        )
+        TextBuilder::new(iso, font, font_id, font_size, text, layout_width)
     }
 }
 
@@ -208,11 +202,10 @@ pub struct TextBuilder<'a> {
 
 impl<'a> TextBuilder<'a> {
     pub fn new(
+        iso: impl Into<Isometry2d>,
         font: &FontInfo,
         font_id: usize,
         font_size: f64,
-        x_origin: f64,
-        y_origin: f64,
         text: &str,
         layout_width: Option<f64>,
     ) -> (BatchRenderCommand, DVec2) {
@@ -220,6 +213,10 @@ impl<'a> TextBuilder<'a> {
         let font_size = font_size / font.size as f64;
 
         let mut col_offset = 0;
+
+        let iso = iso.into();
+        let x_origin = iso.translation.x as f64;
+        let y_origin = iso.translation.y as f64;
 
         let mut x = x_origin;
         let mut y = y_origin;
@@ -402,23 +399,29 @@ pub struct RectBuilder<'a> {
 }
 
 impl<'a> RectBuilder<'a> {
-    pub fn new(commands: &'a mut RenderCommands, pos: DVec2) -> Self {
+    pub fn new(commands: &'a mut RenderCommands, iso: impl Into<Isometry2d>) -> Self {
+        let iso = iso.into();
         Self {
             commands,
-            pos,
+            pos: iso.translation.as_dvec2(),
             dims: DVec2::splat(70.0),
-            angle: 0.0,
+            angle: iso.rotation as f64,
             color: Color::new(0.2, 1.0, 0.2, 1.0),
         }
     }
 
-    pub fn dims(&mut self, dims: DVec2) -> &mut Self {
-        self.dims = dims;
+    pub fn dims(&mut self, dims: impl Into<DVec2>) -> &mut Self {
+        self.dims = dims.into();
         self
     }
 
     pub fn color(&mut self, color: Color) -> &mut Self {
         self.color = color;
+        self
+    }
+
+    pub fn angle(&mut self, angle: f64) -> &mut Self {
+        self.angle = angle;
         self
     }
 }
@@ -432,6 +435,10 @@ impl<'a> Drop for RectBuilder<'a> {
             color: self.color,
         };
         self.commands.enqueue(RenderCommand::Rect(cmd));
+
+        // uncomment for debugging
+        // let iso = Isometry2d::new(self.pos.as_vec2(), self.angle as f32);
+        // self.commands.isometry(iso, 50.0);
     }
 }
 

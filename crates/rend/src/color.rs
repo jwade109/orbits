@@ -6,7 +6,7 @@ pub struct Color {
     pub a: f64,
 }
 
-fn lerp(a: f64, b: f64, t: f64) -> f64 {
+const fn lerp(a: f64, b: f64, t: f64) -> f64 {
     a + (b - a) * t
 }
 
@@ -18,6 +18,8 @@ impl Color {
     pub const BLUE: Self = Self::new(0.0, 0.0, 1.0, 1.0);
     pub const GREEN: Self = Self::new(0.0, 1.0, 0.0, 1.0);
     pub const BROWN: Self = Self::new(0.4, 0.2, 0.0, 1.0);
+
+    pub const LIGHT_BLUE: Self = Self::BLUE.mix(Self::WHITE, 0.5);
 
     // "rgb(255, 90, 0)"
     pub const ORANGE: Self = Self::rgb(255, 90, 0, 1.0);
@@ -41,7 +43,7 @@ impl Color {
         Self::new(self.r, self.g, self.b, a)
     }
 
-    pub fn mix(&self, other: Self, t: f64) -> Self {
+    pub const fn mix(&self, other: Self, t: f64) -> Self {
         Self::new(
             lerp(self.r, other.r, t),
             lerp(self.g, other.g, t),

@@ -58,14 +58,14 @@ fn vs_main(vertex: Vertex) -> VertexShaderOutput {
     let dims = vec2<f32>(w, h);
 
     let positions = array<vec2<f32>, 4>(
-        d / dims,
-        c / dims,
-        b / dims,
         a / dims,
+        b / dims,
+        c / dims,
+        d / dims,
     );
 
     var pos = positions[vertex.vertex_index] * 2.0 - 1.0;
-    pos.y *= -1.0;
+    // pos.y *= -1.0;
     out.position = vec4<f32>(pos, 1.0, 1.0);
     out.instance_index = vertex.instance_index;
     out.uv = vertex.uv;

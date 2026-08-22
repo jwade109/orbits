@@ -171,7 +171,8 @@ impl TextPipeline {
     ) {
         for (i, text) in commands.iter().enumerate() {
             let range = font.get_sample_range(text.c).unwrap();
-            let transform = screen_space_transform(text.pos, text.dims, screen, 0.0);
+            let pos = text.pos.with_y(screen.y - text.pos.y - text.dims.y);
+            let transform = screen_space_transform(pos, text.dims, screen, 0.0);
             self.set_range(queue, i, &range);
             self.set_transform(queue, i, &transform);
             self.set_color(queue, i, text.color.to_vec())

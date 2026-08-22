@@ -65,9 +65,9 @@ fn fs_main(in: VertexShaderOutput) -> @location(0) vec4<f32> {
     let col = color_array[in.instance_index];
 
     // for debugging
-    // if l < 0.03 {
-    //     return vec4<f32>(1.0, 0.0, 0.0, 0.3);
-    // }
+    if l < 0.03 {
+        return vec4<f32>(1.0, 0.0, 0.0, 0.3);
+    }
 
-    return vec4<f32>(col.xyz, col.w * smoothstep(0.16, 0.18, l));
+    return vec4<f32>(col.xyz, col.w * smoothstep(0.14, 0.21, l));
 }

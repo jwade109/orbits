@@ -30,6 +30,7 @@ struct Pipelines {
     text_pipeline: TextPipeline,
     circle_pipeline: CirclePipeline,
     line_pipeline: LinePipeline,
+    rectangle_pipeline: RectanglePipeline,
 }
 
 pub struct RenderResources {
@@ -136,6 +137,7 @@ impl<'a> RenderState<'a> {
                 });
 
         let single_color_pipeline = SingleColorPipeline::new(&renderer.device, &renderer.config);
+        let rectangle_pipeline = RectanglePipeline::new(&renderer.device, &renderer.config);
 
         let uniform_bind_group = {
             let mut builder = BindGroupBuilder::new(&renderer.device);
@@ -176,6 +178,7 @@ impl<'a> RenderState<'a> {
             text_pipeline,
             circle_pipeline,
             line_pipeline,
+            rectangle_pipeline,
         };
 
         Self {
@@ -376,7 +379,7 @@ impl<'a> RenderState<'a> {
         let (sx, sy) = self.window.get_size();
         let screen = glam::DVec2::new(sx as f64, sy as f64);
 
-        for cmd in commands {
+        for cmds in commands.chunks(RectanglePipeline::RECTS_PER_PASS) {
             let mut command_encoder = self
                 .renderer
                 .device
@@ -384,17 +387,13 @@ impl<'a> RenderState<'a> {
 
             let mut rp = self.get_render_pass(&mut command_encoder, None, &view);
 
-            let tf = screen_space_transform(cmd.pos, cmd.dims, screen, cmd.angle);
-
-            let mesh = make_quad(&self.renderer.device);
-
-            self.pipelines.single_color_pipeline.draw(
-                &mut rp,
-                &mesh,
-                &tf,
-                &cmd.color,
+            self.pipelines.rectangle_pipeline.assign_buffer_data(
                 &self.renderer.queue,
+                cmds,
+                screen,
             );
+
+            self.pipelines.rectangle_pipeline.draw(&mut rp, cmds.len());
 
             drop(rp);
 
@@ -494,7 +493,7 @@ impl<'a> RenderState<'a> {
                 BatchRenderCommand::Rect(c) => self.draw_rectangles(view, &c),
                 BatchRenderCommand::Circle(c) => self.draw_circles(view, &c),
                 BatchRenderCommand::Line(c) => self.draw_lines(view, &c),
-                _ => (),
+                // _ => (),
             }
         }
     }
@@ -527,6 +526,7 @@ impl<'a> RenderState<'a> {
         // self.draw_lava(&view, 0.0);
         // self.draw_3d(&[], &view);
         // self.blur_pass(&self.im_tex_1, &view);
+
         self.apply_geometry_commands(commands, &view);
 
         self.renderer.device.poll(wgpu::Maintain::wait());

@@ -232,7 +232,7 @@ pub fn make_world() -> World {
     }
 }
 
-pub fn process_input(world: &mut World, input: &InputState) {
+pub fn process_input(world: &mut World, input: &InputState, dt: f64) {
     if input.is_key_pressed(Key::Minus) {
         world.camera.zoom /= 1.03;
         world.camera.zoom = world.camera.zoom.clamp(1.0, 70.0);
@@ -263,4 +263,11 @@ pub fn process_input(world: &mut World, input: &InputState) {
     if input.just_pressed_debounced(Key::Space) {
         spider.toggle_drifting();
     }
+
+    let r = input.is_key_pressed(Key::KeyE);
+    let l = input.is_key_pressed(Key::KeyQ);
+
+    let angular_vel = l as u8 as f64 - r as u8 as f64;
+
+    world.camera.isometry.rotation += (angular_vel * dt) as f32;
 }

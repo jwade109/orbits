@@ -35,9 +35,25 @@ fn draw_spider(cmd: &mut RenderCommands, spider: &Spider, view: &Viewport) {
         cmd.line(s, e).thickness(0.5 * view.zoom());
     }
 
-    cmd.circle(s).diameter(view.zoom()).color(Color::BLUE);
+    cmd.circle(s)
+        .diameter(view.zoom())
+        .color(Color::BLUE.alpha(0.7));
 
-    draw_isometry(cmd, spider.pose, view);
+    cmd.isometry(view.w2s_iso(spider.pose), view.meters(2.0));
+
+    for x in linspace(10.0, 400.0, 4) {
+        let p = Isometry2d::new(Vec2::splat(x), x / 300.0);
+        cmd.rect(p)
+            .dims(DVec2::new(50.0, 20.0))
+            .color(Color::BLUE.alpha(0.5));
+        cmd.isometry(p, 50.0);
+
+        let w = view.w2s_iso(p);
+        cmd.rect(w)
+            .dims(DVec2::new(view.meters(5.0), view.meters(2.0)))
+            .color(Color::BLUE.alpha(0.5));
+        cmd.isometry(w, view.meters(5.0));
+    }
 }
 
 fn draw_asteroid(cmd: &mut RenderCommands, ast: &Asteroid, view: &Viewport) {
@@ -62,20 +78,6 @@ fn draw_asteroid(cmd: &mut RenderCommands, ast: &Asteroid, view: &Viewport) {
     draw_outline(0.6, 6.0);
 }
 
-fn draw_isometry(cmd: &mut RenderCommands, iso: Isometry2d, view: &Viewport) {
-    let c = iso.translation.as_dvec2();
-    let x = c + rotate_f64(DVec2::X, iso.rotation as f64) * 3.0;
-    let y = c + rotate_f64(DVec2::Y, iso.rotation as f64) * 3.0;
-
-    let c = view.world_to_screen(c);
-    let x = view.world_to_screen(x);
-    let y = view.world_to_screen(y);
-
-    cmd.line(c, x).color(Color::RED);
-    cmd.line(c, y).color(Color::GREEN);
-    cmd.circle(c).radii(0.8, 1.0).color(Color::BLUE.alpha(0.6));
-}
-
 fn draw_button(
     cmd: &mut RenderCommands,
     text: &str,
@@ -83,13 +85,20 @@ fn draw_button(
     mouse: DVec2,
     input: &InputState,
 ) -> (DVec2, bool) {
-    let (tcmd, extent) = cmd.text(p, text, 32.0);
-    let aabb = AABB::from_arbitrary(p.as_vec2(), (p + extent).as_vec2());
+    let padding = DVec2::splat(15.0);
+    let (tcmd, extent) = cmd.text(p + padding, text, 32.0);
+    let full_extent = extent + padding * 2.0;
+    let aabb = AABB::from_arbitrary(p.as_vec2(), (p + full_extent).as_vec2());
     let contains = aabb.contains(mouse.as_vec2());
-    let alpha = contains as u8 as f64 * 0.3 + 0.3;
-    cmd.rect(p).dims(extent).color(Color::BLUE.alpha(alpha));
+    let alpha = contains as u8 as f64 * 0.2 + 0.9;
+    cmd.rect(p)
+        .dims(full_extent)
+        .color(Color::BLUE.alpha(alpha));
     cmd.apply(tcmd);
-    (extent, input.just_pressed(rdev::Button::Left) && contains)
+    (
+        full_extent,
+        input.just_pressed(rdev::Button::Left) && contains,
+    )
 }
 
 fn draw_grid_lines(cmd: &mut RenderCommands, view: &Viewport) {
@@ -111,10 +120,15 @@ fn draw_grid_lines(cmd: &mut RenderCommands, view: &Viewport) {
     }
 }
 
-fn draw_font_ui(cmd: &mut RenderCommands, mouse: DVec2, input: &InputState, new_font_id: &mut usize) {
+fn draw_font_ui(
+    cmd: &mut RenderCommands,
+    mouse: DVec2,
+    input: &InputState,
+    new_font_id: &mut usize,
+) {
     let fonts = cmd.fonts.clone();
 
-    let mut p = DVec2::new(30.0, 120.0);
+    let mut p = DVec2::new(30.0, 300.0);
     for (font_id, font) in fonts {
         let text = format!("{} {}", font_id, font.name);
         let (e, clicked) = draw_button(cmd, &text, p, mouse, input);
@@ -146,24 +160,39 @@ fn draw_world(
 
     {
         let pw = DVec2::splat(0.0);
-        let ps = view.world_to_screen(pw);
 
-        let mut lines = vec!["SPIDERBOI".to_string(), format!("{} ticks", world.ticks)];
+        let chars = "abcdefghijklmnopqrstuvwxyz";
+
+        let n = (world.ticks / 100) as usize % chars.len();
+        let c = chars.chars().nth(n).unwrap();
+
+        let mut lines = vec![
+            chars.to_uppercase().to_string(),
+            chars.to_string(),
+            format!("{} ticks", world.ticks),
+            c.to_string(),
+        ];
 
         for (id, num, tween, state) in anim.animations() {
             lines.push(format!("{} {} {:?} {:0.2}", id, num, tween, state));
         }
 
         let text = lines.join("\n");
-        let (text_cmd, extent) = cmd.text(ps, &text, view.meters(2.0));
-        cmd.apply(text_cmd);
-        cmd.frame(ps, ps + extent).thickness(view.meters(0.3));
 
-        let (text_cmd, extent) = cmd.text((20.0, 20.0), &text, 32.0);
-        cmd.rect((20.0, 20.0))
-            .dims(extent + DVec2::splat(30.0))
-            .color(Color::GRAY);
-        cmd.apply(text_cmd);
+        {
+            let iso = Isometry2d::from_pos(pw.as_vec2());
+            let iso = view.w2s_iso(iso);
+            let (text_cmd, extent) = cmd.text(iso, &text, view.meters(2.0));
+            cmd.rect(iso).dims(extent).color(Color::LIGHT_BLUE);
+            cmd.apply(text_cmd);
+        }
+
+        {
+            let p = DVec2::new(20.0, 20.0);
+            let (text_cmd, extent) = cmd.text(p, &text, 32.0);
+            cmd.rect(p).dims(extent).color(Color::GREEN.alpha(0.2));
+            cmd.apply(text_cmd);
+        }
     }
 
     let lclicked = input.is_key_pressed(rdev::Button::Left);
@@ -176,17 +205,17 @@ fn draw_world(
 
         let s = spider.pose.translation.as_dvec2();
         let mouseover = s.distance(mouse_world) < 3.0;
-        let t1 = anim.anim(("spider_select", i), Tween::Exponential, 0.26, mouseover);
+        let t1 = anim.anim(("spider_select", i), Tween::Exponential, 0.04, mouseover);
         let t2 = anim.anim(
             ("spider_click", i),
             Tween::Exponential,
-            0.20,
+            0.04,
             mouseover && lclicked,
         );
         let t3 = anim.anim(
             ("spider_rclick", i),
             Tween::Exponential,
-            0.20,
+            0.04,
             mouseover && rclicked,
         );
         let t1 = 0.6 + t1 * 0.4;
@@ -199,7 +228,8 @@ fn draw_world(
             .color(color);
     }
 
-    cmd.circle(mouse).diameter(20.0).color(Color::RED);
+    cmd.isometry(view.w2s_iso(world.camera.isometry), 50.0);
+    cmd.circle(mouse).diameter(11.0).color(Color::RED);
 }
 
 struct SpiderApp<'a> {
@@ -263,7 +293,7 @@ impl<'a> RendApp for SpiderApp<'a> {
         }
 
         update_world(&mut self.world, dt as f64);
-        process_input(&mut self.world, &self.input_state);
+        process_input(&mut self.world, &self.input_state, dt as f64);
 
         if self.input_state.is_key_pressed(rdev::Key::Escape) {
             self.should_exit = true;
@@ -281,12 +311,16 @@ impl<'a> RendApp for SpiderApp<'a> {
             .map(|(id, (font, _sprite))| (*id, font.clone()))
             .collect();
         let mut cmd = RenderCommands::new(font_info);
+        cmd.current_font_id = self.world.current_font_id;
         let (width, height) = self.rs.window.get_size();
         let dims = DVec2::new(width as f64, height as f64);
         let mouse = DVec2::new(
             self.rs.window.get_cursor_pos().0,
             self.rs.window.get_cursor_pos().1,
         );
+
+        let mouse = mouse.with_y(height as f64 - mouse.y);
+
         draw_world(
             &mut cmd,
             &self.input_state,

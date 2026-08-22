@@ -83,6 +83,7 @@ impl CirclePipeline {
             let ul_y = cmd.y - cmd.outer_radius;
             let pos = DVec2::new(ul_x, ul_y);
             let dims = DVec2::new(cmd.outer_radius, cmd.outer_radius) * 2.0;
+            let pos = pos.with_y(screen.y - pos.y - cmd.outer_radius * 2.0);
             let transform = screen_space_transform(pos, dims, screen, 0.0);
             self.set_transform(queue, i, &transform);
             self.set_color(queue, i, cmd.color);
