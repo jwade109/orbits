@@ -27,6 +27,9 @@ impl Color {
     // "rgb(137, 255, 251)"
     pub const SKY: Self = Self::rgb(137, 255, 251, 1.0);
 
+    // "rgb(162, 0, 141)"
+    pub const PURPLE: Self = Self::rgb(160, 0, 140, 1.0);
+
     pub const fn new(r: f64, g: f64, b: f64, a: f64) -> Self {
         Self { r, g, b, a }
     }

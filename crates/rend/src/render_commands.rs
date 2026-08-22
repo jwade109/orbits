@@ -1,5 +1,5 @@
 use crate::{Color, FontInfo};
-use bary_core::prelude::{rotate_f64, Isometry2d, PI_64};
+use bary_core::prelude::{rotate_f64, Isometry2d};
 use glam::DVec2;
 use std::collections::BTreeMap;
 
@@ -276,7 +276,7 @@ impl<'a> TextBuilder<'a> {
 
         let cmd = BatchRenderCommand::Char(font_id, char_commands);
 
-        (cmd, DVec2::splat(100.0))
+        (cmd, DVec2::new(200.0, 50.0))
     }
 }
 
@@ -295,8 +295,8 @@ impl<'a> CircleBuilder<'a> {
             commands,
             x,
             y,
-            inner_radius: -20.0,
-            outer_radius: 50.0,
+            inner_radius: -4.0,
+            outer_radius: 25.0,
             color: Color::new(0.0, 0.3, 1.0, 0.8),
         }
     }
