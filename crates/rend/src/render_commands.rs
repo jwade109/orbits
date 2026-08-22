@@ -170,10 +170,18 @@ impl RenderCommands {
         iso: impl Into<Isometry2d>,
         text: impl AsRef<str>,
         font_size: f64,
+        color: Color,
     ) -> (BatchRenderCommand, DVec2) {
         let iso = iso.into();
         self.isometry(iso, 30.0);
-        self.paragraph(iso, self.current_font_id, font_size, text.as_ref(), None)
+        self.paragraph(
+            iso,
+            self.current_font_id,
+            font_size,
+            text.as_ref(),
+            None,
+            color,
+        )
     }
 
     pub fn frame(&mut self, p: impl Into<DVec2>, q: impl Into<DVec2>) -> LineStringBuilder<'_> {
@@ -191,9 +199,10 @@ impl RenderCommands {
         font_size: f64,
         text: &str,
         layout_width: Option<f64>,
+        color: Color,
     ) -> (BatchRenderCommand, DVec2) {
         let font = self.fonts.get(&font_id).unwrap();
-        TextBuilder::new(iso, font, font_id, font_size, text, layout_width)
+        TextBuilder::new(iso, font, font_id, font_size, text, layout_width, color)
     }
 }
 
@@ -211,6 +220,7 @@ impl<'a> TextBuilder<'a> {
         font_size: f64,
         text: &str,
         layout_width: Option<f64>,
+        color: Color,
     ) -> (BatchRenderCommand, DVec2) {
         let iso = iso.into();
         let font_size = font_size / font.size as f64;
@@ -253,7 +263,7 @@ impl<'a> TextBuilder<'a> {
                     pos,
                     dims,
                     c: ch,
-                    color: Color::WHITE,
+                    color,
                     angle: iso.rotation as f64,
                 });
             }

@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, time::Instant};
 
 use bary_core::prelude::*;
 use bary_input::InputState;
@@ -7,7 +7,10 @@ use rdev::Key;
 
 use crate::{
     bezier::BezierCurve,
-    track::{Node, TrackSegment, remove_node, spawn_new_node, spawn_new_track},
+    track::{
+        Node, TrackSegment, despawn_node, pathfind, spawn_new_node, spawn_new_track,
+        spawn_three_way_junction,
+    },
     viewport::Viewport,
 };
 
@@ -18,8 +21,8 @@ pub struct World {
     pub camera: Camera,
     pub target_camera: Camera,
     pub hovered_node: Option<Ent>,
-    pub pressed_node: Option<Ent>,
-    pub selected_nodes: BTreeSet<Ent>,
+    pub pressed_node: Option<(Ent, Instant)>,
+    pub selected_nodes: Vec<Ent>,
 
     pub spawner: EntitySpawner,
     pub nodes: Components<Node>,
@@ -63,7 +66,7 @@ pub fn make_world() -> World {
             isometry: Isometry2d::ZERO,
             zoom: 30.0,
         },
-        selected_nodes: BTreeSet::new(),
+        selected_nodes: Vec::new(),
         hovered_node: None,
         pressed_node: None,
         spawner: EntitySpawner::default(),
@@ -84,7 +87,7 @@ pub fn make_world() -> World {
         ids.push(id);
     }
 
-    spawn_new_track(&mut world, &ids);
+    spawn_new_track(&mut world, ids);
 
     world
 }
@@ -154,22 +157,27 @@ pub fn process_input(
 
     if input.just_pressed(Key::KeyV) {
         let nodes: Vec<Ent> = world.selected_nodes.clone().into_iter().collect();
-        spawn_new_track(world, &nodes);
+        spawn_new_track(world, nodes);
+    }
+
+    if world.hovered_node.is_none() || !input.is_key_pressed(rdev::Button::Left) {
+        world.pressed_node = None;
     }
 
     if input.just_pressed_debounced(rdev::Button::Left) {
         if let Some(id) = world.hovered_node {
+            world.pressed_node = Some((id, Instant::now()));
+
             let contains = world.selected_nodes.contains(&id);
             match (shift, contains) {
                 (true, true) => {
-                    world.selected_nodes.remove(&id);
+                    world.selected_nodes.retain(|d| *d != id);
                 }
                 (true, false) => {
-                    world.selected_nodes.insert(id);
+                    world.selected_nodes.push(id);
                 }
                 (false, false) => {
-                    world.selected_nodes.clear();
-                    world.selected_nodes.insert(id);
+                    world.selected_nodes = vec![id];
                 }
                 (false, true) => {
                     world.selected_nodes.clear();
@@ -182,7 +190,19 @@ pub fn process_input(
 
     if input.just_pressed_debounced(rdev::Button::Right) {
         if let Some(id) = world.hovered_node {
-            _ = remove_node(world, id);
+            _ = despawn_node(world, id);
         }
+    }
+
+    if let Some(ids) = world.selected_nodes.get(0..2)
+        && input.just_pressed_debounced(Key::KeyN)
+    {
+        pathfind(world, ids[0], ids[1]);
+    }
+
+    if let Some(ids) = world.selected_nodes.get(0..3)
+        && input.just_pressed_debounced(Key::KeyJ)
+    {
+        spawn_three_way_junction(world, ids[0], ids[1], ids[2]);
     }
 }

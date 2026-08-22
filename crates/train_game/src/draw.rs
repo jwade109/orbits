@@ -1,6 +1,6 @@
 use crate::bezier::BezierCurve;
 use crate::event_bus::EventBus;
-use crate::track::{SegmentGeometry, TrackSegment};
+use crate::track::TrackSegment;
 use crate::tweens::AnimationStates;
 use crate::viewport::Viewport;
 use crate::world::*;
@@ -16,7 +16,7 @@ fn draw_button(
     input: &InputState,
 ) -> (DVec2, bool) {
     let padding = DVec2::splat(15.0);
-    let (tcmd, extent) = cmd.text(p + padding, text, 32.0);
+    let (tcmd, extent) = cmd.text(p + padding, text, 32.0, Color::WHITE);
     let full_extent = extent + padding * 2.0;
     let aabb = AABB::from_arbitrary(p.as_vec2(), (p + full_extent).as_vec2());
     let contains = aabb.contains(mouse.as_vec2());
@@ -70,7 +70,14 @@ fn draw_bezier(cmd: &mut RenderCommands, bezier: &BezierCurve, view: &Viewport) 
         .map(|t| view.world_to_screen(bezier.eval(*t)))
         .collect();
 
-    cmd.linestring(points);
+    let handles = bezier
+        .points
+        .iter()
+        .map(|p| view.world_to_screen(*p))
+        .collect();
+
+    cmd.linestring(handles).thickness(3.0).color(Color::PURPLE);
+    cmd.linestring(points).thickness(5.0);
 }
 
 fn draw_track(
@@ -79,18 +86,14 @@ fn draw_track(
     world: &World,
     view: &Viewport,
 ) -> Option<()> {
-    if let SegmentGeometry::Bezier(a, b, c) = track.geometry {
-        let a = world.nodes.get(a)?;
-        let b = world.nodes.get(b)?;
-        let c = world.nodes.get(c)?;
-        let bezier = BezierCurve::new(a.pos, b.pos, c.pos);
-        draw_bezier(cmd, &bezier, view);
-    }
-    if let SegmentGeometry::Straight(a, b) = track.geometry {
-        let a = world.nodes.get(a)?;
-        let b = world.nodes.get(b)?;
-        cmd.line(view.world_to_screen(a.pos), view.world_to_screen(b.pos));
-    }
+    let points: Option<Vec<_>> = track
+        .nodes
+        .iter()
+        .map(|id| world.nodes.get(*id).map(|n| n.pos))
+        .collect();
+    let points = points?;
+    let bezier = BezierCurve::new(points);
+    draw_bezier(cmd, &bezier, view);
 
     Some(())
 }
@@ -101,7 +104,12 @@ fn draw_tracks(cmd: &mut RenderCommands, world: &World, view: &Viewport) {
     }
 
     for node in world.nodes.values() {
-        cmd.circle(view.world_to_screen(node.pos)).radii(8.0, 20.0);
+        let p = view.world_to_screen(node.pos);
+        if node.tracks.is_empty() {
+            cmd.circle(p).radii(8.0, 12.0).color(Color::GRAY);
+        } else {
+            cmd.circle(p).radius(9.0).color(Color::BLUE);
+        };
     }
 }
 
@@ -137,8 +145,9 @@ pub fn draw_world(
             chars.to_string(),
             format!("{} ticks", world.ticks),
             c.to_string(),
-            format!("{:?}", world.hovered_node),
-            format!("{:?}", world.selected_nodes),
+            format!("hovered_node   {:?}", world.hovered_node),
+            format!("selected_nodes {:?}", world.selected_nodes),
+            format!("pressed_node   {:?}", world.pressed_node),
         ];
 
         for (id, num, tween, state) in anim.animations() {
@@ -147,34 +156,35 @@ pub fn draw_world(
 
         let text = lines.join("\n");
 
-        {
-            let iso = view.w2s_iso(pw.into());
-            let (text_cmd, _) = cmd.text(iso, &text, view.meters(2.0));
+        for (off, color) in [(0.2, Color::BLACK.alpha(0.3)), (0.0, Color::WHITE)] {
+            let off = DVec2::splat(off);
+            let iso = view.w2s_iso((pw - off).into());
+            let (text_cmd, _) = cmd.text(iso, &text, view.meters(2.0), color);
             cmd.apply(text_cmd);
         }
 
         {
             let p = DVec2::new(20.0, 20.0);
-            let (text_cmd, _) = cmd.text(p, &text, 32.0);
+            let (text_cmd, _) = cmd.text(p, &text, 32.0, Color::WHITE);
             cmd.apply(text_cmd);
         }
     }
 
-    cmd.isometry(view.w2s_iso(world.camera.isometry), 50.0);
     cmd.circle(mouse).diameter(11.0).color(Color::RED);
 
     for id in &world.selected_nodes {
         if let Some(node) = world.nodes.get(*id) {
             cmd.circle(view.world_to_screen(node.pos))
-                .radii(25.0, 30.0)
+                .radii(15.0, 25.0)
                 .color(Color::ORANGE);
         }
     }
-    if let Some(node) = world.hovered_node {
-        if let Some(node) = world.nodes.get(node) {
-            cmd.circle(view.world_to_screen(node.pos))
-                .radii(35.0, 40.0)
-                .color(Color::PURPLE);
+    if let Some(node_id) = world.hovered_node {
+        if let Some(node) = world.nodes.get(node_id) {
+            let p = view.world_to_screen(node.pos);
+            cmd.circle(p).radii(25.0, 35.0).color(Color::PURPLE);
+            let (b, _) = cmd.text(p, format!("{:?}", node_id), 40.0, Color::WHITE);
+            cmd.apply(b);
         }
     }
 }

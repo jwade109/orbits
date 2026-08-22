@@ -1,23 +1,23 @@
 use glam::DVec2;
 
 pub struct BezierCurve {
-    pub a: DVec2,
-    pub b: DVec2,
-    pub c: DVec2,
+    pub points: Vec<DVec2>,
+}
+
+fn eval_once(points: Vec<DVec2>, t: f64) -> Vec<DVec2> {
+    points.windows(2).map(|w| w[0].lerp(w[1], t)).collect()
 }
 
 impl BezierCurve {
-    pub fn new(a: impl Into<DVec2>, b: impl Into<DVec2>, c: impl Into<DVec2>) -> Self {
-        Self {
-            a: a.into(),
-            b: b.into(),
-            c: c.into(),
-        }
+    pub fn new(points: Vec<DVec2>) -> Self {
+        Self { points }
     }
 
     pub fn eval(&self, t: f64) -> DVec2 {
-        let m = self.a.lerp(self.b, t);
-        let n = self.b.lerp(self.c, t);
-        m.lerp(n, t)
+        let mut p = self.points.clone();
+        while p.len() > 1 {
+            p = eval_once(p, t);
+        }
+        p[0]
     }
 }
