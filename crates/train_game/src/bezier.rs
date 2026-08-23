@@ -1,4 +1,4 @@
-use bary_core::prelude::Isometry2d;
+use bary_core::prelude::{Isometry2d, linspace_f64};
 use glam::DVec2;
 
 enum BezierOrder {
@@ -85,6 +85,17 @@ impl BezierCurve {
 
     pub fn points(&self) -> impl Iterator<Item = &DVec2> {
         self.order.iter()
+    }
+
+    pub fn linestring(&self, tmin: f64, tmax: f64, n: usize) -> Vec<Isometry2d> {
+        if self.is_linear() {
+            vec![self.eval(0.0), self.eval(1.0)]
+        } else {
+            linspace_f64(tmin, tmax, n)
+                .iter()
+                .map(|t| self.eval(*t))
+                .collect()
+        }
     }
 
     pub fn eval(&self, t: f64) -> Isometry2d {

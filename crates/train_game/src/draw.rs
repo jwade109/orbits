@@ -3,7 +3,7 @@ use std::time::Instant;
 use crate::bezier::BezierCurve;
 use crate::event_bus::EventBus;
 use crate::railcar::RailCar;
-use crate::track::TrackSegment;
+use crate::track::{TrackSegment, find_nearest_track};
 use crate::tweens::AnimationStates;
 use crate::viewport::Viewport;
 use crate::world::*;
@@ -37,17 +37,24 @@ fn draw_button(
 
 fn draw_grid_lines(cmd: &mut RenderCommands, view: &Viewport) {
     let n_lines = 500;
-    let spacing = 25;
+
+    let spacing = if view.zoom() > 2.0 {
+        25
+    } else if view.zoom() > 1.0 {
+        250
+    } else {
+        1000
+    };
 
     for x in -n_lines..=n_lines {
         let x = x * spacing;
-        let s = DVec2::new(x as f64, -10000.0);
-        let e = DVec2::new(x as f64, 10000.0);
+        let s = DVec2::new(x as f64, -(spacing * n_lines) as f64);
+        let e = DVec2::new(x as f64, (spacing * n_lines) as f64);
         cmd.line(view.world_to_screen(s), view.world_to_screen(e))
             .color(Color::GRAY.alpha(0.5))
             .thickness(3.0);
-        let s = DVec2::new(-10000.0, x as f64);
-        let e = DVec2::new(10000.0, x as f64);
+        let s = DVec2::new(-(spacing * n_lines) as f64, x as f64);
+        let e = DVec2::new((spacing * n_lines) as f64, x as f64);
         cmd.line(view.world_to_screen(s), view.world_to_screen(e))
             .color(Color::GRAY.alpha(0.5))
             .thickness(3.0);
@@ -68,23 +75,26 @@ fn draw_font_ui(cmd: &mut RenderCommands, events: &mut EventBus, mouse: DVec2, i
     }
 }
 
-fn draw_bezier(cmd: &mut RenderCommands, bezier: &BezierCurve, view: &Viewport) {
-    let points = if bezier.is_linear() {
-        vec![
-            view.world_to_screen(bezier.start()),
-            view.world_to_screen(bezier.end()),
-        ]
-    } else {
-        linspace_f64(0.0, 1.0, 40)
-            .iter()
-            .map(|t| view.world_to_screen(bezier.eval(*t).translation.as_dvec2()))
-            .collect()
-    };
+fn draw_bezier(
+    cmd: &mut RenderCommands,
+    bezier: &BezierCurve,
+    view: &Viewport,
+    handles: bool,
+    color: Color,
+    thickness: f64,
+) {
+    if handles && !bezier.is_linear() {
+        let handles = bezier.points().map(|p| view.world_to_screen(*p)).collect();
+        cmd.linestring(handles).thickness(3.0).color(Color::PURPLE);
+    }
 
-    let handles = bezier.points().map(|p| view.world_to_screen(*p)).collect();
+    let points = bezier
+        .linestring(0.0, 1.0, 30)
+        .into_iter()
+        .map(|p| view.world_to_screen(p.translation.as_dvec2()))
+        .collect();
 
-    cmd.linestring(handles).thickness(3.0).color(Color::PURPLE);
-    cmd.linestring(points).thickness(5.0);
+    cmd.linestring(points).thickness(thickness).color(color);
 }
 
 fn draw_track(
@@ -92,6 +102,9 @@ fn draw_track(
     track: &TrackSegment,
     world: &World,
     view: &Viewport,
+    handles: bool,
+    color: Color,
+    thickness: f64,
 ) -> Option<()> {
     let points: Option<Vec<_>> = track
         .nodes
@@ -100,16 +113,18 @@ fn draw_track(
         .collect();
     let points = points?;
     let bezier = BezierCurve::new(points)?;
-    draw_bezier(cmd, &bezier, view);
+    draw_bezier(cmd, &bezier, view, handles, color, thickness);
 
     Some(())
 }
 
-fn draw_tracks(cmd: &mut RenderCommands, world: &World, view: &Viewport) {
+fn draw_tracks(cmd: &mut RenderCommands, world: &World, view: &Viewport, handles: bool) {
     for segment in world.segments.values() {
-        _ = draw_track(cmd, segment, world, view);
+        _ = draw_track(cmd, segment, world, view, handles, Color::BLACK, 6.0);
     }
+}
 
+fn draw_track_nodes(cmd: &mut RenderCommands, world: &World, view: &Viewport) {
     for node in world.nodes.values() {
         let p = view.world_to_screen(node.pos);
         if node.tracks.is_empty() {
@@ -127,7 +142,7 @@ pub fn draw_railcar(cmd: &mut RenderCommands, iso: impl Into<Isometry2d>, view: 
     );
     let iso = iso.into();
     let iso = view.w2s_iso(iso);
-    cmd.rect(iso).color(Color::PURPLE).dims(dims).centered();
+    cmd.rect(iso).color(Color::BLACK).dims(dims).centered();
 }
 
 pub fn draw_world(
@@ -141,11 +156,17 @@ pub fn draw_world(
 ) {
     let view = Viewport::new(world.camera, screen_width);
 
+    let shift = input.is_key_pressed(rdev::Key::ShiftLeft);
+
     draw_grid_lines(cmd, &view);
 
     draw_font_ui(cmd, events, mouse, input);
 
-    draw_tracks(cmd, world, &view);
+    draw_tracks(cmd, world, &view, shift);
+
+    if shift {
+        draw_track_nodes(cmd, world, &view);
+    }
 
     cmd.current_font_id = world.current_font_id;
 
@@ -184,8 +205,20 @@ pub fn draw_world(
         }
     }
 
-    cmd.circle(mouse).diameter(11.0).color(Color::RED);
+    let mouse_world = view.screen_to_world(mouse);
 
+    if let Some(track_id) = find_nearest_track(world, mouse_world) {
+        let track = world.segments.get(track_id).unwrap();
+        draw_track(
+            cmd,
+            track,
+            world,
+            &view,
+            false,
+            Color::ORANGE.alpha(0.3),
+            20.0,
+        );
+    }
     for id in &world.selected_nodes {
         if let Some(node) = world.nodes.get(*id) {
             cmd.circle(view.world_to_screen(node.pos))
@@ -202,14 +235,14 @@ pub fn draw_world(
         }
     }
 
-    if input.is_key_pressed(rdev::Key::ShiftLeft) {
-        for segment in world.segments.values() {
-            if let Some(b) = segment.to_bezier(&world.nodes) {
-                for t in linspace_f64(0.1, 0.9, 5) {
-                    let p = b.eval(t);
-                    draw_railcar(cmd, p, &view);
-                }
+    for segment in world.segments.values() {
+        if let Some(b) = segment.to_bezier(&world.nodes) {
+            for t in linspace_f64(0.1, 0.9, 5) {
+                let p = b.eval(t);
+                draw_railcar(cmd, p, &view);
             }
         }
     }
+
+    cmd.circle(mouse).diameter(11.0).color(Color::RED);
 }

@@ -35,11 +35,11 @@ impl World {
             time: 0.0,
             camera: Camera {
                 isometry: Isometry2d::ZERO,
-                zoom: 15.0,
+                zoom: 1.5,
             },
             target_camera: Camera {
                 isometry: Isometry2d::ZERO,
-                zoom: 30.0,
+                zoom: 2.0,
             },
             selected_nodes: Vec::new(),
             hovered_node: None,
@@ -78,20 +78,9 @@ pub fn update_world(world: &mut World, dt: f64, mouse: DVec2, screen_width: DVec
 pub fn make_world() -> World {
     let mut world = World::new();
 
-    let points = vec![
-        DVec2::new(10.0, 34.0),
-        DVec2::new(30.0, 24.0),
-        DVec2::new(45.0, 80.0),
-    ];
-
-    let mut ids = Vec::new();
-
-    for pos in points {
-        let id = spawn_new_node(&mut world, pos);
-        ids.push(id);
+    if load_world(&mut world, "train_world").is_none() {
+        println!("Failed to load world");
     }
-
-    spawn_new_track(&mut world, ids);
 
     world
 }
@@ -124,7 +113,7 @@ pub fn process_input(
         }
     }
 
-    world.target_camera.zoom = world.target_camera.zoom.clamp(1.0, 200.0);
+    world.target_camera.zoom = world.target_camera.zoom.clamp(0.1, 200.0);
 
     let n = input.is_key_pressed(Key::KeyW) && !input.is_key_pressed(Key::ControlLeft);
     let w = input.is_key_pressed(Key::KeyA) && !input.is_key_pressed(Key::ControlLeft);
@@ -155,7 +144,7 @@ pub fn process_input(
 
     let shift = input.is_key_pressed(Key::ShiftLeft);
 
-    if input.just_pressed(Key::KeyC) {
+    if input.just_pressed_debounced(Key::KeyC) {
         let new_id = spawn_new_node(world, mouse_world);
         if !world.selected_nodes.is_empty() {
             let mut nodes = world.selected_nodes.clone();
@@ -165,9 +154,11 @@ pub fn process_input(
         }
     }
 
-    if input.just_pressed(Key::KeyV) {
+    if input.just_pressed_debounced(Key::KeyV) {
         let nodes: Vec<Ent> = world.selected_nodes.clone().into_iter().collect();
-        spawn_new_track(world, nodes);
+        if spawn_new_track(world, nodes).is_none() {
+            println!("Failed to spawn new track");
+        }
     }
 
     if world.hovered_node.is_none() || !input.is_key_pressed(rdev::Button::Left) {

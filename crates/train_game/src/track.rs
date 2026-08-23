@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{bezier::BezierCurve, world::World};
 use bary_core::prelude::{Components, Ent};
@@ -27,7 +27,7 @@ pub struct TrackSegment {
 
 impl TrackSegment {
     pub fn new(nodes: Vec<Ent>) -> Option<Self> {
-        (nodes.len() >= 2).then_some(Self { nodes })
+        (2..5).contains(&nodes.len()).then_some(Self { nodes })
     }
 
     pub fn end_nodes(&self) -> [Ent; 2] {
@@ -80,8 +80,9 @@ pub fn spawn_new_track(world: &mut World, nodes: Vec<Ent>) -> Option<Ent> {
 
     let track_id = world.spawner.spawn();
 
-    for id in &track.nodes {
-        let node = world.nodes.try_get_mut(*id).ok()?;
+    for (_index, node_id) in track.nodes.iter().enumerate() {
+        let node = world.nodes.try_get_mut(*node_id).ok()?;
+        // let is_endpoint = index == 0 || index + 1 == track.nodes.len();
         node.tracks.insert(track_id);
     }
 
@@ -128,6 +129,13 @@ pub fn visit(world: &World, current: Ent, target: Ent, visited: &mut BTreeSet<En
 
 pub fn pathfind(world: &World, start: Ent, target: Ent) -> Option<()> {
     let mut visited = BTreeSet::new();
+
+    let mut open_set = BTreeSet::from([start]);
+
+    while let Some(current_node_id) = open_set.pop_first() {
+        let node = world.nodes.get(current_node_id)?;
+    }
+
     _ = visit(world, start, target, &mut visited);
     Some(())
 }
@@ -146,4 +154,22 @@ pub fn spawn_three_way_junction(world: &mut World, a: Ent, b: Ent, c: Ent) -> Op
     spawn_new_track(world, vec![b, d, c]);
 
     Some(())
+}
+
+pub fn find_nearest_track(world: &World, pos: DVec2) -> Option<Ent> {
+    let mut dist = f64::INFINITY;
+    let mut best: Option<Ent> = None;
+
+    for (track_id, track) in world.segments.iter() {
+        if let Some(b) = track.to_bezier(&world.nodes) {
+            let p = b.eval(0.5).translation.as_dvec2();
+            let d = p.distance(pos);
+            if d < dist {
+                dist = d;
+                best = Some(*track_id);
+            }
+        }
+    }
+
+    best
 }

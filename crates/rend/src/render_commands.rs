@@ -173,7 +173,6 @@ impl RenderCommands {
         color: Color,
     ) -> (BatchRenderCommand, DVec2) {
         let iso = iso.into();
-        self.isometry(iso, 30.0);
         self.paragraph(
             iso,
             self.current_font_id,

@@ -1,42 +1,93 @@
+use crate::{track::*, world::World};
+use bary_core::prelude::{Components, Ent, EntitySpawner};
+use glam::DVec2;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
-
-use crate::world::World;
+use std::{collections::BTreeMap, path::Path};
 
 fn load<T: for<'a> Deserialize<'a>>(dir: impl AsRef<Path>, name: &str) -> Option<T> {
     let dir = dir.as_ref();
-    let s = std::fs::read(dir.join(name)).ok()?;
-    let comp = bincode::deserialize(&s).ok()?;
+    let s = std::fs::read_to_string(dir.join(name)).ok()?;
+    let comp = serde_yaml::from_str(&s).ok()?;
     Some(comp)
 }
 
 fn save<T: Serialize>(val: &T, dir: impl AsRef<Path>, name: &str) -> Option<()> {
     let dir = dir.as_ref();
-    let s = bincode::serialize(val).ok()?;
+    let s = serde_yaml::to_string(val).ok()?;
     std::fs::write(dir.join(name), s).ok()?;
     Some(())
+}
+
+#[derive(Deserialize, Serialize)]
+struct TrackGeometry {
+    nodes: Components<DVec2>,
+    tracks: Components<Vec<Ent>>,
 }
 
 pub fn save_world(world: &World, path: impl AsRef<Path>) -> Option<()> {
     let path = path.as_ref();
     _ = std::fs::create_dir(path);
 
-    save(&world.spawner, path, "spawner")?;
-    save(&world.segments, path, "segments")?;
-    save(&world.nodes, path, "nodes")?;
+    let mut spawner = EntitySpawner::default();
+    let mut mapping = BTreeMap::new();
+    let mut nodes = Components::default();
+    let mut tracks = Components::default();
+
+    for (old_id, node) in world.nodes.iter() {
+        let new_id = spawner.spawn();
+        mapping.insert(*old_id, new_id);
+        nodes.spawn(new_id, node.pos);
+    }
+
+    for (_, track) in world.segments.iter() {
+        let new_id = spawner.spawn();
+        let new_ids = track
+            .nodes
+            .clone()
+            .into_iter()
+            .map(|old_id| *mapping.get(&old_id).unwrap())
+            .collect();
+        tracks.spawn(new_id, new_ids);
+    }
+
+    let geometry = TrackGeometry { nodes, tracks };
+
+    save(&world.spawner, path, "spawner.yaml")?;
+    save(&world.segments, path, "segments.yaml")?;
+    save(&world.nodes, path, "nodes.yaml")?;
+    save(&geometry, path, "geometry.yaml")?;
     Some(())
 }
 
 pub fn load_world(world: &mut World, path: impl AsRef<Path>) -> Option<()> {
     let path = path.as_ref();
 
-    let spawner = load(path, "spawner")?;
-    let segments = load(path, "segments")?;
-    let nodes = load(path, "nodes")?;
+    let geometry: TrackGeometry = load(path, "geometry.yaml")?;
+    let mut mapping = BTreeMap::new();
 
-    world.spawner = spawner;
-    world.segments = segments;
-    world.nodes = nodes;
+    world.nodes.clear();
+    world.segments.clear();
+
+    for (stored_id, pos) in geometry.nodes.iter() {
+        let new_id = spawn_new_node(world, *pos);
+        mapping.insert(*stored_id, new_id);
+    }
+
+    for (_, stored_ids) in geometry.tracks.iter() {
+        let new_ids = stored_ids
+            .iter()
+            .map(|id| *mapping.get(id).unwrap())
+            .collect();
+        spawn_new_track(world, new_ids);
+    }
+
+    // let spawner = load(path, "spawner.yaml")?;
+    // let segments = load(path, "segments.yaml")?;
+    // let nodes = load(path, "nodes.yaml")?;
+
+    // world.spawner = spawner;
+    // world.segments = segments;
+    // world.nodes = nodes;
 
     Some(())
 }

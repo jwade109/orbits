@@ -3649,6 +3649,7 @@ dependencies = [
  "rdev",
  "rend",
  "serde",
+ "serde_yaml",
 ]
 
 [[package]]
