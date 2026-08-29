@@ -44,11 +44,10 @@ fn vs_main(vertex: Vertex) -> VertexShaderOutput {
     let h = data.screen_height;
     let t = data.thickness / 2.0;
 
-    out.length = length(end - start);
-    out.width = data.thickness;
+    out.length = length(end - start) + data.thickness;
+    out.width = data.thickness * 2.0;
 
     let line_angle = atan2(end.y - start.y, end.x - start.x);
-    let end_cap_offset = vec2<f32>(t, t);
 
     let a = start + rotate_vector(vec2<f32>(-t,  t), line_angle);
     let b = start + rotate_vector(vec2<f32>(-t, -t), line_angle);
@@ -65,7 +64,6 @@ fn vs_main(vertex: Vertex) -> VertexShaderOutput {
     );
 
     var pos = positions[vertex.vertex_index] * 2.0 - 1.0;
-    // pos.y *= -1.0;
     out.position = vec4<f32>(pos, 1.0, 1.0);
     out.instance_index = vertex.instance_index;
     out.uv = vertex.uv;
@@ -79,6 +77,10 @@ fn sdf_segment(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
     return length(pa - ba * h);
 }
 
+fn sdf_circle(p: vec2f, c: vec2f) -> f32 {
+    return length(p - c);
+}
+
 @fragment
 fn fs_main(in: VertexShaderOutput) -> @location(0) vec4<f32> {
     var data = line_data[in.instance_index];
@@ -87,29 +89,17 @@ fn fs_main(in: VertexShaderOutput) -> @location(0) vec4<f32> {
     data.color.g = pow(data.color.g, 2.2);
     data.color.b = pow(data.color.b, 2.2);
 
-    let t = data.thickness / 2.0;
+    let t = data.thickness;
 
     let a = vec2<f32>(t, t);
-    let b = vec2<f32>(t, in.length - t);
+    let b = vec2<f32>(t, in.length * 2.0 - t);
 
-    let p = in.uv * vec2<f32>(in.width, in.length);
+    let p = in.uv * vec2<f32>(in.width, in.length * 2.0);
 
     let d = sdf_segment(p, a, b);
 
-    let alpha = 1.0 - smoothstep(t - 2.0, t, d);
+    let alpha = 1.0 - smoothstep(t - 3.0, t, d);
     data.color.a *= alpha;
 
-    // let x = in.uv.x * in.width;
-    // let y = in.uv.y * in.length;
-    // let p = vec2<f32>(x, y) - vec2<f32>(in.width, in.length) / 2.0;
-
-    // let start = data.position.xy;
-    // let end = data.position.zw;
-
-    // let dist = sdf_box(p, vec2<f32>(in.width, in.length) / 2.0);
-
-    // let alpha = 1.0 - smoothstep(-3.0, -1.0, dist);
-    // data.color.a *= alpha;
-
-    return data.color; // vec4<f32>(in.uv, 0.0, 1.0);
+    return data.color;
 }

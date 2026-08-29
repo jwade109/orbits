@@ -1,6 +1,8 @@
 use bary_core::prelude::{Isometry2d, linspace_f64};
 use glam::DVec2;
+use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
 enum BezierOrder {
     Linear([DVec2; 2]),
     Quadratic([DVec2; 3]),
@@ -67,6 +69,7 @@ impl BezierOrder {
     }
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct BezierCurve {
     order: BezierOrder,
 }
@@ -96,6 +99,26 @@ impl BezierCurve {
                 .map(|t| self.eval(*t))
                 .collect()
         }
+    }
+
+    pub fn length(&self) -> f64 {
+        let ls = self.linestring(0.0, 1.0, 30);
+        ls.windows(2)
+            .map(|p| {
+                let a = p[0].translation.as_dvec2();
+                let b = p[1].translation.as_dvec2();
+                a.distance(b)
+            })
+            .sum()
+    }
+
+    pub fn length_between(&self, t0: f64, tf: f64, n: usize) -> f64 {
+        let points: Vec<_> = linspace_f64(t0, tf, n)
+            .into_iter()
+            .map(|t| self.eval(t).translation)
+            .collect();
+
+        points.windows(2).map(|w| w[0].distance(w[1]) as f64).sum()
     }
 
     pub fn eval(&self, t: f64) -> Isometry2d {

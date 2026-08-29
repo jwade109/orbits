@@ -1,30 +1,47 @@
+use std::collections::BTreeMap;
 use std::time::Instant;
 
 use bary_core::prelude::*;
 use bary_input::InputState;
 use bary_sim::Camera;
 use rdev::Key;
+use rend::Color;
 
+use crate::node::*;
 use crate::persistence::*;
-use crate::track::{
-    Node, TrackSegment, despawn_node, pathfind, spawn_new_node, spawn_new_track,
-    spawn_three_way_junction,
-};
+use crate::railcar::spawn_new_car;
+use crate::railcar::{RailCar, get_next_track};
+use crate::terrain::*;
+use crate::track::*;
 use crate::viewport::Viewport;
+
+pub const MOUSEOVER_RADIUS: f64 = 60.0;
 
 pub struct World {
     pub ticks: u64,
     pub current_font_id: usize,
     pub time: f64,
+    pub show_detail: bool,
+
     pub camera: Camera,
     pub target_camera: Camera,
+
     pub hovered_node: Option<Ent>,
     pub pressed_node: Option<(Ent, Instant)>,
     pub selected_nodes: Vec<Ent>,
+    pub hovered_track: Option<Ent>,
+    pub selected_track: Option<Ent>,
+    pub hovered_chunk: Option<ChunkIndex>,
 
     pub spawner: EntitySpawner,
     pub nodes: Components<Node>,
     pub segments: Components<TrackSegment>,
+    pub cars: Components<RailCar>,
+
+    pub chunks: Components<TerrainChunk>,
+    pub chunk_map: BTreeMap<ChunkIndex, Ent>,
+
+    pub calculated_route: Option<Route>,
 }
 
 impl World {
@@ -33,20 +50,28 @@ impl World {
             ticks: 0,
             current_font_id: 0,
             time: 0.0,
+            show_detail: false,
             camera: Camera {
                 isometry: Isometry2d::ZERO,
-                zoom: 1.5,
+                zoom: 0.3,
             },
             target_camera: Camera {
                 isometry: Isometry2d::ZERO,
-                zoom: 2.0,
+                zoom: 0.28,
             },
             selected_nodes: Vec::new(),
             hovered_node: None,
             pressed_node: None,
+            hovered_track: None,
+            selected_track: None,
+            hovered_chunk: None,
             spawner: EntitySpawner::default(),
             nodes: Components::default(),
             segments: Components::default(),
+            cars: Components::default(),
+            chunks: Components::default(),
+            chunk_map: BTreeMap::new(),
+            calculated_route: None,
         }
     }
 }
@@ -54,6 +79,39 @@ impl World {
 pub fn update_world(world: &mut World, dt: f64, mouse: DVec2, screen_width: DVec2) {
     world.time += dt;
     world.ticks += 1;
+
+    let mut needs_reparenting = Vec::new();
+
+    for (car_id, car) in world.cars.iter_mut() {
+        car.step(dt);
+
+        let Some(track) = world.segments.get(car.segment) else {
+            continue;
+        };
+
+        if car.pos > track.length {
+            let junction = track.get_node_at(car.origin.other());
+            needs_reparenting.push((*car_id, car.segment, junction));
+        } else if car.pos < 0.0 {
+            let junction = track.get_node_at(car.origin);
+            needs_reparenting.push((*car_id, car.segment, junction));
+        }
+    }
+
+    for (car_id, track_id, node_id) in needs_reparenting {
+        if let Some((id, term)) = get_next_track(world, node_id, track_id) {
+            if let Ok(car) = world.cars.try_get_mut(car_id) {
+                car.segment = id;
+                car.pos = 0.0;
+                car.origin = term;
+            }
+        } else {
+            if let Ok(car) = world.cars.try_get_mut(car_id) {
+                car.pos = 0.0;
+                car.origin = car.origin.other();
+            }
+        }
+    }
 
     world.camera.isometry.translation +=
         (world.target_camera.isometry.translation - world.camera.isometry.translation) * 0.2;
@@ -63,20 +121,40 @@ pub fn update_world(world: &mut World, dt: f64, mouse: DVec2, screen_width: DVec
 
     let view = Viewport::new(world.camera, screen_width);
 
-    let mut best_dist = 60.0;
-    world.hovered_node = None;
-    for (id, node) in world.nodes.iter() {
-        let node_screen = view.world_to_screen(node.pos);
-        let d = node_screen.distance(mouse);
-        if d < best_dist {
-            world.hovered_node = Some(*id);
-            best_dist = d;
+    {
+        let mut best_dist = MOUSEOVER_RADIUS;
+        if world.pressed_node.is_none() {
+            world.hovered_node = None;
+            for (id, node) in world.nodes.iter() {
+                let node_screen = view.world_to_screen(node.pos());
+                let d = node_screen.distance(mouse);
+                if d < best_dist {
+                    world.hovered_node = Some(*id);
+                    best_dist = d;
+                }
+            }
         }
     }
+
+    {
+        let mut best_dist = MOUSEOVER_RADIUS;
+        world.hovered_track = None;
+        for (id, track) in world.segments.iter() {
+            let p = track.center.translation.as_dvec2();
+            let sc = view.world_to_screen(p);
+            let d = sc.distance(mouse);
+            if d < best_dist {
+                best_dist = d;
+                world.hovered_track = Some(*id);
+            }
+        }
+    }
+
+    world.hovered_chunk = Some(get_chunk_index(view.screen_to_world(mouse)));
 }
 
 pub fn make_world() -> World {
-    let mut world = World::new();
+    let mut world: World = World::new();
 
     if load_world(&mut world, "train_world").is_none() {
         println!("Failed to load world");
@@ -99,6 +177,10 @@ pub fn process_input(
         world.target_camera.zoom *= 1.03;
     }
 
+    if input.just_pressed_debounced(Key::ControlLeft) {
+        world.show_detail ^= true;
+    }
+
     for event in input.events() {
         if let rdev::EventType::Wheel {
             delta_x: _,
@@ -113,7 +195,7 @@ pub fn process_input(
         }
     }
 
-    world.target_camera.zoom = world.target_camera.zoom.clamp(0.1, 200.0);
+    world.target_camera.zoom = world.target_camera.zoom.clamp(0.01, 200.0);
 
     let n = input.is_key_pressed(Key::KeyW) && !input.is_key_pressed(Key::ControlLeft);
     let w = input.is_key_pressed(Key::KeyA) && !input.is_key_pressed(Key::ControlLeft);
@@ -145,13 +227,7 @@ pub fn process_input(
     let shift = input.is_key_pressed(Key::ShiftLeft);
 
     if input.just_pressed_debounced(Key::KeyC) {
-        let new_id = spawn_new_node(world, mouse_world);
-        if !world.selected_nodes.is_empty() {
-            let mut nodes = world.selected_nodes.clone();
-            nodes.push(new_id);
-            spawn_new_track(world, nodes);
-            world.selected_nodes = vec![new_id];
-        }
+        spawn_new_node(world, mouse_world);
     }
 
     if input.just_pressed_debounced(Key::KeyV) {
@@ -190,21 +266,47 @@ pub fn process_input(
     }
 
     if input.just_pressed_debounced(rdev::Button::Right) {
-        if let Some(id) = world.hovered_node {
-            _ = despawn_node(world, id);
+        if let Some(track_id) = world.hovered_track {
+            _ = despawn_track(world, track_id);
+        } else if let Some(node_id) = world.hovered_node {
+            _ = despawn_node(world, node_id);
         }
     }
 
-    if let Some(ids) = world.selected_nodes.get(0..2)
-        && input.just_pressed_debounced(Key::KeyN)
-    {
-        pathfind(world, ids[0], ids[1]);
+    if input.just_pressed_debounced(Key::KeyN) {
+        if let Some(ids) = world.selected_nodes.get(0..2) {
+            world.calculated_route = pathfind(world, ids[0], ids[1]);
+        } else {
+            world.calculated_route = None;
+        }
     }
 
     if let Some(ids) = world.selected_nodes.get(0..3)
-        && input.just_pressed_debounced(Key::KeyJ)
+        && input.just_pressed_debounced(Key::Num3)
     {
         spawn_three_way_junction(world, ids[0], ids[1], ids[2]);
+    }
+
+    if let Some(ids) = world.selected_nodes.get(0..4)
+        && input.just_pressed_debounced(Key::Num4)
+    {
+        spawn_four_way_junction(world, ids[0], ids[1], ids[2], ids[3]);
+    }
+
+    if input.just_pressed_debounced(Key::Num5) {
+        spawn_very_large_track(world, &world.selected_nodes.clone());
+    }
+
+    if input.just_pressed_debounced(Key::KeyJ) {
+        for id in world.selected_nodes.clone() {
+            update_switch_node(world, id);
+        }
+    }
+
+    if input.is_key_pressed(Key::KeyG) {
+        if let Some(track_id) = world.hovered_track {
+            spawn_new_car(world, track_id);
+        }
     }
 
     let mouse_world = view.screen_to_world(mouse);
@@ -212,10 +314,8 @@ pub fn process_input(
     let now = Instant::now();
     if let Some((node_id, time)) = world.pressed_node {
         let delta = now - time;
-        if delta.as_secs_f64() > 0.6
-            && let Some(node) = world.nodes.try_get_mut(node_id).ok()
-        {
-            node.pos = mouse_world;
+        if delta.as_secs_f64() > 0.6 {
+            move_node(world, node_id, mouse_world);
         }
     }
 

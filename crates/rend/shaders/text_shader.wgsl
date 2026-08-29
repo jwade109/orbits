@@ -109,7 +109,7 @@ fn fs_main(in: VertexShaderOutput) -> @location(0) vec4<f32> {
     // }
 
     // let alpha = sqrt(sqrt(round(l * 5.0) / 5.0));
-    let alpha = smoothstep(0.16, 0.21, l);
+    let alpha = smoothstep(0.12, 0.21, l);
 
     return vec4<f32>(col.xyz, col.w * alpha);
 }

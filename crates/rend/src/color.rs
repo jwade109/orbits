@@ -21,6 +21,9 @@ impl Color {
 
     pub const LIGHT_BLUE: Self = Self::BLUE.mix(Self::WHITE, 0.5);
 
+    // "rgb(23, 86, 22)"
+    pub const FOREST_GREEN: Self = Self::rgb(23, 86, 22, 1.0);
+
     // "rgb(255, 90, 0)"
     pub const ORANGE: Self = Self::rgb(255, 90, 0, 1.0);
 

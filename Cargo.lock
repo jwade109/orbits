@@ -3629,30 +3629,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rend_client"
-version = "0.1.0"
-dependencies = [
- "bary_core",
- "bary_input",
- "bary_ipc",
- "bary_orbital",
- "bary_sim",
- "bary_ui",
- "bincode",
- "enum-iterator",
- "glam 0.30.10",
- "glfw",
- "glm",
- "kira",
- "pollster 1.0.1",
- "rand 0.10.2",
- "rdev",
- "rend",
- "serde",
- "serde_yaml",
-]
-
-[[package]]
 name = "renderdoc-sys"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4484,6 +4460,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db97caf9d906fbde555dd62fa95ddba9eecfd14cb388e4f491a66d74cd5fb79a"
 dependencies = [
  "once_cell",
+]
+
+[[package]]
+name = "train_game"
+version = "0.1.0"
+dependencies = [
+ "bary_core",
+ "bary_input",
+ "bary_ipc",
+ "bary_orbital",
+ "bary_sim",
+ "bary_ui",
+ "bincode",
+ "enum-iterator",
+ "glam 0.30.10",
+ "glfw",
+ "glm",
+ "kira",
+ "pollster 1.0.1",
+ "rand 0.10.2",
+ "rdev",
+ "rend",
+ "serde",
+ "serde_yaml",
+ "splines",
 ]
 
 [[package]]

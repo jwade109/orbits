@@ -183,12 +183,20 @@ impl RenderCommands {
         )
     }
 
-    pub fn frame(&mut self, p: impl Into<DVec2>, q: impl Into<DVec2>) -> LineStringBuilder<'_> {
-        let p = p.into();
-        let q = q.into();
-        let a = DVec2::new(p.x, q.y);
-        let b = DVec2::new(q.x, p.y);
-        self.linestring(vec![p, a, q, b, p])
+    pub fn frame(
+        &mut self,
+        iso: impl Into<Isometry2d>,
+        dims: impl Into<DVec2>,
+    ) -> LineStringBuilder<'_> {
+        let iso = iso.into();
+        let dims = dims.into();
+
+        let a = iso.tr();
+        let b = iso.offset(DVec2::X * dims.x).tr();
+        let c = iso.offset(dims).tr();
+        let d = iso.offset(DVec2::Y * dims.y).tr();
+
+        self.linestring(vec![a, b, c, d, a])
     }
 
     pub fn paragraph(
@@ -251,9 +259,9 @@ impl<'a> TextBuilder<'a> {
                 continue;
             };
 
-            if ch == ' ' && col_offset == 0 {
-                continue;
-            }
+            // if ch == ' ' && col_offset == 0 {
+            //     continue;
+            // }
 
             if ch != ' ' {
                 let dims = DVec2::new(data.width as f64, data.height as f64) * font_size;

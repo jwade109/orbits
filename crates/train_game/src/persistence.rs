@@ -1,4 +1,4 @@
-use crate::{track::*, world::World};
+use crate::{node::*, track::*, world::World};
 use bary_core::prelude::{Components, Ent, EntitySpawner};
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
@@ -36,7 +36,7 @@ pub fn save_world(world: &World, path: impl AsRef<Path>) -> Option<()> {
     for (old_id, node) in world.nodes.iter() {
         let new_id = spawner.spawn();
         mapping.insert(*old_id, new_id);
-        nodes.spawn(new_id, node.pos);
+        nodes.spawn(new_id, node.pos());
     }
 
     for (_, track) in world.segments.iter() {
@@ -52,10 +52,8 @@ pub fn save_world(world: &World, path: impl AsRef<Path>) -> Option<()> {
 
     let geometry = TrackGeometry { nodes, tracks };
 
-    save(&world.spawner, path, "spawner.yaml")?;
-    save(&world.segments, path, "segments.yaml")?;
-    save(&world.nodes, path, "nodes.yaml")?;
     save(&geometry, path, "geometry.yaml")?;
+
     Some(())
 }
 
@@ -80,14 +78,6 @@ pub fn load_world(world: &mut World, path: impl AsRef<Path>) -> Option<()> {
             .collect();
         spawn_new_track(world, new_ids);
     }
-
-    // let spawner = load(path, "spawner.yaml")?;
-    // let segments = load(path, "segments.yaml")?;
-    // let nodes = load(path, "nodes.yaml")?;
-
-    // world.spawner = spawner;
-    // world.segments = segments;
-    // world.nodes = nodes;
 
     Some(())
 }

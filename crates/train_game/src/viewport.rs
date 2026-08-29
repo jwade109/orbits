@@ -31,9 +31,13 @@ impl Viewport {
         self.zoom() * x
     }
 
+    pub fn dims(&self) -> DVec2 {
+        self.screen_width
+    }
+
     pub fn w2s_iso(&self, iso: Isometry2d) -> Isometry2d {
         let p = self.world_to_screen(iso.translation.as_dvec2());
-        let angle =  iso.rotation - self.camera.isometry.rotation;
+        let angle = iso.rotation - self.camera.isometry.rotation;
         Isometry2d::new(p.as_vec2(), angle)
     }
 }

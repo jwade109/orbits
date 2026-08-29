@@ -10,12 +10,14 @@ use glfw::*;
 use rend::*;
 use std::{collections::BTreeMap, thread::JoinHandle, time::Instant};
 
-mod persistence;
 mod bezier;
 mod draw;
 mod event_bus;
+mod node;
+mod persistence;
 mod railcar;
 mod rend_app;
+mod terrain;
 mod track;
 mod tweens;
 mod viewport;

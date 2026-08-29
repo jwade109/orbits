@@ -27,9 +27,9 @@ impl Isometry2d {
         }
     }
 
-    pub fn from_pos(pos: Vec2) -> Self {
+    pub fn from_pos(pos: impl Into<DVec2>) -> Self {
         Self {
-            translation: pos,
+            translation: pos.into().as_vec2(),
             rotation: 0.0,
         }
     }
@@ -42,7 +42,8 @@ impl Isometry2d {
         rotate(Vec2::Y, self.rotation)
     }
 
-    pub fn offset(&self, offset: Vec2) -> Self {
+    pub fn offset(&self, offset: impl Into<DVec2>) -> Self {
+        let offset = offset.into().as_vec2();
         let mut ret = *self;
         ret.translation += ret.local_x() * offset.x + ret.local_y() * offset.y;
         ret
@@ -55,6 +56,16 @@ impl Isometry2d {
 
     pub fn to_tuple(&self) -> (f32, f32, f32) {
         (self.translation.x, self.translation.y, self.rotation)
+    }
+
+    pub fn in_frame(&self, p: DVec2) -> DVec2 {
+        let offset = p - self.translation.as_dvec2();
+        let yaw = self.rotation as f64;
+        rotate_f64(offset, -yaw)
+    }
+
+    pub fn tr(&self) -> DVec2 {
+        self.translation.as_dvec2()
     }
 }
 
@@ -105,6 +116,15 @@ impl From<(f32, f32)> for Isometry2d {
     fn from((x, y): (f32, f32)) -> Self {
         Self {
             translation: Vec2::new(x, y),
+            rotation: 0.0,
+        }
+    }
+}
+
+impl From<(f64, f64)> for Isometry2d {
+    fn from((x, y): (f64, f64)) -> Self {
+        Self {
+            translation: Vec2::new(x as f32, y as f32),
             rotation: 0.0,
         }
     }
