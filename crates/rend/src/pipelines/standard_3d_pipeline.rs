@@ -1,3 +1,4 @@
+use crate::Texture;
 use crate::*;
 use wgpu::util::DeviceExt;
 use wgpu::*;
@@ -15,10 +16,11 @@ impl Standard3DPipeline {
     pub fn new(
         device: &Device,
         ubo_bind_group_layout: &BindGroupLayout,
-        material_bind_group_layout: &BindGroupLayout,
         time_etc_data_bind_group: &BindGroupLayout,
         config: &SurfaceConfiguration,
     ) -> Self {
+        let bgl = Texture::make_bind_group_layout(device, "Texture Bind Group Layout");
+
         let camera_projection_bind_group_layout = {
             let mut builder = BindGroupLayoutBuilder::new(&device);
             builder.add_ubo();
@@ -34,7 +36,7 @@ impl Standard3DPipeline {
         let mut builder = PipelineBuilder::new(&device);
         let shader = Shader::from_path("crates/rend/shaders/texture.wgsl");
         builder.add_bind_group_layout(ubo_bind_group_layout);
-        builder.add_bind_group_layout(material_bind_group_layout);
+        builder.add_bind_group_layout(&bgl);
         builder.add_bind_group_layout(time_etc_data_bind_group);
         builder.add_bind_group_layout(&camera_projection_bind_group_layout);
         builder.add_bind_group_layout(&lighting_bind_group_layout);
@@ -49,7 +51,7 @@ impl Standard3DPipeline {
         let wireframe = {
             let mut builder = PipelineBuilder::new(&device);
             builder.add_bind_group_layout(&ubo_bind_group_layout);
-            builder.add_bind_group_layout(&material_bind_group_layout);
+            builder.add_bind_group_layout(&bgl);
             builder.add_bind_group_layout(&time_etc_data_bind_group);
             builder.add_bind_group_layout(&camera_projection_bind_group_layout);
             builder.add_bind_group_layout(&lighting_bind_group_layout);

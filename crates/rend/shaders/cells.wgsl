@@ -27,25 +27,6 @@ fn vs_main(vertex: Vertex) -> VertexShaderOutput {
     return out;
 }
 
-fn smin( a: f32, b: f32, k: f32 ) -> f32
-{
-    let r = exp2(-a/k) + exp2(-b/k);
-    return -k*log2(r);
-}
-
-fn rand(x: f32) -> f32 {
-    let v = vec2<f32>(x, x);
-    return fract(sin(dot(v, vec2<f32>(12.9898, 78.233))) * 43758.5453);
-}
-
-fn rgb_to_vec3(r: u32, g: u32, b: u32) -> vec3<f32>
-{
-    let rf = pow(f32(r) / 255.0, 2.2);
-    let gf = pow(f32(g) / 255.0, 2.2);
-    let bf = pow(f32(b) / 255.0, 2.2);
-    return vec3<f32>(rf, gf, bf);
-}
-
 fn get_lava_lamp_color(in: VertexShaderOutput) -> vec4<f32> {
 
     let PURPLE =      rgb_to_vec3(87u,  16u,  110u); // rgb(87, 16, 110);

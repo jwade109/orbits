@@ -112,15 +112,6 @@ impl BezierCurve {
             .sum()
     }
 
-    pub fn length_between(&self, t0: f64, tf: f64, n: usize) -> f64 {
-        let points: Vec<_> = linspace_f64(t0, tf, n)
-            .into_iter()
-            .map(|t| self.eval(t).translation)
-            .collect();
-
-        points.windows(2).map(|w| w[0].distance(w[1]) as f64).sum()
-    }
-
     pub fn eval(&self, t: f64) -> Isometry2d {
         self.order.eval(t)
     }

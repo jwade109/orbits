@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::time::Instant;
 
 use bary_core::prelude::*;
 use bary_input::InputState;
 use bary_sim::Camera;
 use rdev::Key;
-use rend::Color;
 
 use crate::node::*;
 use crate::persistence::*;
@@ -32,6 +32,7 @@ pub struct World {
     pub hovered_track: Option<Ent>,
     pub selected_track: Option<Ent>,
     pub hovered_chunk: Option<ChunkIndex>,
+    pub ruler_start: Option<DVec2>,
 
     pub spawner: EntitySpawner,
     pub nodes: Components<Node>,
@@ -65,6 +66,7 @@ impl World {
             hovered_track: None,
             selected_track: None,
             hovered_chunk: None,
+            ruler_start: None,
             spawner: EntitySpawner::default(),
             nodes: Components::default(),
             segments: Components::default(),
@@ -158,6 +160,25 @@ pub fn make_world() -> World {
 
     if load_world(&mut world, "train_world").is_none() {
         println!("Failed to load world");
+    }
+
+    let mut new_chunks = BTreeSet::new();
+
+    for chunk in world.chunks.values() {
+        let idx = chunk.index();
+        for x in -2..=2 {
+            for y in -2..=2 {
+                let idx = idx.as_ivec2() + IVec2::new(x, y);
+                let idx = ChunkIndex::new(idx);
+                if !world.chunk_map.contains_key(&idx) {
+                    new_chunks.insert(idx);
+                }
+            }
+        }
+    }
+
+    for index in new_chunks {
+        ensure_chunk_exists(&mut world, index);
     }
 
     world
@@ -310,6 +331,34 @@ pub fn process_input(
     }
 
     let mouse_world = view.screen_to_world(mouse);
+
+    if input.is_key_pressed(Key::KeyB) {
+        let index = get_chunk_index(mouse_world);
+        let mut new_chunks = BTreeSet::new();
+        for chunk in world.chunks.values() {
+            let idx = chunk.index();
+            for x in -6..=6 {
+                for y in -6..=6 {
+                    let idx = index.as_ivec2() + IVec2::new(x, y);
+                    let idx = ChunkIndex::new(idx);
+                    if !world.chunk_map.contains_key(&idx) {
+                        new_chunks.insert(idx);
+                    }
+                }
+            }
+        }
+        for index in new_chunks {
+            ensure_chunk_exists(world, index);
+        }
+    }
+
+    if input.just_pressed_debounced(Key::ShiftLeft) {
+        world.ruler_start = Some(mouse_world);
+    }
+
+    if !input.is_key_pressed(Key::ShiftLeft) {
+        world.ruler_start = None;
+    }
 
     let now = Instant::now();
     if let Some((node_id, time)) = world.pressed_node {

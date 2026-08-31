@@ -1,19 +1,6 @@
 @group(0) @binding(0) var<uniform> rect_data: array<RectData, RECTS_PER_PASS>;
 
-const RECTS_PER_PASS: u32 = 400;
-
-struct RectData {
-    pos:      vec2f,
-    dims:     vec2f,
-    r:        f32,
-    g:        f32,
-    b:        f32,
-    a:        f32,
-    angle:    f32,
-    screen_x: f32,
-    screen_y: f32,
-    _padding: f32,
-}
+const RECTS_PER_PASS: u32 = 1300;
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
@@ -24,12 +11,6 @@ struct VertexShaderOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) color: vec4<f32>,
 };
-
-fn rotate_vector(p: vec2<f32>, angle: f32) -> vec2<f32> {
-    let cs = cos(angle);
-    let sn = sin(angle);
-    return vec2<f32>(p.x * cs - p.y * sn, p.x * sn + p.y * cs);
-}
 
 @vertex
 fn vs_main(vertex: Vertex) -> VertexShaderOutput {

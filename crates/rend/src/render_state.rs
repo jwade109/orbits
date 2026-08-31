@@ -38,6 +38,13 @@ pub struct RenderResources {
     pub fonts: HashMap<usize, (FontInfo, Texture)>,
     pub meshes: HashMap<usize, Mesh>,
     pub textures: HashMap<usize, Texture>,
+    pub memory: HashMap<usize, BufferResource>,
+
+    pub rect_data_rect: BufferResource,
+    pub rect_data_chunks: BufferResource,
+    pub height_data_rect: BufferResource,
+    pub height_data_chunks: BufferResource,
+
     pub next_resource_id: usize,
 }
 
@@ -66,6 +73,21 @@ impl RenderResources {
         let id = self.next_resource_id;
         self.next_resource_id += 1;
         self.fonts.insert(id, (font, texture));
+        id
+    }
+
+    pub fn create_memory_arena(
+        &mut self,
+        rd: &Renderer,
+        name: impl Into<String>,
+        size: usize,
+    ) -> usize {
+        let name = name.into();
+        let resource = BufferResource::new(&rd.device, size, &name);
+
+        let id = self.next_resource_id;
+        self.next_resource_id += 1;
+        self.memory.insert(id, resource);
         id
     }
 
@@ -99,8 +121,6 @@ pub struct RenderState<'a> {
 impl<'a> RenderState<'a> {
     pub async fn new(window: &'a mut glfw::Window) -> Self {
         let renderer = Renderer::new(window).await;
-
-        let bgl = material_bind_group_layout(&renderer.device, "Texture Bind Group Layout");
 
         let ubo_bind_group_layout = {
             let mut builder = BindGroupLayoutBuilder::new(&renderer.device);
@@ -139,19 +159,11 @@ impl<'a> RenderState<'a> {
 
         let single_color_pipeline = SingleColorPipeline::new(&renderer.device, &renderer.config);
 
-        let rectangle_pipeline = RectanglePipeline::new(
-            &renderer.device,
-            &renderer.config,
-            "crates/rend/shaders/rectangle.wgsl",
-            &[],
-        );
+        let (rectangle_pipeline, rect_data_rect, height_data_rect) =
+            RectanglePipeline::new(&renderer, "crates/rend/shaders/rectangle.wgsl");
 
-        let chunk_pipeline = RectanglePipeline::new(
-            &renderer.device,
-            &renderer.config,
-            "crates/rend/shaders/chunk_terrain.wgsl",
-            &[("height_data".to_string(), 14400)],
-        );
+        let (chunk_pipeline, rect_data_chunks, height_data_chunks) =
+            RectanglePipeline::new(&renderer, "crates/rend/shaders/chunk_terrain.wgsl");
 
         let uniform_bind_group = {
             let mut builder = BindGroupBuilder::new(&renderer.device);
@@ -169,7 +181,6 @@ impl<'a> RenderState<'a> {
         let standard_3d_pipeline = Standard3DPipeline::new(
             &renderer.device,
             &ubo_bind_group_layout,
-            &bgl,
             &time_etc_data_bind_group,
             &renderer.config,
         );
@@ -180,6 +191,11 @@ impl<'a> RenderState<'a> {
             fonts: HashMap::new(),
             meshes: HashMap::new(),
             textures: HashMap::new(),
+            memory: HashMap::new(),
+            rect_data_rect,
+            rect_data_chunks,
+            height_data_rect,
+            height_data_chunks,
             next_resource_id: 0,
         };
 
@@ -337,7 +353,7 @@ impl<'a> RenderState<'a> {
         let (sx, sy) = self.window.get_size();
         let screen = glam::DVec2::new(sx as f64, sy as f64);
 
-        for chunk in commands.chunks(CirclePipeline::MAX_CHARS_PER_PASS) {
+        for chunk in commands.chunks(CirclePipeline::MAX_CIRCLES_PER_PASS) {
             let mut command_encoder = self
                 .renderer
                 .device
@@ -402,13 +418,21 @@ impl<'a> RenderState<'a> {
 
             let mut rp = self.get_render_pass(&mut command_encoder, None, &view);
 
-            self.pipelines.rectangle_pipeline.assign_buffer_data(
+            RectanglePipeline::assign_buffer_data(
+                &self.resources.rect_data_rect,
                 &self.renderer.queue,
                 cmds,
                 screen,
             );
 
-            self.pipelines.rectangle_pipeline.draw(&mut rp, cmds.len());
+            self.pipelines.rectangle_pipeline.draw(
+                &mut rp,
+                cmds.len(),
+                &[
+                    &self.resources.rect_data_rect,
+                    &self.resources.height_data_chunks,
+                ],
+            );
 
             drop(rp);
 
@@ -447,15 +471,25 @@ impl<'a> RenderState<'a> {
 
             let mut rp = self.get_render_pass(&mut command_encoder, None, &view);
 
-            self.pipelines
-                .chunk_pipeline
-                .assign_buffer_data(&self.renderer.queue, &rcmds, screen);
+            RectanglePipeline::assign_buffer_data(
+                &self.resources.rect_data_chunks,
+                &self.renderer.queue,
+                &rcmds,
+                screen,
+            );
 
-            self.pipelines
-                .chunk_pipeline
-                .upload(&self.renderer.queue, "height_data", &height_data);
+            self.resources
+                .height_data_chunks
+                .write(&self.renderer.queue, &height_data);
 
-            self.pipelines.chunk_pipeline.draw(&mut rp, cmds.len());
+            self.pipelines.chunk_pipeline.draw(
+                &mut rp,
+                cmds.len(),
+                &[
+                    &self.resources.rect_data_chunks,
+                    &self.resources.height_data_chunks,
+                ],
+            );
 
             drop(rp);
 

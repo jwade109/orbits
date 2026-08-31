@@ -1,13 +1,13 @@
-@group(0) @binding(0) var<uniform> color_array: array<vec4<f32>, MAX_CHARS_PER_PASS>;
-@group(1) @binding(0) var<uniform> transforms_array: array<mat4x4<f32>, MAX_CHARS_PER_PASS>;
+@group(0) @binding(0) var<uniform> color_array: array<vec4<f32>, MAX_CIRCLES_PER_PASS>;
+@group(1) @binding(0) var<uniform> transforms_array: array<mat4x4<f32>, MAX_CIRCLES_PER_PASS>;
 
 // x: inner radius
 // y: outer radius
 // z: padding
 // w: padding
-@group(2) @binding(0) var<uniform> radius_array: array<vec4<f32>, MAX_CHARS_PER_PASS>;
+@group(2) @binding(0) var<uniform> radius_array: array<vec4<f32>, MAX_CIRCLES_PER_PASS>;
 
-const MAX_CHARS_PER_PASS: u32 = 480;
+const MAX_CIRCLES_PER_PASS: u32 = 480;
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,

@@ -1,5 +1,6 @@
 use crate::*;
 use image::GenericImageView;
+use wgpu::*;
 
 pub struct Texture {
     pub size: (u32, u32),
@@ -16,13 +17,19 @@ impl Texture {
         Texture::new_sprite(filename, &rd.device, &rd.queue, filename)
     }
 
+    pub fn make_bind_group_layout(device: &Device, label: &str) -> BindGroupLayout {
+        let mut builder: BindGroupLayoutBuilder<'_> = BindGroupLayoutBuilder::new(&device);
+        builder.add_material();
+        builder.build(label)
+    }
+
     fn new_sprite(
         filename: &str,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         label: &str,
     ) -> Option<Self> {
-        let bgl = material_bind_group_layout(device, filename);
+        let bgl = Self::make_bind_group_layout(device, filename);
 
         let bytes = std::fs::read(filename).ok()?;
         let loaded_image = image::load_from_memory(&bytes).ok()?;
@@ -106,7 +113,7 @@ impl Texture {
     }
 
     pub fn blank_texture(rd: &Renderer, label: &str) -> Self {
-        let bgl = material_bind_group_layout(&rd.device, label);
+        let bgl = Self::make_bind_group_layout(&rd.device, label);
 
         let size = (rd.config.width, rd.config.height);
 

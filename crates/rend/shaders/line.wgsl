@@ -9,7 +9,7 @@ struct LineData {
     _pad2: f32,
 };
 
-const MAX_LINES_PER_PASS: u32 = 600;
+const MAX_LINES_PER_PASS: u32 = 1200;
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
@@ -25,12 +25,6 @@ struct VertexShaderOutput {
     @location(2) length: f32,
     @location(3) width: f32,
 };
-
-fn rotate_vector(p: vec2<f32>, angle: f32) -> vec2<f32> {
-    let cs = cos(angle);
-    let sn = sin(angle);
-    return vec2<f32>(p.x * cs - p.y * sn, p.x * sn + p.y * cs);
-}
 
 @vertex
 fn vs_main(vertex: Vertex) -> VertexShaderOutput {
@@ -68,17 +62,6 @@ fn vs_main(vertex: Vertex) -> VertexShaderOutput {
     out.instance_index = vertex.instance_index;
     out.uv = vertex.uv;
     return out;
-}
-
-fn sdf_segment(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
-    let pa = p - a;
-    let ba = b - a;
-    let h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-    return length(pa - ba * h);
-}
-
-fn sdf_circle(p: vec2f, c: vec2f) -> f32 {
-    return length(p - c);
 }
 
 @fragment

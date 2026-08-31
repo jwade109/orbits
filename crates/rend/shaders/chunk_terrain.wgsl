@@ -1,20 +1,7 @@
 @group(0) @binding(0) var<uniform> rect_data: array<RectData, RECTS_PER_PASS>;
 @group(1) @binding(0) var<uniform> height_data: array<HeightData, RECTS_PER_PASS>;
 
-const RECTS_PER_PASS: u32 = 400;
-
-struct RectData {
-    pos:      vec2f,
-    dims:     vec2f,
-    r:        f32,
-    g:        f32,
-    b:        f32,
-    a:        f32,
-    angle:    f32,
-    screen_x: f32,
-    screen_y: f32,
-    _padding: f32,
-}
+const RECTS_PER_PASS: u32 = 1300;
 
 struct HeightData {
     a: f32,
@@ -35,12 +22,6 @@ struct VertexShaderOutput {
     @location(0) height: f32,
     @location(1) uv: vec2<f32>,
 };
-
-fn rotate_vector(p: vec2<f32>, angle: f32) -> vec2<f32> {
-    let cs = cos(angle);
-    let sn = sin(angle);
-    return vec2<f32>(p.x * cs - p.y * sn, p.x * sn + p.y * cs);
-}
 
 @vertex
 fn vs_main(vertex: Vertex) -> VertexShaderOutput {
@@ -88,7 +69,27 @@ fn vs_main(vertex: Vertex) -> VertexShaderOutput {
 
 @fragment
 fn fs_main(in: VertexShaderOutput) -> @location(0) vec4<f32> {
-    let levels = 4.0;
-    let z = round(in.height * levels) / levels;
-    return vec4f(z * 0.4, 0.6, z * 0.4, 1.0);
+    let levels = 6.0;
+    let z = discretize(in.height, levels);
+
+    let g = discretize(smoothstep(0.0, 16.0, z) * 0.4 + 0.3, levels);
+    var color = vec4f(0.0, g, 0.0, 1.0);
+
+    if z < -2.0 {
+        color = vec4f(0.2, 0.1, 0.5, 1.0);
+    }
+    else if z < 0.0 {
+        color = vec4f(0.2, 0.2, 1.0, 1.0);
+    }
+    else if z > 25.0 {
+        return vec4f(0.1, 0.1, 0.1, 1.0);
+    }
+    else if z > 22.0 {
+        color = vec4f(0.1, 0.1, 0.0, 1.0);
+    }
+    else if z > 19.0 {
+        color = vec4f(0.6, 0.3, 0.0, 1.0);
+    }
+
+    return lerp(color, vec4f(0.0, 0.0, 0.4, 1.0), 0.3);
 }

@@ -13,10 +13,10 @@ impl Isometry2d {
         rotation: 0.0,
     };
 
-    pub fn new(translation: impl Into<Vec2>, rotation: f32) -> Self {
+    pub fn new(translation: impl Into<DVec2>, rotation: impl Into<f64>) -> Self {
         Self {
-            translation: translation.into(),
-            rotation,
+            translation: translation.into().as_vec2(),
+            rotation: rotation.into() as f32,
         }
     }
 

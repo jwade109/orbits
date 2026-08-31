@@ -1,7 +1,11 @@
+#![allow(unused)]
+
 mod bind_group;
 mod bind_group_layout;
+mod buffer_resource;
 mod color;
 mod font;
+mod into_gpu;
 mod math;
 mod mesh;
 mod pipeline;
@@ -17,8 +21,10 @@ mod vertex;
 
 pub use bind_group::*;
 pub use bind_group_layout::*;
+pub use buffer_resource::*;
 pub use color::*;
 pub use font::*;
+pub use into_gpu::*;
 pub use math::*;
 pub use mesh::*;
 pub use pipeline::*;

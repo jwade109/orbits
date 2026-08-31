@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::bezier::BezierCurve;
 use crate::event_bus::EventBus;
 use crate::railcar::RailCar;
@@ -208,6 +210,7 @@ pub fn draw_world(
     screen_width: DVec2,
     mouse: DVec2,
     anim: &AnimationStates,
+    timers: &[(&'static str, Duration)],
 ) {
     let view = Viewport::new(world.camera, screen_width);
     cmd.current_font_id = world.current_font_id;
@@ -254,6 +257,10 @@ pub fn draw_world(
             lines.push(format!("{} {} {:?} {:0.2}", id, num, tween, state));
         }
 
+        for (name, dur) in timers {
+            lines.push(format!("{} {:?}", name, dur.as_millis()));
+        }
+
         let text = lines.join("\n");
 
         for (off, color) in [(0.0, Color::WHITE)] {
@@ -272,6 +279,7 @@ pub fn draw_world(
     draw_calculated_route(cmd, world, &view);
     draw_hovered_node(cmd, world, &view);
     draw_hovered_chunk(cmd, world, &view);
+    draw_ruler(cmd, world, &view, mouse);
     draw_font_ui(cmd, events, mouse, input);
 
     cmd.circle(mouse).diameter(11.0).color(Color::RED);
@@ -286,6 +294,34 @@ pub fn draw_world(
         let (b, _) = cmd.text((20.0, 50.0), &text, 32.0, Color::WHITE);
         cmd.apply(b);
     }
+}
+
+fn draw_ruler(
+    cmd: &mut RenderCommands,
+    world: &World,
+    view: &Viewport,
+    mouse: DVec2,
+) -> Option<()> {
+    let ruler_start = world.ruler_start?;
+    let ruler_end = view.screen_to_world(mouse);
+
+    let p = view.world_to_screen(ruler_start);
+    let q = view.world_to_screen(ruler_end);
+    let d = ruler_start.distance(ruler_end);
+
+    cmd.line(p, q).color(Color::BLACK).thickness(13.0);
+
+    let iso = Isometry2d::new(
+        ruler_start.lerp(ruler_end, 0.3),
+        (ruler_end - ruler_start).to_angle(),
+    );
+
+    let text = distance_str(d);
+
+    let (b, _) = cmd.text(view.w2s_iso(iso), text, 32.0, Color::WHITE);
+    cmd.apply(b);
+
+    Some(())
 }
 
 fn draw_hovered_chunk(cmd: &mut RenderCommands, world: &World, view: &Viewport) -> Option<()> {

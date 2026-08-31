@@ -4478,6 +4478,7 @@ dependencies = [
  "glfw",
  "glm",
  "kira",
+ "noise",
  "pollster 1.0.1",
  "rand 0.10.2",
  "rdev",

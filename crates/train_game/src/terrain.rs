@@ -1,12 +1,10 @@
-use std::collections::BTreeSet;
-
+use crate::world::World;
 use bary_core::prelude::{Ent, Isometry2d, vfloor_f64};
 use glam::{DVec2, IVec2};
-use rend::Color;
+use noise::{NoiseFn, Perlin};
+use std::collections::BTreeSet;
 
-use crate::world::World;
-
-pub const TERRAIN_CHUNK_WIDTH_METERS: f64 = 500.0;
+pub const TERRAIN_CHUNK_WIDTH_METERS: f64 = 100.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ChunkIndex(IVec2);
@@ -53,34 +51,45 @@ pub struct TerrainChunk {
     index: ChunkIndex,
     tracks: BTreeSet<Ent>,
     nodes: BTreeSet<Ent>,
-    color: Color,
     height: [f32; 4],
 }
 
+fn height_func(pos: DVec2) -> f64 {
+    let perlin = Perlin::new(8525);
+
+    let x = pos.x;
+    let z = pos.y;
+
+    let y1 = perlin.get([x as f64 / 5.0, 0.5, z as f64 / 5.0 + 0.5]);
+    let y2 = perlin.get([x as f64 / 50.0 + 0.5, 0.5, z as f64 / 50.0 + 0.5]);
+    let y3 = perlin.get([x as f64 / 300.0, 0.5, z as f64 / 300.0 + 0.5]);
+    let y4 = perlin.get([x as f64 / 1000.0, 0.5, z as f64 / 1000.0 + 0.5]);
+    return y1 * 0.5 + y2 * 5.0 + y3 * 10.0 + y4 * 30.0 + 10.0;
+}
+
 impl TerrainChunk {
-    pub fn new(index: impl Into<ChunkIndex>, color: Color) -> Self {
-        use bary_core::prelude::rand;
+    pub fn new(index: impl Into<ChunkIndex>) -> Self {
+        let index = index.into();
+        let a = index.isometry().tr();
+        let b = a + DVec2::X * TERRAIN_CHUNK_WIDTH_METERS;
+        let c = a + DVec2::splat(TERRAIN_CHUNK_WIDTH_METERS);
+        let d = a + DVec2::Y * TERRAIN_CHUNK_WIDTH_METERS;
 
         Self {
-            index: index.into(),
+            index,
             tracks: BTreeSet::new(),
             nodes: BTreeSet::new(),
-            color,
             height: [
-                rand(0.0, 1.0),
-                rand(0.0, 1.0),
-                rand(0.0, 1.0),
-                rand(0.0, 1.0),
+                height_func(a) as f32,
+                height_func(b) as f32,
+                height_func(c) as f32,
+                height_func(d) as f32,
             ],
         }
     }
 
     pub fn index(&self) -> ChunkIndex {
         self.index
-    }
-
-    pub fn color(&self) -> Color {
-        self.color
     }
 
     pub fn add_track(&mut self, track_id: Ent) {
@@ -124,17 +133,13 @@ pub fn get_chunk_index(pos: impl Into<DVec2>) -> ChunkIndex {
     ChunkIndex::new(vfloor_f64(pos.into() / TERRAIN_CHUNK_WIDTH_METERS))
 }
 
-pub fn spawn_new_chunk(
-    world: &mut World,
-    index: impl Into<ChunkIndex>,
-    color: Color,
-) -> Option<Ent> {
+pub fn spawn_new_chunk(world: &mut World, index: impl Into<ChunkIndex>) -> Option<Ent> {
     let index = index.into();
     if world.chunk_map.contains_key(&index) {
         return None;
     }
 
-    let chunk = TerrainChunk::new(index, color);
+    let chunk = TerrainChunk::new(index);
     let id = world.spawner.spawn();
     world.chunks.spawn(id, chunk);
     world.chunk_map.insert(index, id);
@@ -143,9 +148,10 @@ pub fn spawn_new_chunk(
 }
 
 pub fn ensure_chunk_exists(world: &mut World, index: ChunkIndex) {
-    spawn_new_chunk(world, index, Color::GREEN);
+    spawn_new_chunk(world, index);
 }
 
+#[allow(unused)]
 pub fn remove_chunk_if_empty(world: &mut World, id: Ent, index: ChunkIndex) -> Option<()> {
     let chunk = world.chunks.get(id)?;
     if !chunk.is_empty() {
@@ -170,7 +176,7 @@ pub fn chunk_deregister_track(world: &mut World, index: ChunkIndex, track_id: En
     let chunk_id = world.chunk_map.get(&index)?;
     let chunk = world.chunks.try_get_mut(*chunk_id).ok()?;
     chunk.remove_track(track_id);
-    remove_chunk_if_empty(world, *chunk_id, index);
+    // remove_chunk_if_empty(world, *chunk_id, index);
     Some(())
 }
 
@@ -186,6 +192,6 @@ pub fn chunk_deregister_node(world: &mut World, index: ChunkIndex, node_id: Ent)
     let chunk_id = world.chunk_map.get(&index)?;
     let chunk = world.chunks.try_get_mut(*chunk_id).ok()?;
     chunk.remove_node(node_id);
-    remove_chunk_if_empty(world, *chunk_id, index);
+    // remove_chunk_if_empty(world, *chunk_id, index);
     Some(())
 }

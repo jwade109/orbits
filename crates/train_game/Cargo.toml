@@ -23,6 +23,7 @@ bincode = "1.3.3"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_yaml = "0.9.34"
 splines = "5.0.0"
+noise = "0.9.0"
 
 [[bin]]
 name = "kira_test"

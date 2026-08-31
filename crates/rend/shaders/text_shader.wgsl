@@ -4,7 +4,7 @@
 @group(2) @binding(0) var<uniform> sample_info_array: array<SampleInfo, MAX_CHARS_PER_PASS>;
 @group(3) @binding(0) var<uniform> transforms_array: array<TextTransform, MAX_CHARS_PER_PASS>;
 
-const MAX_CHARS_PER_PASS: u32 = 480;
+const MAX_CHARS_PER_PASS: u32 = 1400;
 
 struct SampleInfo {
     origin_x: u32,
@@ -38,12 +38,6 @@ struct VertexShaderOutput {
     @location(0) instance_index: u32,
     @location(1) uv: vec2f,
 };
-
-fn rotate_vector(p: vec2<f32>, angle: f32) -> vec2<f32> {
-    let cs = cos(angle);
-    let sn = sin(angle);
-    return vec2<f32>(p.x * cs - p.y * sn, p.x * sn + p.y * cs);
-}
 
 @vertex
 fn vs_main(vertex: Vertex) -> VertexShaderOutput {

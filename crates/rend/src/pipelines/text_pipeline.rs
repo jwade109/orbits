@@ -12,12 +12,6 @@ pub struct TextPipeline {
     mesh: Mesh,
 }
 
-pub struct BufferResource {
-    pub buffer: Buffer,
-    pub bind_group: BindGroup,
-    pub layout: BindGroupLayout,
-}
-
 struct TextTransform {
     x: f32,
     y: f32,
@@ -45,62 +39,6 @@ impl TextTransform {
     }
 }
 
-pub fn make_resource(device: &Device, size: usize, label: &str) -> BufferResource {
-    println!("{label:20} >> Allocating buffer with {size} bytes");
-    let bd = BufferDescriptor {
-        label: Some(label),
-        size: size.try_into().unwrap(),
-        usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    };
-
-    let buffer = device.create_buffer(&bd);
-
-    let bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: Some(label),
-        entries: &[BindGroupLayoutEntry {
-            binding: 0,
-            visibility: ShaderStages::all(),
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size: None,
-            },
-            count: None,
-        }],
-    });
-
-    let bg = device.create_bind_group(&BindGroupDescriptor {
-        label: Some("Color array bind group"),
-        layout: &bgl,
-        entries: &[BindGroupEntry {
-            binding: 0,
-            resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                buffer: &buffer,
-                offset: 0,
-                size: None,
-            }),
-        }],
-    });
-
-    BufferResource {
-        buffer,
-        bind_group: bg,
-        layout: bgl,
-    }
-}
-
-pub fn make_array_resource(
-    device: &Device,
-    n_elements: usize,
-    elem_size: usize,
-    label: &str,
-) -> BufferResource {
-    let n_bytes = n_elements * elem_size;
-
-    make_resource(device, n_bytes, label)
-}
-
 pub struct GpuSampleInfo {
     pub origin_x: u32,
     pub origin_y: u32,
@@ -113,36 +51,40 @@ pub struct GpuSampleInfo {
 }
 
 impl TextPipeline {
-    pub const MAX_CHARS_PER_PASS: usize = 480;
+    pub const MAX_CHARS_PER_PASS: usize = 1400;
 
     pub fn new(rd: &Renderer) -> Self {
         let mesh = make_quad(&rd.device);
         let size = std::mem::size_of::<GpuSampleInfo>();
         assert!(size == 4 * 8);
-        let range_info = make_array_resource(
+        let range_info = BufferResource::new_array(
             &rd.device,
             Self::MAX_CHARS_PER_PASS,
             size,
             "Text range info",
         );
-        let colors = make_array_resource(&rd.device, Self::MAX_CHARS_PER_PASS, 16, "Text colors");
 
-        let transforms = make_array_resource(
+        let colors =
+            BufferResource::new_array(&rd.device, Self::MAX_CHARS_PER_PASS, 16, "Text colors");
+
+        let transforms = BufferResource::new_array(
             &rd.device,
             Self::MAX_CHARS_PER_PASS,
             NUM_F32_IN_TEXT_TRANSFORM * 4,
             "Text transforms",
         );
 
-        let bgl = material_bind_group_layout(&rd.device, "Texture Bind Group Layout");
+        let bgl = Texture::make_bind_group_layout(&rd.device, "Texture Bind Group Layout");
 
         let mut builder = PipelineBuilder::new(&rd.device);
         let shader = Shader::from_path("crates/rend/shaders/text_shader.wgsl");
 
+        let layout = BufferResource::make_layout(&rd.device);
+
         builder.add_bind_group_layout(&bgl);
-        builder.add_bind_group_layout(&colors.layout);
-        builder.add_bind_group_layout(&range_info.layout);
-        builder.add_bind_group_layout(&transforms.layout);
+        builder.add_bind_group_layout(&layout);
+        builder.add_bind_group_layout(&layout);
+        builder.add_bind_group_layout(&layout);
 
         let pipeline = builder.build_pipeline::<FullVertex>(
             "Single Texture Pipeline",
@@ -154,8 +96,8 @@ impl TextPipeline {
 
         for i in 0..Self::MAX_CHARS_PER_PASS {
             let color = [1.0f32, 1.0, 1.0, 1.0];
-            rd.queue
-                .write_buffer(&colors.buffer, 16 * i as u64, any_as_u8_slice(&color));
+
+            colors.upload(&rd.queue, 16 * i as u64, any_as_u8_slice(&color));
         }
 
         Self {
@@ -168,15 +110,13 @@ impl TextPipeline {
     }
 
     fn set_color(&self, queue: &Queue, i: usize, color: Vec4) {
-        queue.write_buffer(&self.colors.buffer, 16 * i as u64, any_as_u8_slice(&color));
+        self.colors
+            .upload(queue, 16 * i as u64, any_as_u8_slice(&color));
     }
 
     fn set_transform(&self, queue: &Queue, i: usize, transform: TextTransform) {
-        queue.write_buffer(
-            &self.transforms.buffer,
-            32 * i as u64,
-            any_as_u8_slice(&transform.to_gpu()),
-        );
+        self.transforms
+            .upload(queue, 32 * i as u64, any_as_u8_slice(&transform.to_gpu()));
     }
 
     pub fn set_range(&self, queue: &Queue, i: usize, range: &TextureSampleRange) {
@@ -191,11 +131,8 @@ impl TextPipeline {
             _pad2: 0,
         };
 
-        queue.write_buffer(
-            &self.range_info.buffer,
-            32 * i as u64,
-            any_as_u8_slice(&gpu),
-        );
+        self.range_info
+            .upload(queue, 32 * i as u64, any_as_u8_slice(&gpu));
     }
 
     pub fn assign_buffer_data(
@@ -228,9 +165,9 @@ impl TextPipeline {
         rp.set_pipeline(&self.pipeline);
 
         rp.set_bind_group(0, &material.bind_group, &[]);
-        rp.set_bind_group(1, &self.colors.bind_group, &[]);
-        rp.set_bind_group(2, &self.range_info.bind_group, &[]);
-        rp.set_bind_group(3, &self.transforms.bind_group, &[]);
+        rp.set_bind_group(1, self.colors.bind_group(), &[]);
+        rp.set_bind_group(2, self.range_info.bind_group(), &[]);
+        rp.set_bind_group(3, self.transforms.bind_group(), &[]);
 
         let n = n.min(Self::MAX_CHARS_PER_PASS);
 

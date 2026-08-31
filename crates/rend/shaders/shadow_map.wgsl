@@ -25,23 +25,6 @@ fn vs_main(vertex: Vertex) -> VertexShaderOutput {
     return out;
 }
 
-fn sdf_circle(p: vec2<f32>, center: vec2<f32>, radius: f32) -> f32 {
-    let d = length(p - center);
-    return d - radius;
-}
-
-fn sdf_line(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
-    let pa = p - a;
-    let ba = b - a;
-    let h = clamp(dot(pa, ba) / dot(ba,ba), 0.0, 1.0);
-    return length(pa - ba*h);
-}
-
-fn sdf_capsule(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>, padding: f32) -> f32 {
-    let r = sdf_line(p, a, b);
-    return r - padding;
-}
-
 fn hill(p: vec2<f32>, peak: vec2<f32>, height: f32) -> f32 {
     let d = length(p - peak);
     let z = height / (1.0 + d / height);
@@ -49,7 +32,7 @@ fn hill(p: vec2<f32>, peak: vec2<f32>, height: f32) -> f32 {
 }
 
 fn range(p: vec2<f32>, p1: vec2<f32>, p2: vec2<f32>, height: f32) -> f32 {
-    let d = sdf_line(p, p1, p2);
+    let d = sdf_segment(p, p1, p2);
     let z = height / (1.0 + d / height);
     return z;
 }

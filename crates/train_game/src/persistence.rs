@@ -65,6 +65,8 @@ pub fn load_world(world: &mut World, path: impl AsRef<Path>) -> Option<()> {
 
     world.nodes.clear();
     world.segments.clear();
+    world.chunks.clear();
+    world.chunk_map.clear();
 
     for (stored_id, pos) in geometry.nodes.iter() {
         let new_id = spawn_new_node(world, *pos);

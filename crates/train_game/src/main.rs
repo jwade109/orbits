@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use crate::draw::draw_world;
 use crate::event_bus::EventBus;
 use crate::rend_app::*;
@@ -8,7 +10,11 @@ use bary_input::InputState;
 use bary_ipc::{MessageQueue, new_message_queue};
 use glfw::*;
 use rend::*;
-use std::{collections::BTreeMap, thread::JoinHandle, time::Instant};
+use std::{
+    collections::BTreeMap,
+    thread::JoinHandle,
+    time::{Duration, Instant},
+};
 
 mod bezier;
 mod draw;
@@ -25,6 +31,8 @@ mod world;
 
 struct TrainApp<'a> {
     last: Instant,
+    render_commands_dt: Duration,
+    render_dt: Duration,
     world: World,
     animations: AnimationStates,
     input_state: InputState,
@@ -63,6 +71,8 @@ impl<'a> TrainApp<'a> {
         Self {
             last: Instant::now(),
             rs,
+            render_commands_dt: Duration::ZERO,
+            render_dt: Duration::ZERO,
             world: make_world(),
             animations: AnimationStates::new(),
             input_state: InputState::default(),
@@ -112,6 +122,8 @@ impl<'a> RendApp for TrainApp<'a> {
     }
 
     fn emit_render_commands(&mut self) -> RenderCommands {
+        let start = Instant::now();
+
         let font_info: BTreeMap<usize, FontInfo> = self
             .rs
             .resources
@@ -139,11 +151,17 @@ impl<'a> RendApp for TrainApp<'a> {
             dims,
             mouse,
             &self.animations,
+            &[
+                ("commands", self.render_commands_dt),
+                ("render", self.render_dt),
+            ],
         );
 
         if let Some(font_id) = event_bus.new_font_id() {
             self.world.current_font_id = font_id;
         }
+
+        self.render_commands_dt = Instant::now() - start;
 
         cmd
     }
@@ -151,6 +169,8 @@ impl<'a> RendApp for TrainApp<'a> {
     fn on_event(&mut self, _event: &glfw::WindowEvent) {}
 
     fn render(&mut self, commands: &RenderCommands) {
+        let start = Instant::now();
+
         match self.rs.render(&commands) {
             Ok(Some(drawable)) => {
                 drawable.present();
@@ -162,6 +182,8 @@ impl<'a> RendApp for TrainApp<'a> {
             }
             Err(e) => eprintln!("{:?}", e),
         }
+
+        self.render_dt = Instant::now() - start;
     }
 
     fn should_close(&self) -> bool {

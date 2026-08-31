@@ -10,19 +10,13 @@ pub struct LavaLampPipeline {
 
 impl LavaLampPipeline {
     pub fn new(rd: &Renderer) -> Self {
-        let camera_data = make_array_resource(&rd.device, 1, 64, "Lava lamp camera");
-        let shader_params = make_array_resource(
-            &rd.device,
-            1,
-            ShaderParams::SIZE_IN_BYTES,
-            "Lava lamp shader params",
-        );
+        let layout = BufferResource::make_layout(&rd.device);
 
         let mesh = make_quad(&rd.device);
         let mut builder = PipelineBuilder::new(&rd.device);
         let shader = Shader::from_path("crates/rend/shaders/cells.wgsl");
-        builder.add_bind_group_layout(&shader_params.layout);
-        builder.add_bind_group_layout(&camera_data.layout);
+        builder.add_bind_group_layout(&layout);
+        builder.add_bind_group_layout(&layout);
 
         let pipeline = builder.build_pipeline::<FullVertex>(
             "Lava Lamp Pipeline",
@@ -30,6 +24,14 @@ impl LavaLampPipeline {
             rd.config.format,
             true,
             true,
+        );
+
+        let camera_data = BufferResource::new_array(&rd.device, 1, 64, "Lava lamp camera");
+        let shader_params = BufferResource::new_array(
+            &rd.device,
+            1,
+            ShaderParams::SIZE_IN_BYTES,
+            "Lava lamp shader params",
         );
 
         Self {
@@ -52,10 +54,10 @@ impl LavaLampPipeline {
         queue: &Queue,
     ) {
         rp.set_pipeline(self.pipeline());
-        queue.write_buffer(&self.camera_data.buffer, 0, any_as_u8_slice(transform));
-        queue.write_buffer(&self.shader_params.buffer, 0, &shader_params.to_bytes());
-        rp.set_bind_group(0, &self.shader_params.bind_group, &[]);
-        rp.set_bind_group(1, &self.camera_data.bind_group, &[]);
+        self.camera_data.write(queue, any_as_u8_slice(transform));
+        self.shader_params.write(queue, &shader_params.to_bytes());
+        rp.set_bind_group(0, self.shader_params.bind_group(), &[]);
+        rp.set_bind_group(1, self.camera_data.bind_group(), &[]);
         draw_mesh(rp, &self.mesh);
     }
 }

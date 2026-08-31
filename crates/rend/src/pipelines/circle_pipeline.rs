@@ -13,29 +13,33 @@ pub struct CirclePipeline {
 }
 
 impl CirclePipeline {
-    pub const MAX_CHARS_PER_PASS: usize = 480;
+    pub const MAX_CIRCLES_PER_PASS: usize = 480;
 
     pub fn new(rd: &Renderer) -> Self {
-        let colors = make_array_resource(&rd.device, Self::MAX_CHARS_PER_PASS, 16, "Circle colors");
-        let transforms = make_array_resource(
+        let colors =
+            BufferResource::new_array(&rd.device, Self::MAX_CIRCLES_PER_PASS, 16, "Circle colors");
+        let transforms = BufferResource::new_array(
             &rd.device,
-            Self::MAX_CHARS_PER_PASS,
+            Self::MAX_CIRCLES_PER_PASS,
             64,
             "Circle transforms",
         );
 
+        let layout = BufferResource::make_layout(&rd.device);
+
         // the stride is 16 here because that's the minimum.
         // the element is 4 bytes large
-        let radius = make_array_resource(&rd.device, Self::MAX_CHARS_PER_PASS, 16, "Circle radii");
+        let radius =
+            BufferResource::new_array(&rd.device, Self::MAX_CIRCLES_PER_PASS, 16, "Circle radii");
 
         let mesh = make_quad(&rd.device);
 
         let mut builder = PipelineBuilder::new(&rd.device);
         let shader = Shader::from_path("crates/rend/shaders/circle.wgsl");
 
-        builder.add_bind_group_layout(&colors.layout);
-        builder.add_bind_group_layout(&transforms.layout);
-        builder.add_bind_group_layout(&radius.layout);
+        builder.add_bind_group_layout(&layout);
+        builder.add_bind_group_layout(&layout);
+        builder.add_bind_group_layout(&layout);
 
         let pipeline = builder.build_pipeline::<FullVertex>(
             "Circle Pipeline",
@@ -55,26 +59,22 @@ impl CirclePipeline {
     }
 
     pub fn set_color(&self, queue: &Queue, i: usize, color: Color) {
-        queue.write_buffer(
-            &self.colors.buffer,
-            16 * i as u64,
-            any_as_u8_slice(&color.to_vec()),
-        );
+        self.colors
+            .upload(queue, 16 * i as u64, any_as_u8_slice(&color.to_vec()))
     }
 
     pub fn set_transform(&self, queue: &Queue, i: usize, transform: &Mat4) {
-        queue.write_buffer(
-            &self.transforms.buffer,
-            64 * i as u64,
-            any_as_u8_slice(transform),
-        );
+        self.transforms
+            .upload(queue, 64 * i as u64, any_as_u8_slice(transform));
     }
 
     pub fn set_radius(&self, queue: &Queue, i: usize, inner_radius: f32, outer_radius: f32) {
         // the stride is 16 here because that's the minimum.
         // the element is 8 bytes large
         let data: [f32; 2] = [inner_radius, outer_radius];
-        queue.write_buffer(&self.radius.buffer, 16 * i as u64, any_as_u8_slice(&data));
+
+        self.radius
+            .upload(queue, 16 * i as u64, any_as_u8_slice(&data))
     }
 
     pub fn assign_buffer_data(&self, queue: &Queue, commands: &[CircleCommand], screen: DVec2) {
@@ -94,11 +94,11 @@ impl CirclePipeline {
     pub fn draw_circles(&self, rp: &mut RenderPass, n: usize) {
         rp.set_pipeline(&self.pipeline);
 
-        rp.set_bind_group(0, &self.colors.bind_group, &[]);
-        rp.set_bind_group(1, &self.transforms.bind_group, &[]);
-        rp.set_bind_group(2, &self.radius.bind_group, &[]);
+        rp.set_bind_group(0, self.colors.bind_group(), &[]);
+        rp.set_bind_group(1, self.transforms.bind_group(), &[]);
+        rp.set_bind_group(2, self.radius.bind_group(), &[]);
 
-        let n = n.min(Self::MAX_CHARS_PER_PASS);
+        let n = n.min(Self::MAX_CIRCLES_PER_PASS);
 
         self.mesh.set_as_active(rp);
         rp.draw_indexed(0..self.mesh.index_count(), 0, 0..n as u32);
