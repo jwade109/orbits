@@ -42,6 +42,10 @@ impl ChunkIndex {
         let pos = TERRAIN_CHUNK_WIDTH_METERS * self.0.as_dvec2();
         pos.into()
     }
+
+    pub fn as_ivec2(&self) -> IVec2 {
+        self.0
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -50,15 +54,24 @@ pub struct TerrainChunk {
     tracks: BTreeSet<Ent>,
     nodes: BTreeSet<Ent>,
     color: Color,
+    height: [f32; 4],
 }
 
 impl TerrainChunk {
     pub fn new(index: impl Into<ChunkIndex>, color: Color) -> Self {
+        use bary_core::prelude::rand;
+
         Self {
             index: index.into(),
             tracks: BTreeSet::new(),
             nodes: BTreeSet::new(),
             color,
+            height: [
+                rand(0.0, 1.0),
+                rand(0.0, 1.0),
+                rand(0.0, 1.0),
+                rand(0.0, 1.0),
+            ],
         }
     }
 
@@ -100,6 +113,10 @@ impl TerrainChunk {
 
     pub fn is_empty(&self) -> bool {
         self.nodes.is_empty() && self.tracks.is_empty()
+    }
+
+    pub fn height(&self) -> [f32; 4] {
+        self.height
     }
 }
 

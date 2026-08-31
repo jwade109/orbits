@@ -1,6 +1,6 @@
 use crate::{Color, FontInfo};
 use bary_core::prelude::{rotate_f64, Isometry2d};
-use glam::DVec2;
+use glam::{DVec2, IVec2};
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
@@ -9,6 +9,7 @@ pub enum RenderCommand {
     Rect(RectCommand),
     Circle(CircleCommand),
     Line(LineCommand),
+    Chunk(ChunkCommand),
 }
 
 #[derive(Debug, Clone)]
@@ -17,6 +18,7 @@ pub enum BatchRenderCommand {
     Rect(Vec<RectCommand>),
     Circle(Vec<CircleCommand>),
     Line(Vec<LineCommand>),
+    Chunk(Vec<ChunkCommand>),
 }
 
 impl std::fmt::Display for BatchRenderCommand {
@@ -26,6 +28,7 @@ impl std::fmt::Display for BatchRenderCommand {
             Self::Rect(c) => write!(f, "BatchRenderCommand::Rect({} elements)", c.len()),
             Self::Circle(c) => write!(f, "BatchRenderCommand::Circ({} elements)", c.len()),
             Self::Line(c) => write!(f, "BatchRenderCommand::Line({} elements)", c.len()),
+            Self::Chunk(c) => write!(f, "BatchRenderCommand::Chunk({} elements)", c.len()),
         }
     }
 }
@@ -37,6 +40,7 @@ impl BatchRenderCommand {
             RenderCommand::Rect(c) => Self::Rect(vec![c]),
             RenderCommand::Circle(c) => Self::Circle(vec![c]),
             RenderCommand::Line(c) => Self::Line(vec![c]),
+            RenderCommand::Chunk(c) => Self::Chunk(vec![c]),
         }
     }
 
@@ -55,6 +59,10 @@ impl BatchRenderCommand {
                 true
             }
             (BatchRenderCommand::Line(s), RenderCommand::Line(c)) => {
+                s.push(c);
+                true
+            }
+            (BatchRenderCommand::Chunk(s), RenderCommand::Chunk(c)) => {
                 s.push(c);
                 true
             }
@@ -95,6 +103,15 @@ pub struct LineCommand {
     pub end: DVec2,
     pub thickness: f64,
     pub color: Color,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ChunkCommand {
+    pub chunk: IVec2,
+    pub pos: DVec2,
+    pub dims: DVec2,
+    pub angle: f64,
+    pub height: [f32; 4],
 }
 
 pub struct RenderCommands {
@@ -210,6 +227,24 @@ impl RenderCommands {
     ) -> (BatchRenderCommand, DVec2) {
         let font = self.fonts.get(&font_id).unwrap();
         TextBuilder::new(iso, font, font_id, font_size, text, layout_width, color)
+    }
+
+    pub fn chunk(
+        &mut self,
+        index: IVec2,
+        iso: impl Into<Isometry2d>,
+        dims: impl Into<DVec2>,
+        height: [f32; 4],
+    ) {
+        let iso = iso.into();
+        let c = ChunkCommand {
+            chunk: index,
+            pos: iso.tr(),
+            dims: dims.into(),
+            angle: iso.rotation as f64,
+            height,
+        };
+        self.enqueue(RenderCommand::Chunk(c));
     }
 }
 

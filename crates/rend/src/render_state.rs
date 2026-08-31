@@ -31,6 +31,7 @@ struct Pipelines {
     circle_pipeline: CirclePipeline,
     line_pipeline: LinePipeline,
     rectangle_pipeline: RectanglePipeline,
+    chunk_pipeline: RectanglePipeline,
 }
 
 pub struct RenderResources {
@@ -137,7 +138,20 @@ impl<'a> RenderState<'a> {
                 });
 
         let single_color_pipeline = SingleColorPipeline::new(&renderer.device, &renderer.config);
-        let rectangle_pipeline = RectanglePipeline::new(&renderer.device, &renderer.config);
+
+        let rectangle_pipeline = RectanglePipeline::new(
+            &renderer.device,
+            &renderer.config,
+            "crates/rend/shaders/rectangle.wgsl",
+            &[],
+        );
+
+        let chunk_pipeline = RectanglePipeline::new(
+            &renderer.device,
+            &renderer.config,
+            "crates/rend/shaders/chunk_terrain.wgsl",
+            &[("height_data".to_string(), 14400)],
+        );
 
         let uniform_bind_group = {
             let mut builder = BindGroupBuilder::new(&renderer.device);
@@ -179,6 +193,7 @@ impl<'a> RenderState<'a> {
             circle_pipeline,
             line_pipeline,
             rectangle_pipeline,
+            chunk_pipeline,
         };
 
         Self {
@@ -403,6 +418,53 @@ impl<'a> RenderState<'a> {
         }
     }
 
+    fn draw_chunks(&self, view: &wgpu::TextureView, commands: &[ChunkCommand]) {
+        let (sx, sy) = self.window.get_size();
+        let screen = glam::DVec2::new(sx as f64, sy as f64);
+
+        for cmds in commands.chunks(RectanglePipeline::RECTS_PER_PASS) {
+            let mut command_encoder = self
+                .renderer
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
+            let height_data: Vec<u8> = cmds
+                .iter()
+                .map(|c| c.height.to_vec())
+                .flat_map(|c| c.iter().map(|c| c.to_le_bytes()).collect::<Vec<_>>())
+                .collect::<Vec<_>>()
+                .concat();
+
+            let rcmds: Vec<_> = cmds
+                .iter()
+                .map(|c| RectCommand {
+                    pos: c.pos,
+                    dims: c.dims,
+                    angle: c.angle,
+                    color: Color::PURPLE.alpha(0.3),
+                })
+                .collect();
+
+            let mut rp = self.get_render_pass(&mut command_encoder, None, &view);
+
+            self.pipelines
+                .chunk_pipeline
+                .assign_buffer_data(&self.renderer.queue, &rcmds, screen);
+
+            self.pipelines
+                .chunk_pipeline
+                .upload(&self.renderer.queue, "height_data", &height_data);
+
+            self.pipelines.chunk_pipeline.draw(&mut rp, cmds.len());
+
+            drop(rp);
+
+            self.renderer
+                .queue
+                .submit(std::iter::once(command_encoder.finish()));
+        }
+    }
+
     fn draw_ui(&self, view: &wgpu::TextureView, font_id: usize, commands: &[CharCommand]) {
         let (sx, sy) = self.window.get_size();
         let screen = glam::DVec2::new(sx as f64, sy as f64);
@@ -493,6 +555,7 @@ impl<'a> RenderState<'a> {
                 BatchRenderCommand::Rect(c) => self.draw_rectangles(view, &c),
                 BatchRenderCommand::Circle(c) => self.draw_circles(view, &c),
                 BatchRenderCommand::Line(c) => self.draw_lines(view, &c),
+                BatchRenderCommand::Chunk(c) => self.draw_chunks(view, c),
                 // _ => (),
             }
         }

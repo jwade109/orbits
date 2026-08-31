@@ -38,7 +38,8 @@ fn draw_terrain(cmd: &mut RenderCommands, world: &World, view: &Viewport) {
     for chunk in world.chunks.values() {
         let iso = view.w2s_iso(chunk.isometry());
         let dims = DVec2::splat(view.meters(TERRAIN_CHUNK_WIDTH_METERS));
-        cmd.rect(iso).dims(dims);
+        // cmd.rect(iso).dims(dims);
+        cmd.chunk(chunk.index().as_ivec2(), iso, dims, chunk.height());
     }
 }
 

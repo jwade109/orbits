@@ -45,18 +45,11 @@ impl TextTransform {
     }
 }
 
-pub fn make_array_resource(
-    device: &Device,
-    n_elements: usize,
-    elem_size: usize,
-    label: &str,
-) -> BufferResource {
-    let n_bytes = n_elements * elem_size;
-    println!("{label:20} >> Allocating buffer with {n_elements} * {elem_size} = {n_bytes} bytes");
-
+pub fn make_resource(device: &Device, size: usize, label: &str) -> BufferResource {
+    println!("{label:20} >> Allocating buffer with {size} bytes");
     let bd = BufferDescriptor {
         label: Some(label),
-        size: n_bytes.try_into().unwrap(),
+        size: size.try_into().unwrap(),
         usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     };
@@ -95,6 +88,17 @@ pub fn make_array_resource(
         bind_group: bg,
         layout: bgl,
     }
+}
+
+pub fn make_array_resource(
+    device: &Device,
+    n_elements: usize,
+    elem_size: usize,
+    label: &str,
+) -> BufferResource {
+    let n_bytes = n_elements * elem_size;
+
+    make_resource(device, n_bytes, label)
 }
 
 pub struct GpuSampleInfo {
