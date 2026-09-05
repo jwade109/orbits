@@ -69,10 +69,11 @@ fn vs_main(vertex: Vertex) -> VertexShaderOutput {
 
 @fragment
 fn fs_main(in: VertexShaderOutput) -> @location(0) vec4<f32> {
-    let levels = 6.0;
+    let levels = 20.0;
     let z = discretize(in.height, levels);
 
     let g = discretize(smoothstep(0.0, 16.0, z) * 0.4 + 0.3, levels);
+
     var color = vec4f(0.0, g, 0.0, 1.0);
 
     if z < -2.0 {

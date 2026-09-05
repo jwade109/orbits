@@ -31,6 +31,10 @@ impl Viewport {
         self.zoom() * x
     }
 
+    pub fn pixels(&self, x: f64) -> f64 {
+        x / self.zoom()
+    }
+
     pub fn dims(&self) -> DVec2 {
         self.screen_width
     }

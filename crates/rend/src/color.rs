@@ -10,6 +10,26 @@ const fn lerp(a: f64, b: f64, t: f64) -> f64 {
     a + (b - a) * t
 }
 
+const fn hue_to_rgb(p: f64, q: f64, mut t: f64) -> f64 {
+    if (t < 0.0) {
+        t += 1.0
+    };
+    if (t > 1.0) {
+        t -= 1.0
+    };
+    if (t < 1.0 / 6.0) {
+        return p + (q - p) * 6.0 * t;
+    }
+    if (t < 1.0 / 2.0) {
+        return q;
+    }
+    if (t < 2.0 / 3.0) {
+        return p + (q - p) * (2.0 / 3.0 - t) * 6.0;
+    }
+
+    return p;
+}
+
 impl Color {
     pub const WHITE: Self = Self::new(1.0, 1.0, 1.0, 1.0);
     pub const BLACK: Self = Self::new(0.0, 0.0, 0.0, 1.0);
@@ -33,12 +53,33 @@ impl Color {
     // "rgb(162, 0, 141)"
     pub const PURPLE: Self = Self::rgb(160, 0, 140, 1.0);
 
+    pub const SLATE_GRAY: Self = Self::rgb(112, 128, 144, 1.0);
+
     pub const fn new(r: f64, g: f64, b: f64, a: f64) -> Self {
         Self { r, g, b, a }
     }
 
     pub const fn rgb(r: u8, g: u8, b: u8, a: f64) -> Self {
         Self::new(r as f64 / 255.0, g as f64 / 255.0, b as f64 / 255.0, a)
+    }
+
+    pub const fn hsl(h: f64, s: f64, l: f64, a: f64) -> Self {
+        if s == 0.0 {
+            return Self::new(0.0, 0.0, 0.0, a);
+        }
+
+        let q = if l < 0.5 {
+            l * (1.0 + s)
+        } else {
+            l + s - l * s
+        };
+        let p = 2.0 * l - q;
+
+        let r = hue_to_rgb(p, q, h + 1.0 / 3.0);
+        let g = hue_to_rgb(p, q, h);
+        let b = hue_to_rgb(p, q, h - 1.0 / 3.0);
+
+        Self::new(r, g, b, a)
     }
 
     pub const fn gray(val: f64, a: f64) -> Self {

@@ -1,10 +1,15 @@
-use crate::world::World;
+use crate::{
+    event_bus::{EventBus, TrainEvent},
+    render_world::RenderWorld,
+    world::World,
+};
 use bary_core::prelude::{Ent, Isometry2d, vfloor_f64};
 use glam::{DVec2, IVec2};
+use log::warn;
 use noise::{NoiseFn, Perlin};
 use std::collections::BTreeSet;
 
-pub const TERRAIN_CHUNK_WIDTH_METERS: f64 = 100.0;
+pub const TERRAIN_CHUNK_WIDTH_METERS: f64 = 3000.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ChunkIndex(IVec2);
@@ -52,6 +57,7 @@ pub struct TerrainChunk {
     tracks: BTreeSet<Ent>,
     nodes: BTreeSet<Ent>,
     height: [f32; 4],
+    gpu_data: Option<Ent>,
 }
 
 fn height_func(pos: DVec2) -> f64 {
@@ -60,10 +66,10 @@ fn height_func(pos: DVec2) -> f64 {
     let x = pos.x;
     let z = pos.y;
 
-    let y1 = perlin.get([x as f64 / 5.0, 0.5, z as f64 / 5.0 + 0.5]);
-    let y2 = perlin.get([x as f64 / 50.0 + 0.5, 0.5, z as f64 / 50.0 + 0.5]);
-    let y3 = perlin.get([x as f64 / 300.0, 0.5, z as f64 / 300.0 + 0.5]);
-    let y4 = perlin.get([x as f64 / 1000.0, 0.5, z as f64 / 1000.0 + 0.5]);
+    let y1 = perlin.get([x as f64 / 50.0, 0.5, z as f64 / 50.0 + 0.5]);
+    let y2 = perlin.get([x as f64 / 500.0 + 0.5, 0.5, z as f64 / 500.0 + 0.5]);
+    let y3 = perlin.get([x as f64 / 3000.0, 0.5, z as f64 / 3000.0 + 0.5]);
+    let y4 = perlin.get([x as f64 / 10000.0, 0.5, z as f64 / 10000.0 + 0.5]);
     return y1 * 0.5 + y2 * 5.0 + y3 * 10.0 + y4 * 30.0 + 10.0;
 }
 
@@ -85,6 +91,7 @@ impl TerrainChunk {
                 height_func(c) as f32,
                 height_func(d) as f32,
             ],
+            gpu_data: None,
         }
     }
 
@@ -127,28 +134,49 @@ impl TerrainChunk {
     pub fn height(&self) -> [f32; 4] {
         self.height
     }
+
+    pub fn set_gpu_data(&mut self, id: impl Into<Option<Ent>>) {
+        self.gpu_data = id.into();
+    }
+
+    pub fn gpu_data(&self) -> Option<Ent> {
+        self.gpu_data
+    }
 }
 
 pub fn get_chunk_index(pos: impl Into<DVec2>) -> ChunkIndex {
     ChunkIndex::new(vfloor_f64(pos.into() / TERRAIN_CHUNK_WIDTH_METERS))
 }
 
-pub fn spawn_new_chunk(world: &mut World, index: impl Into<ChunkIndex>) -> Option<Ent> {
+pub fn spawn_new_chunk(
+    world: &mut World,
+    events: &mut EventBus,
+    index: impl Into<ChunkIndex>,
+) -> Option<Ent> {
     let index = index.into();
     if world.chunk_map.contains_key(&index) {
         return None;
     }
 
     let chunk = TerrainChunk::new(index);
+
     let id = world.spawner.spawn();
     world.chunks.spawn(id, chunk);
     world.chunk_map.insert(index, id);
 
+    events.enqueue(TrainEvent::ChunkUpdate(id));
+
     Some(id)
 }
 
-pub fn ensure_chunk_exists(world: &mut World, index: ChunkIndex) {
-    spawn_new_chunk(world, index);
+pub fn ensure_chunk_exists(world: &mut World, events: &mut EventBus, index: ChunkIndex) {
+    for x in -2..=2 {
+        for y in -2..=2 {
+            let idx = index.as_ivec2() + IVec2::new(x, y);
+            let idx = ChunkIndex::new(idx);
+            spawn_new_chunk(world, events, idx);
+        }
+    }
 }
 
 #[allow(unused)]
@@ -164,8 +192,13 @@ pub fn remove_chunk_if_empty(world: &mut World, id: Ent, index: ChunkIndex) -> O
     Some(())
 }
 
-pub fn chunk_register_track(world: &mut World, index: ChunkIndex, track_id: Ent) -> Option<()> {
-    ensure_chunk_exists(world, index);
+pub fn chunk_register_track(
+    world: &mut World,
+    events: &mut EventBus,
+    index: ChunkIndex,
+    track_id: Ent,
+) -> Option<()> {
+    ensure_chunk_exists(world, events, index);
     let chunk_id = world.chunk_map.get(&index)?;
     let chunk = world.chunks.try_get_mut(*chunk_id).ok()?;
     chunk.add_track(track_id);
@@ -180,8 +213,13 @@ pub fn chunk_deregister_track(world: &mut World, index: ChunkIndex, track_id: En
     Some(())
 }
 
-pub fn chunk_register_node(world: &mut World, index: ChunkIndex, node_id: Ent) -> Option<()> {
-    ensure_chunk_exists(world, index);
+pub fn chunk_register_node(
+    world: &mut World,
+    events: &mut EventBus,
+    index: ChunkIndex,
+    node_id: Ent,
+) -> Option<()> {
+    ensure_chunk_exists(world, events, index);
     let chunk_id = world.chunk_map.get(&index)?;
     let chunk = world.chunks.try_get_mut(*chunk_id).ok()?;
     chunk.add_node(node_id);

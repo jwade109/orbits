@@ -1,3 +1,4 @@
+use log::*;
 use wgpu::*;
 
 pub struct BufferResource {
@@ -34,7 +35,7 @@ impl BufferResource {
     pub fn make_bind_group<'a>(device: &Device, buffer: &Buffer) -> BindGroup {
         let layout = Self::make_layout(device);
         let bgd = BindGroupDescriptor {
-            label: Some("Color array bind group"),
+            label: None,
             layout: &layout,
             entries: &[BindGroupEntry {
                 binding: 0,
@@ -50,7 +51,7 @@ impl BufferResource {
     }
 
     pub fn new(device: &Device, size: usize, label: &str) -> Self {
-        println!("{label:40} >> Allocating buffer with {size} bytes");
+        info!("{label:40} >> Allocating buffer with {size} bytes");
 
         let bgl = Self::make_layout(device);
         let bd = Self::make_descriptor(size);

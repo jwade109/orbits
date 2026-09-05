@@ -5,6 +5,7 @@ mod line_pipeline;
 mod rectangle_pipeline;
 mod shadow_pipeline;
 mod single_color_pipeline;
+mod sprite_pipeline;
 mod standard_3d_pipeline;
 mod text_pipeline;
 
@@ -15,5 +16,6 @@ pub use line_pipeline::*;
 pub use rectangle_pipeline::*;
 pub use shadow_pipeline::*;
 pub use single_color_pipeline::*;
+pub use sprite_pipeline::*;
 pub use standard_3d_pipeline::*;
 pub use text_pipeline::*;

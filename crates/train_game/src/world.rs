@@ -1,43 +1,66 @@
+use crate::event_bus::*;
+use crate::node::*;
+use crate::persistence::*;
+use crate::railcar::*;
+use crate::terrain::*;
+use crate::track::*;
+use crate::viewport::Viewport;
+use bary_core::prelude::*;
+use bary_input::InputState;
+use bary_sim::Camera;
+use log::*;
+use rdev::Key;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::time::Instant;
 
-use bary_core::prelude::*;
-use bary_input::InputState;
-use bary_sim::Camera;
-use rdev::Key;
+pub const MOUSEOVER_RADIUS: f64 = 35.0;
 
-use crate::node::*;
-use crate::persistence::*;
-use crate::railcar::spawn_new_car;
-use crate::railcar::{RailCar, get_next_track};
-use crate::terrain::*;
-use crate::track::*;
-use crate::viewport::Viewport;
+#[derive(Debug, Clone, Copy)]
+pub enum HoveredEntity {
+    Track(TrackLocation),
+    Node(Ent),
+    Car(Ent),
+}
 
-pub const MOUSEOVER_RADIUS: f64 = 60.0;
+pub struct SelectionInfo {
+    pub pressed_node: Option<(Ent, Instant)>,
+    pub selected_nodes: Vec<Ent>,
+    pub selected_track: Option<TrackLocation>,
+    pub hovered_chunk: Option<ChunkIndex>,
+    pub hovered: Option<HoveredEntity>,
+    pub ruler_start: Option<DVec2>,
+    pub cursor_origin: Terminus,
+}
+
+impl SelectionInfo {
+    pub fn new() -> Self {
+        Self {
+            selected_nodes: Vec::new(),
+            pressed_node: None,
+            selected_track: None,
+            hovered_chunk: None,
+            hovered: None,
+            ruler_start: None,
+            cursor_origin: Terminus::Start,
+        }
+    }
+}
 
 pub struct World {
     pub ticks: u64,
-    pub current_font_id: usize,
+    pub current_font_id: Option<Ent>,
     pub time: f64,
     pub show_detail: bool,
 
     pub camera: Camera,
     pub target_camera: Camera,
 
-    pub hovered_node: Option<Ent>,
-    pub pressed_node: Option<(Ent, Instant)>,
-    pub selected_nodes: Vec<Ent>,
-    pub hovered_track: Option<Ent>,
-    pub selected_track: Option<Ent>,
-    pub hovered_chunk: Option<ChunkIndex>,
-    pub ruler_start: Option<DVec2>,
-
     pub spawner: EntitySpawner,
     pub nodes: Components<Node>,
     pub segments: Components<TrackSegment>,
     pub cars: Components<RailCar>,
+    pub consists: Components<RailConsist>,
 
     pub chunks: Components<TerrainChunk>,
     pub chunk_map: BTreeMap<ChunkIndex, Ent>,
@@ -46,10 +69,10 @@ pub struct World {
 }
 
 impl World {
-    pub fn new() -> Self {
+    pub fn new(font_id: Ent) -> Self {
         Self {
             ticks: 0,
-            current_font_id: 0,
+            current_font_id: Some(font_id),
             time: 0.0,
             show_detail: false,
             camera: Camera {
@@ -60,25 +83,25 @@ impl World {
                 isometry: Isometry2d::ZERO,
                 zoom: 0.28,
             },
-            selected_nodes: Vec::new(),
-            hovered_node: None,
-            pressed_node: None,
-            hovered_track: None,
-            selected_track: None,
-            hovered_chunk: None,
-            ruler_start: None,
             spawner: EntitySpawner::default(),
             nodes: Components::default(),
             segments: Components::default(),
             cars: Components::default(),
             chunks: Components::default(),
+            consists: Components::default(),
             chunk_map: BTreeMap::new(),
             calculated_route: None,
         }
     }
 }
 
-pub fn update_world(world: &mut World, dt: f64, mouse: DVec2, screen_width: DVec2) {
+pub fn update_world(
+    world: &mut World,
+    sel: &mut SelectionInfo,
+    dt: f64,
+    mouse: DVec2,
+    screen_width: DVec2,
+) {
     world.time += dt;
     world.ticks += 1;
 
@@ -91,28 +114,13 @@ pub fn update_world(world: &mut World, dt: f64, mouse: DVec2, screen_width: DVec
             continue;
         };
 
-        if car.pos > track.length {
-            let junction = track.get_node_at(car.origin.other());
-            needs_reparenting.push((*car_id, car.segment, junction));
-        } else if car.pos < 0.0 {
-            let junction = track.get_node_at(car.origin);
-            needs_reparenting.push((*car_id, car.segment, junction));
+        if car.pos > track.length || car.pos < 0.0 {
+            needs_reparenting.push(*car_id);
         }
     }
 
-    for (car_id, track_id, node_id) in needs_reparenting {
-        if let Some((id, term)) = get_next_track(world, node_id, track_id) {
-            if let Ok(car) = world.cars.try_get_mut(car_id) {
-                car.segment = id;
-                car.pos = 0.0;
-                car.origin = term;
-            }
-        } else {
-            if let Ok(car) = world.cars.try_get_mut(car_id) {
-                car.pos = 0.0;
-                car.origin = car.origin.other();
-            }
-        }
+    for car_id in needs_reparenting {
+        update_track_parentage(world, car_id);
     }
 
     world.camera.isometry.translation +=
@@ -123,62 +131,59 @@ pub fn update_world(world: &mut World, dt: f64, mouse: DVec2, screen_width: DVec
 
     let view = Viewport::new(world.camera, screen_width);
 
+    let mouse_world = view.screen_to_world(mouse);
+
+    sel.hovered = None;
+
     {
         let mut best_dist = MOUSEOVER_RADIUS;
-        if world.pressed_node.is_none() {
-            world.hovered_node = None;
-            for (id, node) in world.nodes.iter() {
-                let node_screen = view.world_to_screen(node.pos());
-                let d = node_screen.distance(mouse);
+
+        for (id, car) in world.cars.iter() {
+            if let Some(iso) = get_car_isometry(world, *id) {
+                let d = view.meters(iso.tr().distance(mouse_world));
                 if d < best_dist {
-                    world.hovered_node = Some(*id);
+                    sel.hovered = Some(HoveredEntity::Car(*id));
                     best_dist = d;
                 }
             }
         }
-    }
 
-    {
-        let mut best_dist = MOUSEOVER_RADIUS;
-        world.hovered_track = None;
-        for (id, track) in world.segments.iter() {
-            let p = track.center.translation.as_dvec2();
-            let sc = view.world_to_screen(p);
-            let d = sc.distance(mouse);
-            if d < best_dist {
-                best_dist = d;
-                world.hovered_track = Some(*id);
+        if sel.pressed_node.is_none() {
+            for (id, node) in world.nodes.iter() {
+                let node_screen = view.world_to_screen(node.pos());
+                let d = node_screen.distance(mouse);
+                if d < best_dist {
+                    sel.hovered = Some(HoveredEntity::Node(*id));
+                    best_dist = d;
+                }
             }
         }
-    }
 
-    world.hovered_chunk = Some(get_chunk_index(view.screen_to_world(mouse)));
-}
-
-pub fn make_world() -> World {
-    let mut world: World = World::new();
-
-    if load_world(&mut world, "train_world").is_none() {
-        println!("Failed to load world");
-    }
-
-    let mut new_chunks = BTreeSet::new();
-
-    for chunk in world.chunks.values() {
-        let idx = chunk.index();
-        for x in -2..=2 {
-            for y in -2..=2 {
-                let idx = idx.as_ivec2() + IVec2::new(x, y);
-                let idx = ChunkIndex::new(idx);
-                if !world.chunk_map.contains_key(&idx) {
-                    new_chunks.insert(idx);
+        if sel.hovered.is_none() {
+            for (id, track) in world.segments.iter() {
+                let (s, nearest) = track.nearest_point(mouse_world);
+                let d = view.meters(nearest.distance(mouse_world));
+                if d < best_dist {
+                    best_dist = d;
+                    let s = match sel.cursor_origin {
+                        Terminus::Start => s,
+                        Terminus::End => track.length - s,
+                    };
+                    let loc = TrackLocation::new(*id, s, sel.cursor_origin);
+                    sel.hovered = Some(HoveredEntity::Track(loc));
                 }
             }
         }
     }
 
-    for index in new_chunks {
-        ensure_chunk_exists(&mut world, index);
+    sel.hovered_chunk = Some(get_chunk_index(view.screen_to_world(mouse)));
+}
+
+pub fn make_world(events: &mut EventBus, font_id: Ent) -> World {
+    let mut world: World = World::new(font_id);
+
+    if load_world(&mut world, events, "train_world").is_none() {
+        error!("Failed to load world");
     }
 
     world
@@ -186,6 +191,8 @@ pub fn make_world() -> World {
 
 pub fn process_input(
     world: &mut World,
+    events: &mut EventBus,
+    sel: &mut SelectionInfo,
     input: &InputState,
     dt: f64,
     mouse: DVec2,
@@ -248,85 +255,120 @@ pub fn process_input(
     let shift = input.is_key_pressed(Key::ShiftLeft);
 
     if input.just_pressed_debounced(Key::KeyC) {
-        spawn_new_node(world, mouse_world);
+        spawn_new_node(world, events, mouse_world);
     }
 
     if input.just_pressed_debounced(Key::KeyV) {
-        let nodes: Vec<Ent> = world.selected_nodes.clone().into_iter().collect();
-        if spawn_new_track(world, nodes).is_none() {
-            println!("Failed to spawn new track");
+        let nodes: Vec<Ent> = sel.selected_nodes.clone().into_iter().collect();
+        if spawn_new_track(world, events, nodes).is_none() {
+            error!("Failed to spawn new track");
         }
     }
 
-    if world.hovered_node.is_none() || !input.is_key_pressed(rdev::Button::Left) {
-        world.pressed_node = None;
+    if !input.is_key_pressed(rdev::Button::Left) {
+        sel.pressed_node = None;
     }
 
     if input.just_pressed_debounced(rdev::Button::Left) {
-        if let Some(id) = world.hovered_node {
-            world.pressed_node = Some((id, Instant::now()));
+        if let Some(HoveredEntity::Track(id)) = sel.hovered {
+            sel.selected_track = Some(id)
+        } else {
+            sel.selected_track = None;
+        }
+    }
 
-            let contains = world.selected_nodes.contains(&id);
+    if input.just_pressed_debounced(rdev::Button::Left) {
+        if let Some(HoveredEntity::Node(id)) = sel.hovered {
+            sel.pressed_node = Some((id, Instant::now()));
+
+            let contains = sel.selected_nodes.contains(&id);
             match (shift, contains) {
                 (true, true) => {
-                    world.selected_nodes.retain(|d| *d != id);
+                    sel.selected_nodes.retain(|d| *d != id);
                 }
                 (true, false) => {
-                    world.selected_nodes.push(id);
+                    sel.selected_nodes.push(id);
                 }
                 (false, false) => {
-                    world.selected_nodes = vec![id];
+                    sel.selected_nodes = vec![id];
                 }
                 (false, true) => {
-                    world.selected_nodes.clear();
+                    sel.selected_nodes.clear();
                 }
             }
         } else {
-            world.selected_nodes.clear();
+            sel.selected_nodes.clear();
         }
     }
 
     if input.just_pressed_debounced(rdev::Button::Right) {
-        if let Some(track_id) = world.hovered_track {
-            _ = despawn_track(world, track_id);
-        } else if let Some(node_id) = world.hovered_node {
+        if let Some(HoveredEntity::Track(loc)) = sel.hovered {
+            _ = despawn_track(world, loc.track_id);
+        }
+        if let Some(HoveredEntity::Node(node_id)) = sel.hovered {
             _ = despawn_node(world, node_id);
         }
     }
 
     if input.just_pressed_debounced(Key::KeyN) {
-        if let Some(ids) = world.selected_nodes.get(0..2) {
+        if let Some(ids) = sel.selected_nodes.get(0..2) {
             world.calculated_route = pathfind(world, ids[0], ids[1]);
         } else {
             world.calculated_route = None;
         }
     }
 
-    if let Some(ids) = world.selected_nodes.get(0..3)
+    if let Some(ids) = sel.selected_nodes.get(0..3)
         && input.just_pressed_debounced(Key::Num3)
     {
-        spawn_three_way_junction(world, ids[0], ids[1], ids[2]);
+        spawn_three_way_junction(world, events, ids[0], ids[1], ids[2]);
     }
 
-    if let Some(ids) = world.selected_nodes.get(0..4)
+    if let Some(ids) = sel.selected_nodes.get(0..4)
         && input.just_pressed_debounced(Key::Num4)
     {
-        spawn_four_way_junction(world, ids[0], ids[1], ids[2], ids[3]);
+        spawn_four_way_junction(world, events, ids[0], ids[1], ids[2], ids[3]);
+    }
+
+    if input.just_pressed_debounced(Key::KeyP) {
+        events.enqueue(TrainEvent::Sound);
     }
 
     if input.just_pressed_debounced(Key::Num5) {
-        spawn_very_large_track(world, &world.selected_nodes.clone());
+        spawn_very_large_track(world, events, &sel.selected_nodes);
     }
 
     if input.just_pressed_debounced(Key::KeyJ) {
-        for id in world.selected_nodes.clone() {
+        for id in sel.selected_nodes.clone() {
             update_switch_node(world, id);
         }
     }
 
-    if input.is_key_pressed(Key::KeyG) {
-        if let Some(track_id) = world.hovered_track {
-            spawn_new_car(world, track_id);
+    if input.just_pressed_debounced(Key::KeyF) {
+        sel.cursor_origin = sel.cursor_origin.other();
+    }
+
+    if input.just_pressed_debounced(Key::KeyU) {
+        if let Some(id) = sel.hovered_chunk {
+            if let Some(id) = world.chunk_map.get(&id) {
+                events.enqueue(TrainEvent::ChunkUpdate(*id));
+            }
+        }
+    }
+
+    if input.just_pressed_debounced(Key::KeyG) {
+        if let Some(loc) = sel.selected_track {
+            spawn_new_consist(world, loc, randint(7, 32) as usize);
+        }
+    }
+
+    if input.just_pressed_debounced(Key::KeyM) {
+        if let Some(loc) = sel.selected_track {
+            let term = loc.origin.other();
+            if let Some(id) = spawn_random_track_extension(world, events, loc.track_id, term) {
+                let loc = TrackLocation::new(id, 0.0, Terminus::Start);
+                sel.selected_track = Some(loc);
+            }
         }
     }
 
@@ -334,34 +376,19 @@ pub fn process_input(
 
     if input.is_key_pressed(Key::KeyB) {
         let index = get_chunk_index(mouse_world);
-        let mut new_chunks = BTreeSet::new();
-        for chunk in world.chunks.values() {
-            let idx = chunk.index();
-            for x in -6..=6 {
-                for y in -6..=6 {
-                    let idx = index.as_ivec2() + IVec2::new(x, y);
-                    let idx = ChunkIndex::new(idx);
-                    if !world.chunk_map.contains_key(&idx) {
-                        new_chunks.insert(idx);
-                    }
-                }
-            }
-        }
-        for index in new_chunks {
-            ensure_chunk_exists(world, index);
-        }
+        ensure_chunk_exists(world, events, index);
     }
 
-    if input.just_pressed_debounced(Key::ShiftLeft) {
-        world.ruler_start = Some(mouse_world);
+    if input.just_pressed_debounced(Key::KeyZ) {
+        sel.ruler_start = Some(mouse_world);
     }
 
-    if !input.is_key_pressed(Key::ShiftLeft) {
-        world.ruler_start = None;
+    if !input.is_key_pressed(Key::KeyZ) {
+        sel.ruler_start = None;
     }
 
     let now = Instant::now();
-    if let Some((node_id, time)) = world.pressed_node {
+    if let Some((node_id, time)) = sel.pressed_node {
         let delta = now - time;
         if delta.as_secs_f64() > 0.6 {
             move_node(world, node_id, mouse_world);
@@ -370,13 +397,13 @@ pub fn process_input(
 
     if input.is_key_pressed(Key::ControlLeft) && input.just_pressed_debounced(Key::KeyS) {
         if save_world(world, "train_world").is_none() {
-            println!("Failed to save!");
+            error!("Failed to save!");
         }
     }
 
     if input.is_key_pressed(Key::ControlLeft) && input.just_pressed_debounced(Key::KeyL) {
-        if load_world(world, "train_world").is_none() {
-            println!("Failed to load");
+        if load_world(world, events, "train_world").is_none() {
+            error!("Failed to load");
         }
     }
 }

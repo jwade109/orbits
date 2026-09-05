@@ -1,4 +1,4 @@
-use crate::{node::*, track::*, world::World};
+use crate::{event_bus::EventBus, node::*, track::*, world::World};
 use bary_core::prelude::{Components, Ent, EntitySpawner};
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
@@ -57,7 +57,7 @@ pub fn save_world(world: &World, path: impl AsRef<Path>) -> Option<()> {
     Some(())
 }
 
-pub fn load_world(world: &mut World, path: impl AsRef<Path>) -> Option<()> {
+pub fn load_world(world: &mut World, events: &mut EventBus, path: impl AsRef<Path>) -> Option<()> {
     let path = path.as_ref();
 
     let geometry: TrackGeometry = load(path, "geometry.yaml")?;
@@ -69,7 +69,7 @@ pub fn load_world(world: &mut World, path: impl AsRef<Path>) -> Option<()> {
     world.chunk_map.clear();
 
     for (stored_id, pos) in geometry.nodes.iter() {
-        let new_id = spawn_new_node(world, *pos);
+        let new_id = spawn_new_node(world, events, *pos);
         mapping.insert(*stored_id, new_id);
     }
 
@@ -78,7 +78,7 @@ pub fn load_world(world: &mut World, path: impl AsRef<Path>) -> Option<()> {
             .iter()
             .map(|id| *mapping.get(id).unwrap())
             .collect();
-        spawn_new_track(world, new_ids);
+        spawn_new_track(world, events, new_ids);
     }
 
     Some(())

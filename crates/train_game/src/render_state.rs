@@ -1,25 +1,7 @@
-use crate::*;
+use crate::{render_world::RenderWorld, *};
 use glm::*;
 use std::collections::HashMap;
 use wgpu::SurfaceTexture;
-
-pub struct MeshObject {
-    pub position: Vec3,
-    pub angle: f32,
-    pub vel: f32,
-    pub mesh_id: usize,
-    pub should_animate: bool,
-}
-
-impl MeshObject {
-    pub fn get_transform_matrix(&self) -> Matrix4<f32> {
-        let eye = mat4_identity();
-        let matrix = ext::translate(&eye, self.position)
-            * ext::rotate(&eye, self.angle, glm::Vector3::new(0.0, 0.0, 1.0));
-
-        matrix
-    }
-}
 
 struct Pipelines {
     lava_lamp_pipeline: LavaLampPipeline,
@@ -32,80 +14,12 @@ struct Pipelines {
     line_pipeline: LinePipeline,
     rectangle_pipeline: RectanglePipeline,
     chunk_pipeline: RectanglePipeline,
-}
-
-pub struct RenderResources {
-    pub fonts: HashMap<usize, (FontInfo, Texture)>,
-    pub meshes: HashMap<usize, Mesh>,
-    pub textures: HashMap<usize, Texture>,
-    pub memory: HashMap<usize, BufferResource>,
-
-    pub rect_data_rect: BufferResource,
-    pub rect_data_chunks: BufferResource,
-    pub height_data_rect: BufferResource,
-    pub height_data_chunks: BufferResource,
-
-    pub next_resource_id: usize,
-}
-
-impl RenderResources {
-    pub fn spawn_mesh(&mut self, mesh: Mesh) -> usize {
-        let id = self.next_resource_id;
-        self.next_resource_id += 1;
-        self.meshes.insert(id, mesh);
-        id
-    }
-
-    pub fn load_texture(&mut self, rd: &Renderer, path: &str) -> usize {
-        let sprite = Texture::load_sprite(path, rd).unwrap();
-        let id = self.next_resource_id;
-        self.next_resource_id += 1;
-        self.textures.insert(id, sprite);
-        id
-    }
-
-    pub fn load_font(&mut self, rd: &Renderer, name: &str) -> usize {
-        println!("Loading font {name}");
-        let data_path = format!("assets/font_textures/{name}/font_data.json");
-        let texture_path = format!("assets/font_textures/{name}/font.png");
-        let texture = Texture::load_sprite(&texture_path, rd).unwrap();
-        let font = FontInfo::from_file(&data_path).unwrap();
-        let id = self.next_resource_id;
-        self.next_resource_id += 1;
-        self.fonts.insert(id, (font, texture));
-        id
-    }
-
-    pub fn create_memory_arena(
-        &mut self,
-        rd: &Renderer,
-        name: impl Into<String>,
-        size: usize,
-    ) -> usize {
-        let name = name.into();
-        let resource = BufferResource::new(&rd.device, size, &name);
-
-        let id = self.next_resource_id;
-        self.next_resource_id += 1;
-        self.memory.insert(id, resource);
-        id
-    }
-
-    pub fn spawn_ground_plane(
-        &mut self,
-        device: &wgpu::Device,
-        x: i32,
-        z: i32,
-        n_quads: u16,
-    ) -> usize {
-        let mesh = make_rough_ground_plane(device, Vec2::new(x as f32, z as f32), n_quads);
-        self.spawn_mesh(mesh)
-    }
+    sprite_pipeline: SpritePipeline,
 }
 
 pub struct RenderState<'a> {
     pub renderer: Renderer<'a>,
-    pub resources: RenderResources,
+    pub world: RenderWorld,
     pub window: &'a mut glfw::Window,
 
     pipelines: Pipelines,
@@ -159,11 +73,13 @@ impl<'a> RenderState<'a> {
 
         let single_color_pipeline = SingleColorPipeline::new(&renderer.device, &renderer.config);
 
-        let (rectangle_pipeline, rect_data_rect, height_data_rect) =
+        let (rectangle_pipeline, rect_data_rect, _) =
             RectanglePipeline::new(&renderer, "crates/rend/shaders/rectangle.wgsl");
 
-        let (chunk_pipeline, rect_data_chunks, height_data_chunks) =
+        let (chunk_pipeline, _, height_data_chunks) =
             RectanglePipeline::new(&renderer, "crates/rend/shaders/chunk_terrain.wgsl");
+
+        let sprite_pipeline = SpritePipeline::new(&renderer);
 
         let uniform_bind_group = {
             let mut builder = BindGroupBuilder::new(&renderer.device);
@@ -187,17 +103,7 @@ impl<'a> RenderState<'a> {
 
         let shadow_pipeline = ShadowPipeline::new(&renderer);
 
-        let resources = RenderResources {
-            fonts: HashMap::new(),
-            meshes: HashMap::new(),
-            textures: HashMap::new(),
-            memory: HashMap::new(),
-            rect_data_rect,
-            rect_data_chunks,
-            height_data_rect,
-            height_data_chunks,
-            next_resource_id: 0,
-        };
+        let world = RenderWorld::new(rect_data_rect, height_data_chunks);
 
         let pipelines = Pipelines {
             lava_lamp_pipeline,
@@ -210,13 +116,14 @@ impl<'a> RenderState<'a> {
             line_pipeline,
             rectangle_pipeline,
             chunk_pipeline,
+            sprite_pipeline,
         };
 
         Self {
             renderer,
             window,
             pipelines,
-            resources,
+            world,
             common_shader_info: SingleUBO {
                 buffer: uniform_buffer,
                 bind_group: uniform_bind_group,
@@ -297,67 +204,19 @@ impl<'a> RenderState<'a> {
             .submit(std::iter::once(command_encoder.finish()));
     }
 
-    fn draw_3d(&self, meshes: &[MeshObject], view: &wgpu::TextureView) {
-        let mut command_encoder = self
-            .renderer
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-
-        let mut rp = self.get_render_pass(&mut command_encoder, None, &view);
-
-        rp.set_pipeline(self.pipelines.standard_3d_pipeline.pipeline());
-        rp.set_bind_group(2, &self.common_shader_info.bind_group, &[]);
-        self.pipelines.standard_3d_pipeline.set_bindings(&mut rp);
-
-        for i in 0..meshes.len() {
-            let matrix: Matrix4<f32> = meshes[i].get_transform_matrix();
-            self.pipelines.standard_3d_pipeline.upload_transform(
-                i as u64,
-                &matrix,
-                &self.renderer.queue,
-            );
-        }
-
-        rp.set_bind_group(
-            1,
-            &self.resources.textures.values().next().unwrap().bind_group,
-            &[],
-        );
-
-        for i in 0..meshes.len() {
-            let bg = self
-                .pipelines
-                .standard_3d_pipeline
-                .transforms()
-                .bind_group(i);
-
-            let Some(mesh) = self.resources.meshes.get(&meshes[i].mesh_id) else {
-                println!("Failed to get mesh of type {:?}", meshes[i].mesh_id);
-                continue;
-            };
-
-            mesh.set_as_active(&mut rp);
-
-            rp.set_bind_group(0, bg, &[]);
-            rp.draw_indexed(0..mesh.index_count(), 0, 0..1);
-        }
-
-        drop(rp);
-
-        self.renderer
-            .queue
-            .submit(std::iter::once(command_encoder.finish()));
-    }
-
-    fn draw_circles(&self, view: &wgpu::TextureView, commands: &[CircleCommand]) {
+    fn draw_circles(&self, view: &wgpu::TextureView, commands: &[CircleCommand]) -> usize {
         let (sx, sy) = self.window.get_size();
         let screen = glam::DVec2::new(sx as f64, sy as f64);
+
+        let mut passes = 0;
 
         for chunk in commands.chunks(CirclePipeline::MAX_CIRCLES_PER_PASS) {
             let mut command_encoder = self
                 .renderer
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
+            passes += 1;
 
             let mut rp = self.get_render_pass(&mut command_encoder, None, &view);
 
@@ -375,15 +234,22 @@ impl<'a> RenderState<'a> {
                 .queue
                 .submit(std::iter::once(command_encoder.finish()));
         }
+
+        passes
     }
 
-    fn draw_lines(&self, view: &wgpu::TextureView, commands: &[LineCommand]) {
+    fn draw_lines(&self, view: &wgpu::TextureView, commands: &[LineCommand]) -> usize {
         let (sx, sy) = self.window.get_size();
+
+        let mut passes = 0;
+
         for chunk in commands.chunks(LinePipeline::MAX_LINES_PER_PASS) {
             let mut command_encoder = self
                 .renderer
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
+            passes += 1;
 
             let mut rp = self.get_render_pass(&mut command_encoder, None, &view);
 
@@ -404,11 +270,15 @@ impl<'a> RenderState<'a> {
                 .queue
                 .submit(std::iter::once(command_encoder.finish()));
         }
+
+        passes
     }
 
-    fn draw_rectangles(&self, view: &wgpu::TextureView, commands: &[RectCommand]) {
+    fn draw_rectangles(&self, view: &wgpu::TextureView, commands: &[RectCommand]) -> usize {
         let (sx, sy) = self.window.get_size();
         let screen = glam::DVec2::new(sx as f64, sy as f64);
+
+        let mut passes = 0;
 
         for cmds in commands.chunks(RectanglePipeline::RECTS_PER_PASS) {
             let mut command_encoder = self
@@ -416,10 +286,12 @@ impl<'a> RenderState<'a> {
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
+            passes += 1;
+
             let mut rp = self.get_render_pass(&mut command_encoder, None, &view);
 
             RectanglePipeline::assign_buffer_data(
-                &self.resources.rect_data_rect,
+                &self.world.rect_data_rect,
                 &self.renderer.queue,
                 cmds,
                 screen,
@@ -428,10 +300,7 @@ impl<'a> RenderState<'a> {
             self.pipelines.rectangle_pipeline.draw(
                 &mut rp,
                 cmds.len(),
-                &[
-                    &self.resources.rect_data_rect,
-                    &self.resources.height_data_chunks,
-                ],
+                &[&self.world.rect_data_rect, &self.world.height_data_chunks],
             );
 
             drop(rp);
@@ -440,11 +309,15 @@ impl<'a> RenderState<'a> {
                 .queue
                 .submit(std::iter::once(command_encoder.finish()));
         }
+
+        passes
     }
 
-    fn draw_chunks(&self, view: &wgpu::TextureView, commands: &[ChunkCommand]) {
+    fn draw_chunks(&self, view: &wgpu::TextureView, commands: &[ChunkCommand]) -> usize {
         let (sx, sy) = self.window.get_size();
         let screen = glam::DVec2::new(sx as f64, sy as f64);
+
+        let mut passes = 0;
 
         for cmds in commands.chunks(RectanglePipeline::RECTS_PER_PASS) {
             let mut command_encoder = self
@@ -452,12 +325,18 @@ impl<'a> RenderState<'a> {
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
+            passes += 1;
+
             let height_data: Vec<u8> = cmds
                 .iter()
                 .map(|c| c.height.to_vec())
                 .flat_map(|c| c.iter().map(|c| c.to_le_bytes()).collect::<Vec<_>>())
                 .collect::<Vec<_>>()
                 .concat();
+
+            self.world
+                .height_data_chunks
+                .write(&self.renderer.queue, &height_data);
 
             let rcmds: Vec<_> = cmds
                 .iter()
@@ -472,23 +351,16 @@ impl<'a> RenderState<'a> {
             let mut rp = self.get_render_pass(&mut command_encoder, None, &view);
 
             RectanglePipeline::assign_buffer_data(
-                &self.resources.rect_data_chunks,
+                &self.world.rect_data_rect,
                 &self.renderer.queue,
                 &rcmds,
                 screen,
             );
 
-            self.resources
-                .height_data_chunks
-                .write(&self.renderer.queue, &height_data);
-
             self.pipelines.chunk_pipeline.draw(
                 &mut rp,
                 cmds.len(),
-                &[
-                    &self.resources.rect_data_chunks,
-                    &self.resources.height_data_chunks,
-                ],
+                &[&self.world.rect_data_rect, &self.world.height_data_chunks],
             );
 
             drop(rp);
@@ -497,19 +369,25 @@ impl<'a> RenderState<'a> {
                 .queue
                 .submit(std::iter::once(command_encoder.finish()));
         }
+
+        passes
     }
 
-    fn draw_ui(&self, view: &wgpu::TextureView, font_id: usize, commands: &[CharCommand]) {
+    fn draw_ui(&self, view: &wgpu::TextureView, font_id: Ent, commands: &[CharCommand]) -> usize {
         let (sx, sy) = self.window.get_size();
         let screen = glam::DVec2::new(sx as f64, sy as f64);
 
-        let (font, material) = self.resources.fonts.get(&font_id).unwrap();
+        let (font, material) = self.world.fonts.get(font_id).unwrap();
+
+        let mut passes = 0;
 
         for chunk in commands.chunks(TextPipeline::MAX_CHARS_PER_PASS) {
             let mut command_encoder = self
                 .renderer
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
+            passes += 1;
 
             let mut rp = self.get_render_pass(&mut command_encoder, None, &view);
 
@@ -529,6 +407,8 @@ impl<'a> RenderState<'a> {
                 .queue
                 .submit(std::iter::once(command_encoder.finish()));
         }
+
+        passes
     }
 
     pub fn update(&mut self, view_proj: Mat4, time: f32) {
@@ -582,23 +462,46 @@ impl<'a> RenderState<'a> {
             .submit(std::iter::once(command_encoder.finish()));
     }
 
-    pub fn apply_geometry_commands(&self, commands: &RenderCommands, view: &wgpu::TextureView) {
+    pub fn apply_geometry_commands(
+        &self,
+        commands: &RenderCommands,
+        view: &wgpu::TextureView,
+    ) -> usize {
+        let mut passes = 0;
         for cmd in commands.commands() {
-            match cmd {
+            passes += match cmd {
                 BatchRenderCommand::Char(font_id, c) => self.draw_ui(&view, *font_id, &c),
                 BatchRenderCommand::Rect(c) => self.draw_rectangles(view, &c),
                 BatchRenderCommand::Circle(c) => self.draw_circles(view, &c),
                 BatchRenderCommand::Line(c) => self.draw_lines(view, &c),
                 BatchRenderCommand::Chunk(c) => self.draw_chunks(view, c),
-                // _ => (),
             }
         }
+        passes
+    }
+
+    fn draw_sprites(&self, view: &wgpu::TextureView) {
+        let mut command_encoder = self
+            .renderer
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        let mut rp = self.get_render_pass(&mut command_encoder, None, view);
+
+        for _ in 0..200 {
+            self.pipelines
+                .sprite_pipeline
+                .draw(&mut rp, &self.invincible.bind_group);
+        }
+        drop(rp);
+        self.renderer
+            .queue
+            .submit(std::iter::once(command_encoder.finish()));
     }
 
     pub fn render(
         &mut self,
         commands: &RenderCommands,
-    ) -> Result<Option<SurfaceTexture>, wgpu::SurfaceError> {
+    ) -> Result<Option<(SurfaceTexture, usize)>, wgpu::SurfaceError> {
         let (w, h) = self.window.get_size();
 
         if w == 0 || h == 0 {
@@ -620,14 +523,12 @@ impl<'a> RenderState<'a> {
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         self.clear(&view, Color::rgb(117, 186, 255, 1.0));
-        // self.draw_lava(&view, 0.0);
-        // self.draw_3d(&[], &view);
+        let passes = self.apply_geometry_commands(commands, &view);
 
-        self.apply_geometry_commands(commands, &view);
-        // self.blur_pass(&self.im_tex_1, &view);
+        self.draw_sprites(&view);
 
         self.renderer.device.poll(wgpu::Maintain::wait());
 
-        Ok(Some(drawable))
+        Ok(Some((drawable, passes)))
     }
 }

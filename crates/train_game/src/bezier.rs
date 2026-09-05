@@ -74,6 +74,14 @@ pub struct BezierCurve {
     order: BezierOrder,
 }
 
+pub fn nearest_point_segment(a: DVec2, b: DVec2, p: DVec2) -> (f64, DVec2) {
+    let v = b - a;
+    let u = p - a;
+    let t = (v.dot(u)) / (v.dot(v));
+    let t = t.clamp(0.0, 1.0);
+    (t, a + t * v)
+}
+
 impl BezierCurve {
     pub fn new(points: Vec<DVec2>) -> Option<Self> {
         let order = match points.len() {
@@ -126,5 +134,13 @@ impl BezierCurve {
 
     pub fn end(&self) -> DVec2 {
         self.order.end()
+    }
+
+    pub fn nearest_point(&self, p: DVec2) -> (f64, DVec2) {
+        match self.order {
+            BezierOrder::Linear(v) => nearest_point_segment(v[0], v[1], p),
+            BezierOrder::Quadratic(v) => nearest_point_segment(v[0], v[2], p),
+            BezierOrder::Cubic(v) => nearest_point_segment(v[0], v[3], p),
+        }
     }
 }

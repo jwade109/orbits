@@ -1,80 +1,129 @@
+use crate::{node::*, track::*, world::World};
+use bary_core::prelude::{Ent, Isometry2d, chance, rand, randint};
 use std::collections::BTreeMap;
-
-use bary_core::prelude::{Ent, chance, rand, randint};
-
-use crate::{track::Terminus, world::World};
 
 pub struct RailCar {
     pub segment: Ent,
     pub pos: f64,
     pub origin: Terminus,
     pub vel: f64,
+    pub forward_connection: Option<Ent>,
+    pub backward_connection: Option<Ent>,
+    pub consist: Ent,
 }
 
 impl RailCar {
     pub const WIDTH_METERS: f64 = 4.0;
     pub const LENGTH_METERS: f64 = 14.0;
 
-    pub fn new(segment: Ent, pos: f64, vel: f64, origin: Terminus) -> Self {
+    pub fn new(segment: Ent, pos: f64, vel: f64, origin: Terminus, consist: Ent) -> Self {
         Self {
             segment,
             pos,
             vel,
             origin,
+            forward_connection: None,
+            backward_connection: None,
+            consist,
         }
     }
 
     pub fn step(&mut self, dt: f64) {
         self.pos += self.vel * dt;
     }
+
+    pub fn is_front(&self) -> bool {
+        self.forward_connection.is_none()
+    }
 }
 
-pub fn get_next_track(world: &World, at_node: Ent, source_track: Ent) -> Option<(Ent, Terminus)> {
-    let node = world.nodes.get(at_node)?;
+pub struct RailConsist {
+    pub cars: Vec<Ent>,
+}
 
-    let select = |c: &BTreeMap<Ent, Terminus>| {
-        if c.is_empty() {
-            return None;
+impl RailConsist {
+    pub fn new(cars: impl Iterator<Item = Ent>) -> Self {
+        Self {
+            cars: cars.collect(),
         }
-        let n = c.len();
-        let v: Vec<_> = c.iter().collect();
-        let i = randint(0, n as i32);
-        v.get(i as usize).map(|e| (*e.0, *e.1))
-    };
-
-    if node.forward_connections.contains_key(&source_track) {
-        return select(&node.backward_connections);
     }
-
-    if node.backward_connections.contains_key(&source_track) {
-        return select(&node.forward_connections);
-    }
-
-    None
 }
 
-pub fn spawn_new_car(world: &mut World, segment_id: Ent) -> Option<()> {
-    let track = world.segments.get(segment_id)?;
-    let n = 1;
-    let s = track.length * bary_core::prelude::rand(0.1, 0.9) as f64;
-    let vel = 1400.0;
+pub fn get_car_isometry(world: &World, car_id: Ent) -> Option<Isometry2d> {
+    let car = world.cars.get(car_id)?;
+    let track = world.segments.get(car.segment)?;
+    let iso = track.eval_at(car.origin, car.pos);
+    Some(iso)
+}
+
+pub fn spawn_new_consist(world: &mut World, loc: TrackLocation, n_cars: usize) -> Option<()> {
+    let track = world.segments.get(loc.track_id)?;
+
+    let vel = 800.0;
     let d = RailCar::LENGTH_METERS + 3.0;
 
-    for i in 0..n {
-        let l = s + d * i as f64;
-        if l > track.length {
+    let consist_id = world.spawner.spawn();
+
+    let mut cars = Vec::new();
+
+    let ids: Vec<Ent> = (0..n_cars).map(|_| world.spawner.spawn()).collect();
+
+    for i in 0..n_cars {
+        let in_front = (i > 0).then_some(ids.get(i - 1)).flatten().cloned();
+        let this_id = ids[i];
+        let behind = ids.get(i + 1).cloned();
+
+        let pos = loc.pos - d * i as f64;
+        if pos > track.length || pos < 0.0 {
             break;
         }
 
-        let origin = if chance(0.5) {
-            Terminus::Start
-        } else {
-            Terminus::End
-        };
+        let mut car = RailCar::new(loc.track_id, pos, vel, loc.origin, consist_id);
+        car.forward_connection = in_front;
+        car.backward_connection = behind;
+        cars.push(this_id);
+        world.cars.spawn(this_id, car);
+    }
 
-        let car = RailCar::new(segment_id, l, vel, origin);
-        let id = world.spawner.spawn();
-        world.cars.spawn(id, car);
+    let consist = RailConsist::new(cars.into_iter());
+    world.consists.spawn(consist_id, consist);
+
+    Some(())
+}
+
+pub fn update_track_parentage(world: &mut World, car_id: Ent) -> Option<()> {
+    let car = world.cars.get(car_id)?;
+    let track = world.segments.get(car.segment)?;
+
+    let (node_id, overshoot) = if car.pos > track.length {
+        let id = track.get_node_at(car.origin.other());
+        let overshoot = car.pos - track.length;
+        (id, overshoot)
+    } else if car.pos < 0.0 {
+        let id = track.get_node_at(car.origin);
+        let overshoot = -car.pos;
+        (id, overshoot)
+    } else {
+        return Some(());
+    };
+
+    let source_track = car.segment;
+
+    if car.is_front() {
+        randomize_switch_state(world, node_id);
+    }
+
+    let next = get_next_track(world, node_id, source_track);
+
+    let car = world.cars.try_get_mut(car_id).ok()?;
+
+    if let Some(next) = next {
+        car.segment = next.0;
+        car.pos = overshoot;
+        car.origin = next.1;
+    } else {
+        car.pos = overshoot;
+        car.origin = car.origin.other();
     }
 
     Some(())

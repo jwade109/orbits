@@ -24,6 +24,9 @@ serde = { version = "1.0.229", features = ["derive"] }
 serde_yaml = "0.9.34"
 splines = "5.0.0"
 noise = "0.9.0"
+wgpu = "23.0.1"
+log = "0.4.31"
+simple_logger = "5.2.0"
 
 [[bin]]
 name = "kira_test"

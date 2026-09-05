@@ -11,7 +11,7 @@ pub struct RectanglePipeline {
 
 const RECT_DATA_F32_COUNT: usize = 12;
 
-fn to_packed_array(cmd: &RectCommand, screen_size: DVec2) -> [f32; RECT_DATA_F32_COUNT] {
+pub fn to_packed_array(cmd: &RectCommand, screen_size: DVec2) -> [f32; RECT_DATA_F32_COUNT] {
     [
         cmd.pos.x as f32,
         cmd.pos.y as f32,

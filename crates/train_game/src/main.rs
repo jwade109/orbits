@@ -1,15 +1,18 @@
 #![allow(unused)]
 
 use crate::draw::draw_world;
-use crate::event_bus::EventBus;
+use crate::event_bus::*;
 use crate::rend_app::*;
+use crate::render_state::RenderState;
 use crate::tweens::AnimationStates;
 use crate::world::*;
 use bary_core::prelude::*;
 use bary_input::InputState;
 use bary_ipc::{MessageQueue, new_message_queue};
 use glfw::*;
+use log::*;
 use rend::*;
+use sounds::*;
 use std::{
     collections::BTreeMap,
     thread::JoinHandle,
@@ -23,6 +26,9 @@ mod node;
 mod persistence;
 mod railcar;
 mod rend_app;
+mod render_state;
+mod render_world;
+mod sounds;
 mod terrain;
 mod track;
 mod tweens;
@@ -31,15 +37,18 @@ mod world;
 
 struct TrainApp<'a> {
     last: Instant,
-    render_commands_dt: Duration,
-    render_dt: Duration,
+    timers: BTreeMap<&'static str, Duration>,
+    draw_calls: usize,
     world: World,
+    events: EventBus,
+    selection: SelectionInfo,
     animations: AnimationStates,
     input_state: InputState,
     rs: RenderState<'a>,
     _input_thread: JoinHandle<()>,
     input_queue: MessageQueue<rdev::Event>,
     should_exit: bool,
+    sounds: SoundManager,
 }
 
 impl<'a> TrainApp<'a> {
@@ -50,41 +59,50 @@ impl<'a> TrainApp<'a> {
 
         let _input_thread = std::thread::spawn(|| {
             if let Err(error) = rdev::listen(move |e| thread_copy.push(e)) {
-                println!("Error: {:?}", error)
+                error!("Error: {:?}", error)
             }
         });
 
-        rs.resources.load_font(&rs.renderer, "consolas");
-        rs.resources.load_font(&rs.renderer, "cambria");
-        rs.resources.load_font(&rs.renderer, "garamond");
-        rs.resources.load_font(&rs.renderer, "arial");
-        rs.resources.load_font(&rs.renderer, "calibri");
-        rs.resources.load_font(&rs.renderer, "verdana");
-        rs.resources.load_font(&rs.renderer, "impact");
-        rs.resources.load_font(&rs.renderer, "courier_new");
+        let font_id = rs.world.load_font(&rs.renderer, "consolas");
+        rs.world.load_font(&rs.renderer, "cambria");
+        rs.world.load_font(&rs.renderer, "garamond");
+        rs.world.load_font(&rs.renderer, "arial");
+        rs.world.load_font(&rs.renderer, "calibri");
+        rs.world.load_font(&rs.renderer, "verdana");
+        rs.world.load_font(&rs.renderer, "impact");
+        rs.world.load_font(&rs.renderer, "courier_new");
 
         rs.window.set_framebuffer_size_polling(true);
         rs.window.set_key_polling(true);
         rs.window.set_mouse_button_polling(true);
         rs.window.set_pos_polling(true);
 
+        let mut events = EventBus::new();
+
+        let mut world = make_world(&mut events, font_id);
+
         Self {
             last: Instant::now(),
             rs,
-            render_commands_dt: Duration::ZERO,
-            render_dt: Duration::ZERO,
-            world: make_world(),
+            timers: BTreeMap::new(),
+            draw_calls: 0,
+            world,
+            events,
+            selection: SelectionInfo::new(),
             animations: AnimationStates::new(),
             input_state: InputState::default(),
             _input_thread,
             input_queue,
             should_exit: false,
+            sounds: SoundManager::new(),
         }
     }
 }
 
 impl<'a> RendApp for TrainApp<'a> {
     fn update(&mut self) {
+        let start = Instant::now();
+
         self.input_state.on_frame_boundary();
 
         let now = Instant::now();
@@ -105,34 +123,54 @@ impl<'a> RendApp for TrainApp<'a> {
 
         let mouse = mouse.with_y(height as f64 - mouse.y);
 
-        update_world(&mut self.world, dt as f64, mouse, screen_width);
+        update_world(
+            &mut self.world,
+            &mut self.selection,
+            dt as f64,
+            mouse,
+            screen_width,
+        );
+
         process_input(
             &mut self.world,
+            &mut self.events,
+            &mut self.selection,
             &self.input_state,
             dt as f64,
             mouse,
             screen_width,
         );
 
+        self.sounds.update();
+
         if self.input_state.is_key_pressed(rdev::Key::Escape) {
             self.should_exit = true;
         }
 
+        self.rs
+            .world
+            .handle_events(&self.rs.renderer, &self.events, &mut self.world);
+
+        self.sounds.handle_events(&self.events);
+
+        self.events.clear();
+
         self.last = now;
+
+        self.timers.insert("update", Instant::now() - start);
     }
 
     fn emit_render_commands(&mut self) -> RenderCommands {
         let start = Instant::now();
 
-        let font_info: BTreeMap<usize, FontInfo> = self
-            .rs
-            .resources
-            .fonts
-            .iter()
-            .map(|(id, (font, _sprite))| (*id, font.clone()))
-            .collect();
+        let mut font_info = Components::default();
+
+        for (id, (info, tex)) in self.rs.world.fonts.iter() {
+            font_info.spawn(*id, info.clone());
+        }
+
         let mut cmd = RenderCommands::new(font_info);
-        cmd.current_font_id = self.world.current_font_id;
+        cmd.current_font_id = self.world.current_font_id.unwrap();
         let (width, height) = self.rs.window.get_size();
         let dims = DVec2::new(width as f64, height as f64);
         let mouse = DVec2::new(
@@ -141,27 +179,27 @@ impl<'a> RendApp for TrainApp<'a> {
         );
 
         let mouse = mouse.with_y(height as f64 - mouse.y);
-        let mut event_bus = EventBus::new();
+        let mut font = FontSelection::new();
 
         draw_world(
             &mut cmd,
-            &mut event_bus,
+            &self.selection,
+            &mut self.events,
+            &mut font,
             &self.input_state,
             &self.world,
             dims,
             mouse,
             &self.animations,
-            &[
-                ("commands", self.render_commands_dt),
-                ("render", self.render_dt),
-            ],
+            self.draw_calls,
+            &self.timers,
         );
 
-        if let Some(font_id) = event_bus.new_font_id() {
-            self.world.current_font_id = font_id;
+        if let Some(font_id) = font.new_font_id() {
+            self.world.current_font_id = Some(font_id);
         }
 
-        self.render_commands_dt = Instant::now() - start;
+        self.timers.insert("commands", Instant::now() - start);
 
         cmd
     }
@@ -172,18 +210,19 @@ impl<'a> RendApp for TrainApp<'a> {
         let start = Instant::now();
 
         match self.rs.render(&commands) {
-            Ok(Some(drawable)) => {
+            Ok(Some((drawable, count))) => {
                 drawable.present();
+                self.draw_calls = count;
             }
             Ok(None) => (),
             Err(SurfaceError::Lost | SurfaceError::Outdated) => {
                 self.rs.update_surface();
                 self.rs.resize(self.rs.window.get_size());
             }
-            Err(e) => eprintln!("{:?}", e),
+            Err(e) => error!("{:?}", e),
         }
 
-        self.render_dt = Instant::now() - start;
+        self.timers.insert("render", Instant::now() - start);
     }
 
     fn should_close(&self) -> bool {
@@ -224,5 +263,7 @@ async fn init() {
 }
 
 fn main() {
+    simple_logger::init_with_level(Level::Info).unwrap();
+
     pollster::block_on(init());
 }

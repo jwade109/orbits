@@ -4,6 +4,7 @@ pub struct PipelineBuilder<'a> {
     bind_group_layouts: Vec<&'a wgpu::BindGroupLayout>,
     device: &'a wgpu::Device,
     draw_wireframes: bool,
+    has_vertex_buffer: bool,
 }
 
 fn make_shader_module(device: &wgpu::Device, shader: &Shader, label: &str) -> wgpu::ShaderModule {
@@ -20,6 +21,7 @@ impl<'a> PipelineBuilder<'a> {
             bind_group_layouts: Vec::new(),
             device: device,
             draw_wireframes: false,
+            has_vertex_buffer: true,
         }
     }
 
@@ -31,6 +33,10 @@ impl<'a> PipelineBuilder<'a> {
         self.draw_wireframes = true;
     }
 
+    pub fn no_vertex_buffer(&mut self) {
+        self.has_vertex_buffer = false;
+    }
+
     pub fn build_pipeline<T: Vertex>(
         self,
         label: &str,
@@ -39,7 +45,11 @@ impl<'a> PipelineBuilder<'a> {
         has_depth_stencil: bool,
         cull_backface: bool,
     ) -> wgpu::RenderPipeline {
-        let vertex_buffer_layouts = vec![T::get_layout()];
+        let vertex_buffer_layouts = if self.has_vertex_buffer {
+            vec![T::get_layout()]
+        } else {
+            vec![]
+        };
 
         let shader_module = make_shader_module(&self.device, shader, "Shader Module");
 
