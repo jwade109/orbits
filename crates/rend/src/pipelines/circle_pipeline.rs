@@ -35,7 +35,7 @@ impl CirclePipeline {
         let mesh = make_quad(&rd.device);
 
         let mut builder = PipelineBuilder::new(&rd.device);
-        let shader = Shader::from_path("crates/rend/shaders/circle.wgsl");
+        let shader = Shader::from_path("crates/rend/shaders/circle.wgsl").unwrap();
 
         builder.add_bind_group_layout(&layout);
         builder.add_bind_group_layout(&layout);

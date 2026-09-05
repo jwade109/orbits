@@ -42,5 +42,12 @@ fn vs_main(vertex: Vertex) -> VertexShaderOutput {
 
 @fragment
 fn fs_main(in: VertexShaderOutput) -> @location(0) vec4<f32> {
-    return textureSample(texture, sample, in.uv);
+
+    var uv = in.uv;
+    uv.x = discretize_floor(uv.x, 50.0);
+    uv.y = discretize_floor(uv.y, 50.0);
+
+    let col = textureSample(texture, sample, uv);
+
+    return col;
 }

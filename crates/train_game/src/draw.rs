@@ -68,9 +68,6 @@ fn draw_terrain(cmd: &mut RenderCommands, world: &World, view: &Viewport) {
         cmd.chunk(chunk.index().as_ivec2(), iso, dims, chunk.height(), Ent(0));
         // }
     }
-
-    let iso = view.w2s_iso((0.0, 0.0).into());
-    cmd.sprite(Ent(0), iso, DVec2::splat(view.meters(1000.0)));
 }
 
 fn draw_grid_lines(cmd: &mut RenderCommands, view: &Viewport) {

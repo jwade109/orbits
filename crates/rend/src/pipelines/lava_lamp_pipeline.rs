@@ -14,7 +14,7 @@ impl LavaLampPipeline {
 
         let mesh = make_quad(&rd.device);
         let mut builder = PipelineBuilder::new(&rd.device);
-        let shader = Shader::from_path("crates/rend/shaders/cells.wgsl");
+        let shader = Shader::from_path("crates/rend/shaders/cells.wgsl").unwrap();
         builder.add_bind_group_layout(&layout);
         builder.add_bind_group_layout(&layout);
 

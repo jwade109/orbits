@@ -12,15 +12,17 @@ pub struct RectanglePipeline {
 const RECT_DATA_F32_COUNT: usize = 12;
 
 pub fn to_packed_array(cmd: &RectCommand, screen_size: DVec2) -> [f32; RECT_DATA_F32_COUNT] {
+    let color = cmd.fill.color();
+
     [
         cmd.pos.x as f32,
         cmd.pos.y as f32,
         cmd.dims.x as f32,
         cmd.dims.y as f32,
-        cmd.color.r as f32,
-        cmd.color.g as f32,
-        cmd.color.b as f32,
-        cmd.color.a as f32,
+        color.r as f32,
+        color.g as f32,
+        color.b as f32,
+        color.a as f32,
         cmd.angle as f32,
         screen_size.x as f32,
         screen_size.y as f32,
@@ -71,7 +73,7 @@ impl RectanglePipeline {
         let layout = BufferResource::make_layout(&rd.device);
 
         let mut builder = PipelineBuilder::new(&rd.device);
-        let shader = Shader::from_path(shader_path);
+        let shader = Shader::from_path(shader_path).unwrap();
 
         builder.add_bind_group_layout(&layout);
         builder.add_bind_group_layout(&layout);

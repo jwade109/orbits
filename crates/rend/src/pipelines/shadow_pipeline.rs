@@ -13,7 +13,7 @@ impl ShadowPipeline {
         let mesh = make_quad(&rd.device);
 
         let bgl = Texture::make_bind_group_layout(&rd.device, "ShadowPipeline Bind Group Layout");
-        let shader = Shader::from_path("crates/rend/shaders/shadow_map.wgsl");
+        let shader = Shader::from_path("crates/rend/shaders/shadow_map.wgsl").unwrap();
 
         let shader_params = BufferResource::new_array(
             &rd.device,

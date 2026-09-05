@@ -2,6 +2,10 @@ fn discretize(val: f32, levels: f32) -> f32 {
     return round(val * levels) / levels;
 }
 
+fn discretize_floor(val: f32, levels: f32) -> f32 {
+    return floor(val * levels) / levels;
+}
+
 fn rotate_vector(p: vec2<f32>, angle: f32) -> vec2<f32> {
     let cs = cos(angle);
     let sn = sin(angle);
@@ -93,12 +97,18 @@ fn rand(x: f32) -> f32 {
     return fract(sin(dot(v, vec2<f32>(12.9898, 78.233))) * 43758.5453);
 }
 
-fn rgb_to_vec3(r: u32, g: u32, b: u32) -> vec3<f32>
-{
-    let rf = pow(f32(r) / 255.0, 2.2);
-    let gf = pow(f32(g) / 255.0, 2.2);
-    let bf = pow(f32(b) / 255.0, 2.2);
+fn color_correct(color: vec3f) -> vec3f {
+    let rf = pow(color.x, 2.2);
+    let gf = pow(color.y, 2.2);
+    let bf = pow(color.z, 2.2);
     return vec3<f32>(rf, gf, bf);
+}
+
+fn rgb_to_vec3(r: u32, g: u32, b: u32) -> vec3<f32> {
+    let rf = f32(r) / 255.0;
+    let gf = f32(g) / 255.0;
+    let bf = f32(b) / 255.0;
+    return color_correct(vec3<f32>(rf, gf, bf));
 }
 
 fn sdf_segment(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
@@ -127,7 +137,7 @@ struct RectData {
     angle:    f32,
     screen_x: f32,
     screen_y: f32,
-    _padding: f32,
+    _unused_z_value: f32,
 }
 
 fn rect_corners(origin: vec2f, dims: vec2f, angle: f32) -> array<vec2<f32>, 4> {

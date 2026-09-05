@@ -72,11 +72,26 @@ impl BatchRenderCommand {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub enum RectFill {
+    Color(Color),
+    Sprite(Ent),
+}
+
+impl RectFill {
+    pub fn color(&self) -> Color {
+        match self {
+            Self::Color(c) => *c,
+            _ => Color::GRAY.alpha(0.1),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct RectCommand {
     pub pos: DVec2,
     pub dims: DVec2,
     pub angle: f64,
-    pub color: Color,
+    pub fill: RectFill,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -259,6 +274,11 @@ impl RenderCommands {
         height: [f32; 4],
         mesh_id: Ent,
     ) {
+        if index.x < 10 && index.y < 10 && index.x >= 0 && index.y >= 0 {
+            self.rect(iso).dims(dims).sprite(Ent(0));
+            return;
+        }
+
         let iso = iso.into();
         let c = ChunkCommand {
             chunk: index,
@@ -268,11 +288,8 @@ impl RenderCommands {
             height,
             mesh_id,
         };
-        self.enqueue(RenderCommand::Chunk(c));
-    }
 
-    pub fn sprite(&mut self, id: Ent, iso: impl Into<Isometry2d>, dims: impl Into<DVec2>) {
-        self.rect(iso).dims(dims).color(Color::PURPLE);
+        self.enqueue(RenderCommand::Chunk(c));
     }
 }
 
@@ -512,7 +529,7 @@ pub struct RectBuilder<'a> {
     pos: DVec2,
     dims: DVec2,
     angle: f64,
-    color: Color,
+    fill: RectFill,
     centered: bool,
 }
 
@@ -524,7 +541,7 @@ impl<'a> RectBuilder<'a> {
             pos: iso.translation.as_dvec2(),
             dims: DVec2::splat(70.0),
             angle: iso.rotation as f64,
-            color: Color::new(0.2, 1.0, 0.2, 1.0),
+            fill: RectFill::Color(Color::new(0.2, 1.0, 0.2, 1.0)),
             centered: false,
         }
     }
@@ -535,7 +552,7 @@ impl<'a> RectBuilder<'a> {
     }
 
     pub fn color(mut self, color: Color) -> Self {
-        self.color = color;
+        self.fill = RectFill::Color(color);
         self
     }
 
@@ -546,6 +563,11 @@ impl<'a> RectBuilder<'a> {
 
     pub fn centered(mut self) -> Self {
         self.centered = true;
+        self
+    }
+
+    pub fn sprite(mut self, id: Ent) -> Self {
+        self.fill = RectFill::Sprite(id);
         self
     }
 }
@@ -567,7 +589,7 @@ impl<'a> Drop for RectBuilder<'a> {
             pos,
             dims: self.dims,
             angle: self.angle,
-            color: self.color,
+            fill: self.fill,
         };
         self.commands.enqueue(RenderCommand::Rect(cmd));
     }

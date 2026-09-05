@@ -34,7 +34,7 @@ impl Standard3DPipeline {
         };
 
         let mut builder = PipelineBuilder::new(&device);
-        let shader = Shader::from_path("crates/rend/shaders/texture.wgsl");
+        let shader = Shader::from_path("crates/rend/shaders/texture.wgsl").unwrap();
         builder.add_bind_group_layout(ubo_bind_group_layout);
         builder.add_bind_group_layout(&bgl);
         builder.add_bind_group_layout(time_etc_data_bind_group);

@@ -79,7 +79,7 @@ impl<'a> TrainApp<'a> {
 
         let mut events = EventBus::new();
 
-        let mut world = make_world(&mut events, font_id);
+        let world = make_world(&mut events, font_id);
 
         Self {
             last: Instant::now(),
@@ -165,7 +165,7 @@ impl<'a> RendApp for TrainApp<'a> {
 
         let mut font_info = Components::default();
 
-        for (id, (info, tex)) in self.rs.world.fonts.iter() {
+        for (id, (info, _tex)) in self.rs.world.fonts.iter() {
             font_info.spawn(*id, info.clone());
         }
 

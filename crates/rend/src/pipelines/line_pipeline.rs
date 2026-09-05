@@ -22,7 +22,7 @@ impl LinePipeline {
         let mesh = make_quad(&rd.device);
 
         let mut builder = PipelineBuilder::new(&rd.device);
-        let shader = Shader::from_path("crates/rend/shaders/line.wgsl");
+        let shader = Shader::from_path("crates/rend/shaders/line.wgsl").unwrap();
 
         builder.add_bind_group_layout(&layout);
         // builder.add_bind_group_layout(&transforms.layout);

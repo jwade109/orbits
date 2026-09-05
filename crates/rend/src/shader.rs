@@ -29,11 +29,11 @@ impl Shader {
         }
     }
 
-    pub fn from_path(path: &str) -> Self {
+    pub fn from_path(path: &str) -> Option<Self> {
         let re = regex::Regex::new(r#"import\(\"([\w\.]+)\"\)"#).unwrap();
 
-        let common_code = std::fs::read_to_string("crates/rend/shaders/common.wgsl").unwrap();
-        let source_code = std::fs::read_to_string(path).expect("Can't read source code!");
+        let common_code = std::fs::read_to_string("crates/rend/shaders/common.wgsl").ok()?;
+        let source_code = std::fs::read_to_string(path).ok()?;
 
         let source_code = format!("{common_code}\n\n{source_code}");
 
@@ -48,11 +48,11 @@ impl Shader {
             }
         }
 
-        Self {
+        Some(Self {
             imports,
             contents: source_code,
             vertex_entry: "vs_main".to_string(),
             fragment_entry: "fs_main".to_string(),
-        }
+        })
     }
 }

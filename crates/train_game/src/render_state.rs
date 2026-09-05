@@ -1,15 +1,12 @@
 use crate::{render_world::RenderWorld, *};
 use glam::DVec2;
-use glm::*;
-use std::collections::HashMap;
 use wgpu::SurfaceTexture;
 
 struct Pipelines {
     lava_lamp_pipeline: LavaLampPipeline,
     blur_pipeline: BlurPipeline,
+    #[allow(unused)]
     shadow_pipeline: ShadowPipeline,
-    standard_3d_pipeline: Standard3DPipeline,
-    single_color_pipeline: SingleColorPipeline,
     text_pipeline: TextPipeline,
     circle_pipeline: CirclePipeline,
     line_pipeline: LinePipeline,
@@ -28,19 +25,11 @@ pub struct RenderState<'a> {
     depth_texture: Texture,
     im_tex_1: Texture,
     im_tex_2: Texture,
-
-    common_shader_info: SingleUBO,
 }
 
 impl<'a> RenderState<'a> {
     pub async fn new(window: &'a mut glfw::Window) -> Self {
         let renderer = Renderer::new(window).await;
-
-        let ubo_bind_group_layout = {
-            let mut builder = BindGroupLayoutBuilder::new(&renderer.device);
-            builder.add_ubo();
-            builder.build("UBO Bind Group Layout")
-        };
 
         let uniform_buffer = renderer.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Shader Params"),
@@ -70,8 +59,6 @@ impl<'a> RenderState<'a> {
                     label: Some("uniform_data_bind_group"),
                 });
 
-        let single_color_pipeline = SingleColorPipeline::new(&renderer.device, &renderer.config);
-
         let rect_data = RectDataBuffer::new(&renderer, RectanglePipeline::RECTS_PER_PASS);
 
         let (rectangle_pipeline, _) =
@@ -95,13 +82,6 @@ impl<'a> RenderState<'a> {
         let lava_lamp_pipeline = LavaLampPipeline::new(&renderer);
         let line_pipeline = LinePipeline::new(&renderer);
 
-        let standard_3d_pipeline = Standard3DPipeline::new(
-            &renderer.device,
-            &ubo_bind_group_layout,
-            &time_etc_data_bind_group,
-            &renderer.config,
-        );
-
         let shadow_pipeline = ShadowPipeline::new(&renderer);
 
         let invincible = Texture::load_sprite("assets/invincible.jpg", &renderer).unwrap();
@@ -112,8 +92,6 @@ impl<'a> RenderState<'a> {
             lava_lamp_pipeline,
             blur_pipeline,
             shadow_pipeline,
-            standard_3d_pipeline,
-            single_color_pipeline,
             text_pipeline,
             circle_pipeline,
             line_pipeline,
@@ -127,10 +105,6 @@ impl<'a> RenderState<'a> {
             window,
             pipelines,
             world,
-            common_shader_info: SingleUBO {
-                buffer: uniform_buffer,
-                bind_group: uniform_bind_group,
-            },
             depth_texture,
             im_tex_1,
             im_tex_2,
@@ -158,6 +132,7 @@ impl<'a> RenderState<'a> {
             .unwrap();
     }
 
+    #[allow(unused)]
     fn draw_lava(&self, view: &wgpu::TextureView, time: f32) {
         let mut command_encoder = self
             .renderer
@@ -346,7 +321,7 @@ impl<'a> RenderState<'a> {
                     pos: c.pos,
                     dims: c.dims,
                     angle: c.angle,
-                    color: Color::PURPLE.alpha(0.3),
+                    fill: RectFill::Color(Color::PURPLE.alpha(0.3)),
                 })
                 .collect();
 
@@ -413,29 +388,6 @@ impl<'a> RenderState<'a> {
         passes
     }
 
-    pub fn update(&mut self, view_proj: Mat4, time: f32) {
-        self.pipelines
-            .standard_3d_pipeline
-            .upload_camera_matrix(&view_proj, &self.renderer.queue);
-
-        let mouse_pos = self.window.get_cursor_pos();
-
-        let shader_params = ShaderParams {
-            mouse: (mouse_pos.0 as f32, mouse_pos.1 as f32),
-            time,
-            resolution: (
-                self.window.get_size().0 as f32,
-                self.window.get_size().1 as f32,
-            ),
-        };
-
-        self.renderer.queue.write_buffer(
-            &self.common_shader_info.buffer,
-            0,
-            &shader_params.to_bytes(),
-        );
-    }
-
     fn get_render_pass<'b>(
         &self,
         command_encoder: &'b mut wgpu::CommandEncoder,
@@ -446,6 +398,7 @@ impl<'a> RenderState<'a> {
             .get_render_pass(command_encoder, clear_color, view, &self.depth_texture)
     }
 
+    #[allow(unused)]
     fn blur_pass(&self, incoming: &Texture, outgoing: &wgpu::TextureView) {
         let mut command_encoder = self
             .renderer
@@ -477,50 +430,60 @@ impl<'a> RenderState<'a> {
                 BatchRenderCommand::Circle(c) => self.draw_circles(view, &c),
                 BatchRenderCommand::Line(c) => self.draw_lines(view, &c),
                 BatchRenderCommand::Chunk(c) => self.draw_chunks(view, c),
+                _ => 0,
             }
         }
         passes
     }
 
-    fn draw_sprites(&self, view: &wgpu::TextureView) {
+    fn draw_sprites(
+        &self,
+        view: &wgpu::TextureView,
+        material: &wgpu::BindGroup,
+        commands: &RenderCommands,
+    ) {
         let (sx, sy) = self.window.get_size();
         let screen = glam::DVec2::new(sx as f64, sy as f64);
 
-        let mut command_encoder = self
-            .renderer
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-        let mut rp = self.get_render_pass(&mut command_encoder, None, view);
+        for batch in commands.commands() {
+            let BatchRenderCommand::Rect(cmds) = batch else {
+                continue;
+            };
 
-        let rcmd1 = RectCommand {
-            pos: DVec2::new(300.0, 300.0),
-            dims: DVec2::new(400.0, 200.0),
-            angle: 0.3,
-            color: Color::WHITE,
-        };
+            let mut command_encoder = self
+                .renderer
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-        let rcmd2 = RectCommand {
-            pos: DVec2::new(500.0, 400.0),
-            dims: DVec2::new(800.0, 200.0),
-            angle: 0.1,
-            color: Color::WHITE,
-        };
+            let cmds: Vec<RectCommand> = cmds
+                .iter()
+                .filter(|c| matches!(c.fill, RectFill::Sprite(_)))
+                .map(|c| *c)
+                .collect();
 
-        self.world
-            .rect_data
-            .write(&self.renderer.queue, &[rcmd1, rcmd2], screen);
+            let mut rp = self.get_render_pass(&mut command_encoder, None, view);
 
-        self.pipelines.sprite_pipeline.draw(
-            &mut rp,
-            &self.world.invincible.bind_group,
-            &self.world.rect_data,
-            2,
-        );
+            for chunk in cmds.chunks(RectanglePipeline::RECTS_PER_PASS) {
+                self.world
+                    .rect_data
+                    .write(&self.renderer.queue, chunk, screen);
 
-        drop(rp);
-        self.renderer
-            .queue
-            .submit(std::iter::once(command_encoder.finish()));
+                let x = &self.world.invincible.bind_group;
+
+                self.pipelines.sprite_pipeline.draw(
+                    &mut rp,
+                    material,
+                    &self.world.rect_data,
+                    chunk.len() as u32,
+                );
+            }
+
+            drop(rp);
+
+            self.renderer
+                .queue
+                .submit(std::iter::once(command_encoder.finish()));
+        }
     }
 
     pub fn render(
@@ -547,10 +510,11 @@ impl<'a> RenderState<'a> {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        self.clear(&view, Color::rgb(117, 186, 255, 1.0));
-        let passes = self.apply_geometry_commands(commands, &view);
+        self.draw_lava(&self.im_tex_1.view, 0.0);
 
-        self.draw_sprites(&view);
+        self.clear(&view, Color::rgb(117, 186, 255, 1.0));
+        self.draw_sprites(&view, &self.im_tex_1.bind_group, commands);
+        let passes = self.apply_geometry_commands(commands, &view);
 
         self.renderer.device.poll(wgpu::Maintain::wait());
 

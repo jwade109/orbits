@@ -1,29 +1,25 @@
 use crate::event_bus::*;
-use bary_core::prelude::randint;
-use kira::clock::*;
-use kira::effect::filter::*;
 use kira::sound::PlaybackState;
 use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle};
 use kira::track::*;
 use kira::*;
 use log::info;
-use std::time::Instant;
 
 pub struct SoundManager {
-    manager: AudioManager,
+    _manager: AudioManager,
     track: TrackHandle,
     sounds: Vec<(String, StaticSoundHandle)>,
 }
 
 impl SoundManager {
     pub fn new() -> Self {
-        let mut manager =
+        let mut _manager =
             AudioManager::<DefaultBackend>::new(AudioManagerSettings::default()).unwrap();
-        let mut builder = TrackBuilder::new();
-        let track = manager.add_sub_track(builder).unwrap();
+        let builder = TrackBuilder::new();
+        let track = _manager.add_sub_track(builder).unwrap();
 
         Self {
-            manager,
+            _manager,
             track,
             sounds: Vec::new(),
         }
@@ -34,7 +30,7 @@ impl SoundManager {
             info!("{} sounds playing", self.track.num_sounds());
         }
 
-        self.sounds.retain(|(name, handle)| {
+        self.sounds.retain(|(_name, handle)| {
             if handle.state() == PlaybackState::Stopped {
                 false
             } else {

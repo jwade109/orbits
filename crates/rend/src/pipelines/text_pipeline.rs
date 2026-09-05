@@ -77,7 +77,7 @@ impl TextPipeline {
         let bgl = Texture::make_bind_group_layout(&rd.device, "Texture Bind Group Layout");
 
         let mut builder = PipelineBuilder::new(&rd.device);
-        let shader = Shader::from_path("crates/rend/shaders/text_shader.wgsl");
+        let shader = Shader::from_path("crates/rend/shaders/text_shader.wgsl").unwrap();
 
         let layout = BufferResource::make_layout(&rd.device);
 

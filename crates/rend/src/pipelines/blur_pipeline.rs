@@ -11,7 +11,7 @@ impl BlurPipeline {
     pub fn new(device: &Device, config: &SurfaceConfiguration) -> Self {
         let mesh = make_quad(device);
         let bgl = Texture::make_bind_group_layout(device, "BlurPipeline Bind Group Layout");
-        let shader = Shader::from_path("crates/rend/shaders/blur_shader.wgsl");
+        let shader = Shader::from_path("crates/rend/shaders/blur_shader.wgsl").unwrap();
 
         let mut builder = PipelineBuilder::new(&device);
         builder.add_bind_group_layout(&bgl);
