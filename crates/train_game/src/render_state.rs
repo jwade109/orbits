@@ -1,4 +1,5 @@
 use crate::{render_world::RenderWorld, *};
+use glam::DVec2;
 use glm::*;
 use std::collections::HashMap;
 use wgpu::SurfaceTexture;
@@ -24,7 +25,6 @@ pub struct RenderState<'a> {
 
     pipelines: Pipelines,
 
-    invincible: Texture,
     depth_texture: Texture,
     im_tex_1: Texture,
     im_tex_2: Texture,
@@ -49,7 +49,6 @@ impl<'a> RenderState<'a> {
             mapped_at_creation: false,
         });
 
-        let invincible = Texture::load_sprite("assets/invincible.jpg", &renderer).unwrap();
         let depth_texture = Texture::depth_texture(&renderer, "depth_texture");
         let im_tex_1 = Texture::blank_texture(&renderer, "im_tex_1");
         let im_tex_2 = Texture::blank_texture(&renderer, "im_tex_2");
@@ -73,10 +72,12 @@ impl<'a> RenderState<'a> {
 
         let single_color_pipeline = SingleColorPipeline::new(&renderer.device, &renderer.config);
 
-        let (rectangle_pipeline, rect_data_rect, _) =
+        let rect_data = RectDataBuffer::new(&renderer, RectanglePipeline::RECTS_PER_PASS);
+
+        let (rectangle_pipeline, _) =
             RectanglePipeline::new(&renderer, "crates/rend/shaders/rectangle.wgsl");
 
-        let (chunk_pipeline, _, height_data_chunks) =
+        let (chunk_pipeline, height_data_chunks) =
             RectanglePipeline::new(&renderer, "crates/rend/shaders/chunk_terrain.wgsl");
 
         let sprite_pipeline = SpritePipeline::new(&renderer);
@@ -103,7 +104,9 @@ impl<'a> RenderState<'a> {
 
         let shadow_pipeline = ShadowPipeline::new(&renderer);
 
-        let world = RenderWorld::new(rect_data_rect, height_data_chunks);
+        let invincible = Texture::load_sprite("assets/invincible.jpg", &renderer).unwrap();
+
+        let world = RenderWorld::new(rect_data, height_data_chunks, invincible);
 
         let pipelines = Pipelines {
             lava_lamp_pipeline,
@@ -128,7 +131,6 @@ impl<'a> RenderState<'a> {
                 buffer: uniform_buffer,
                 bind_group: uniform_bind_group,
             },
-            invincible,
             depth_texture,
             im_tex_1,
             im_tex_2,
@@ -290,17 +292,17 @@ impl<'a> RenderState<'a> {
 
             let mut rp = self.get_render_pass(&mut command_encoder, None, &view);
 
-            RectanglePipeline::assign_buffer_data(
-                &self.world.rect_data_rect,
-                &self.renderer.queue,
-                cmds,
-                screen,
-            );
+            self.world
+                .rect_data
+                .write(&self.renderer.queue, cmds, screen);
 
             self.pipelines.rectangle_pipeline.draw(
                 &mut rp,
                 cmds.len(),
-                &[&self.world.rect_data_rect, &self.world.height_data_chunks],
+                &[
+                    self.world.rect_data.buffer(),
+                    &self.world.height_data_chunks,
+                ],
             );
 
             drop(rp);
@@ -350,17 +352,17 @@ impl<'a> RenderState<'a> {
 
             let mut rp = self.get_render_pass(&mut command_encoder, None, &view);
 
-            RectanglePipeline::assign_buffer_data(
-                &self.world.rect_data_rect,
-                &self.renderer.queue,
-                &rcmds,
-                screen,
-            );
+            self.world
+                .rect_data
+                .write(&self.renderer.queue, &rcmds, screen);
 
             self.pipelines.chunk_pipeline.draw(
                 &mut rp,
                 cmds.len(),
-                &[&self.world.rect_data_rect, &self.world.height_data_chunks],
+                &[
+                    self.world.rect_data.buffer(),
+                    &self.world.height_data_chunks,
+                ],
             );
 
             drop(rp);
@@ -481,17 +483,40 @@ impl<'a> RenderState<'a> {
     }
 
     fn draw_sprites(&self, view: &wgpu::TextureView) {
+        let (sx, sy) = self.window.get_size();
+        let screen = glam::DVec2::new(sx as f64, sy as f64);
+
         let mut command_encoder = self
             .renderer
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         let mut rp = self.get_render_pass(&mut command_encoder, None, view);
 
-        for _ in 0..200 {
-            self.pipelines
-                .sprite_pipeline
-                .draw(&mut rp, &self.invincible.bind_group);
-        }
+        let rcmd1 = RectCommand {
+            pos: DVec2::new(300.0, 300.0),
+            dims: DVec2::new(400.0, 200.0),
+            angle: 0.3,
+            color: Color::WHITE,
+        };
+
+        let rcmd2 = RectCommand {
+            pos: DVec2::new(500.0, 400.0),
+            dims: DVec2::new(800.0, 200.0),
+            angle: 0.1,
+            color: Color::WHITE,
+        };
+
+        self.world
+            .rect_data
+            .write(&self.renderer.queue, &[rcmd1, rcmd2], screen);
+
+        self.pipelines.sprite_pipeline.draw(
+            &mut rp,
+            &self.world.invincible.bind_group,
+            &self.world.rect_data,
+            2,
+        );
+
         drop(rp);
         self.renderer
             .queue

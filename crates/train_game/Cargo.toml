@@ -29,9 +29,5 @@ log = "0.4.31"
 simple_logger = "5.2.0"
 
 [[bin]]
-name = "kira_test"
-path = "src/kira_test.rs"
-
-[[bin]]
 name = "choochoo"
 path = "src/main.rs"

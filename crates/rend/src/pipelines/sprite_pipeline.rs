@@ -14,9 +14,12 @@ impl SpritePipeline {
         let bgl = Texture::make_bind_group_layout(&rd.device, "SpritePipeline Bind Group Layout");
         let shader = Shader::from_path("crates/rend/shaders/sprite_shader.wgsl");
 
+        let layout = BufferResource::make_layout(&rd.device);
+
         let mesh = make_quad(&rd.device);
 
         builder.add_bind_group_layout(&bgl);
+        builder.add_bind_group_layout(&layout);
 
         let pipeline = builder.build_pipeline::<FullVertex>(
             "Sprite Pipeline",
@@ -29,10 +32,11 @@ impl SpritePipeline {
         Self { pipeline, mesh }
     }
 
-    pub fn draw(&self, rp: &mut RenderPass, material: &BindGroup) {
+    pub fn draw(&self, rp: &mut RenderPass, material: &BindGroup, rect_data: &RectDataBuffer, n: u32) {
         rp.set_pipeline(&self.pipeline);
         rp.set_bind_group(0, material, &[]);
+        rp.set_bind_group(1, rect_data.buffer().bind_group(), &[]);
         self.mesh.set_as_active(rp);
-        rp.draw_indexed(0..self.mesh.index_count(), 0, 0..100);
+        rp.draw_indexed(0..self.mesh.index_count(), 0, 0..n);
     }
 }

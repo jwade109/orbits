@@ -17,27 +17,14 @@ fn vs_main(vertex: Vertex) -> VertexShaderOutput {
     var out: VertexShaderOutput;
     let data = rect_data[vertex.instance_index];
 
-    let dx = data.dims.x;
-    let dy = data.dims.y;
-
     let w = data.screen_x;
     let h = data.screen_y;
 
-    let a = data.pos;
-    let b = data.pos + rotate_vector(vec2<f32>(dx,  0.0), data.angle);
-    let c = data.pos + rotate_vector(vec2<f32>(dx,  dy),  data.angle);
-    let d = data.pos + rotate_vector(vec2<f32>(0.0, dy),  data.angle);
+    let corners = rect_corners(data.pos, data.dims, data.angle);
 
     let dims = vec2<f32>(w, h);
 
-    let positions = array<vec2<f32>, 4>(
-        a / dims,
-        b / dims,
-        c / dims,
-        d / dims,
-    );
-
-    var pos = positions[vertex.vertex_index] * 2.0 - 1.0;
+    var pos = corners[vertex.vertex_index] / dims * 2.0 - 1.0;
     out.position = vec4<f32>(pos, 1.0, 1.0);
     out.color = vec4f(data.r, data.g, data.b, data.a);
     return out;

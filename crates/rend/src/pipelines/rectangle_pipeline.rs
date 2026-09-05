@@ -28,17 +28,41 @@ pub fn to_packed_array(cmd: &RectCommand, screen_size: DVec2) -> [f32; RECT_DATA
     ]
 }
 
+pub struct RectDataBuffer {
+    buffer: BufferResource,
+}
+
+impl RectDataBuffer {
+    pub fn new(rd: &Renderer, n_rects: usize) -> Self {
+        let buffer =
+            BufferResource::new_array(&rd.device, n_rects, RECT_DATA_F32_COUNT * 4, "rect_data");
+
+        Self { buffer }
+    }
+
+    pub fn buffer(&self) -> &BufferResource {
+        &self.buffer
+    }
+
+    pub fn write(&self, queue: &Queue, commands: &[RectCommand], screen: DVec2) {
+        let data: Vec<_> = commands
+            .iter()
+            .flat_map(|c| {
+                to_packed_array(c, screen)
+                    .iter()
+                    .flat_map(|e| e.to_le_bytes())
+                    .collect::<Vec<u8>>()
+            })
+            .collect();
+
+        self.buffer.upload(queue, 0, &data);
+    }
+}
+
 impl RectanglePipeline {
     pub const RECTS_PER_PASS: usize = 1300;
 
-    pub fn new(rd: &Renderer, shader_path: &str) -> (Self, BufferResource, BufferResource) {
-        let rect_data = BufferResource::new_array(
-            &rd.device,
-            Self::RECTS_PER_PASS,
-            RECT_DATA_F32_COUNT * 4,
-            "rect_data",
-        );
-
+    pub fn new(rd: &Renderer, shader_path: &str) -> (Self, BufferResource) {
         let height_data =
             BufferResource::new_array(&rd.device, Self::RECTS_PER_PASS, 4 * 4, "height_data");
 
@@ -60,30 +84,11 @@ impl RectanglePipeline {
             true,
         );
 
-        (Self { pipeline, mesh }, rect_data, height_data)
+        (Self { pipeline, mesh }, height_data)
     }
 
     pub fn pipeline(&self) -> &RenderPipeline {
         &self.pipeline
-    }
-
-    pub fn assign_buffer_data(
-        buffer: &BufferResource,
-        queue: &Queue,
-        commands: &[RectCommand],
-        screen: DVec2,
-    ) {
-        let data: Vec<_> = commands
-            .iter()
-            .flat_map(|c| {
-                to_packed_array(c, screen)
-                    .iter()
-                    .flat_map(|e| e.to_le_bytes())
-                    .collect::<Vec<u8>>()
-            })
-            .collect();
-
-        buffer.upload(queue, 0, &data);
     }
 
     pub fn draw(&self, rp: &mut RenderPass, n: usize, buffers: &[&BufferResource]) {

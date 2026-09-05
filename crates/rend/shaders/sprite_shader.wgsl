@@ -1,5 +1,8 @@
 @group(0) @binding(0) var texture: texture_2d<f32>;
 @group(0) @binding(1) var sample: sampler;
+@group(1) @binding(0) var<uniform> rect_data: array<RectData, RECTS_PER_PASS>;
+
+const RECTS_PER_PASS: u32 = 1300;
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
@@ -15,22 +18,14 @@ struct VertexShaderOutput {
 fn vs_main(vertex: Vertex) -> VertexShaderOutput {
     var out: VertexShaderOutput;
 
-    let dx = 0.3;
-    let dy = 0.3;
+    let data = rect_data[vertex.instance_index];
 
-    let pos = vec2f(0.1, 0.1);
+    let w = data.screen_x;
+    let h = data.screen_y;
 
-    let a = pos;
-    let b = pos + rotate_vector(vec2<f32>(dx,  0.0), 0.1);
-    let c = pos + rotate_vector(vec2<f32>(dx,  dy),  0.1);
-    let d = pos + rotate_vector(vec2<f32>(0.0, dy),  0.1);
+    let corners = rect_corners(data.pos, data.dims, data.angle);
 
-    let positions = array<vec2<f32>, 4>(
-        a,
-        b,
-        c,
-        d,
-    );
+    let dims = vec2<f32>(w, h);
 
     let uvs = array<vec2<f32>, 4>(
         vec2f(0.0, 1.0),
@@ -39,7 +34,7 @@ fn vs_main(vertex: Vertex) -> VertexShaderOutput {
         vec2f(0.0, 0.0),
     );
 
-    var v = positions[vertex.vertex_index] * 2.0 - 1.0;
+    var v = corners[vertex.vertex_index] / dims * 2.0 - 1.0;
     out.position = vec4<f32>(v, 1.0, 1.0);
     out.uv = uvs[vertex.vertex_index];
     return out;

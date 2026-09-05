@@ -13,21 +13,23 @@ pub struct RenderWorld {
     pub textures: Components<Texture>,
     pub memory: Components<BufferResource>,
 
-    pub rect_data_rect: BufferResource,
+    pub rect_data: RectDataBuffer,
     pub height_data_chunks: BufferResource,
+    pub invincible: Texture,
 
     spawner: EntitySpawner,
 }
 
 impl RenderWorld {
-    pub fn new(rect: BufferResource, height: BufferResource) -> Self {
+    pub fn new(rect: RectDataBuffer, height: BufferResource, invincible: Texture) -> Self {
         Self {
             fonts: Components::default(),
             meshes: Components::default(),
             textures: Components::default(),
             memory: Components::default(),
-            rect_data_rect: rect,
+            rect_data: rect,
             height_data_chunks: height,
+            invincible,
             spawner: EntitySpawner::default(),
         }
     }

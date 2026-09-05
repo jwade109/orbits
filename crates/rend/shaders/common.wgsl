@@ -129,3 +129,11 @@ struct RectData {
     screen_y: f32,
     _padding: f32,
 }
+
+fn rect_corners(origin: vec2f, dims: vec2f, angle: f32) -> array<vec2<f32>, 4> {
+    let a = origin;
+    let b = origin + rotate_vector(vec2<f32>(dims.x,  0.0), angle);
+    let c = origin + rotate_vector(dims,                    angle);
+    let d = origin + rotate_vector(vec2<f32>(0.0, dims.y),  angle);
+    return array<vec2<f32>, 4>(a, b, c, d);
+}

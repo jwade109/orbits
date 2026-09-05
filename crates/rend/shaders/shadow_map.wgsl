@@ -98,27 +98,12 @@ fn fs_main(in: VertexShaderOutput) -> @location(0) vec4<f32> {
 
     let is_in_shadow = is_in_shadow(pz, sun);
 
-    var r = z;
-    var g = z;
-    var b = z;
-
-    let point_of_interest = params.mouse_pos;
-
-    let sdf_d = sdf_circle(p, point_of_interest, 4.0);
+    var t = 0.0;
 
     if (is_in_shadow)
     {
-        r = 0.3;
-        g = 0.3;
-        b = 0.3;
+        t = 0.3;
     }
 
-    if (sdf_d < 0.0)
-    {
-        r = 1.0;
-        g = 0.0;
-        b = 0.0;
-    }
-
-    return vec4<f32>(r, g, b, 1.0);
+    return mix(color_here, vec4<f32>(0.0, 0.0, 0.0, 1.0), t);
 }
