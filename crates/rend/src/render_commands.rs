@@ -1,6 +1,6 @@
-use crate::{Color, FontInfo};
+use crate::{Color, FontInfo, Texture};
 use bary_core::prelude::{rotate_f64, Components, Ent, Isometry2d};
-use glam::{DVec2, IVec2};
+use glam::{DVec2, DVec3, IVec2};
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
@@ -10,65 +10,7 @@ pub enum RenderCommand {
     Circle(CircleCommand),
     Line(LineCommand),
     Chunk(ChunkCommand),
-}
-
-#[derive(Debug, Clone)]
-pub enum BatchRenderCommand {
-    Char(Ent, Vec<CharCommand>),
-    Rect(Vec<RectCommand>),
-    Circle(Vec<CircleCommand>),
-    Line(Vec<LineCommand>),
-    Chunk(Vec<ChunkCommand>),
-}
-
-impl std::fmt::Display for BatchRenderCommand {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Char(_, c) => write!(f, "BatchRenderCommand::Char({} elements)", c.len()),
-            Self::Rect(c) => write!(f, "BatchRenderCommand::Rect({} elements)", c.len()),
-            Self::Circle(c) => write!(f, "BatchRenderCommand::Circ({} elements)", c.len()),
-            Self::Line(c) => write!(f, "BatchRenderCommand::Line({} elements)", c.len()),
-            Self::Chunk(c) => write!(f, "BatchRenderCommand::Chunk({} elements)", c.len()),
-        }
-    }
-}
-
-impl BatchRenderCommand {
-    fn new(command: RenderCommand) -> Self {
-        match command {
-            RenderCommand::Char(_) => unimplemented!(),
-            RenderCommand::Rect(c) => Self::Rect(vec![c]),
-            RenderCommand::Circle(c) => Self::Circle(vec![c]),
-            RenderCommand::Line(c) => Self::Line(vec![c]),
-            RenderCommand::Chunk(c) => Self::Chunk(vec![c]),
-        }
-    }
-
-    fn try_enqueue(&mut self, command: RenderCommand) -> bool {
-        match (self, command) {
-            (BatchRenderCommand::Char(_, s), RenderCommand::Char(c)) => {
-                s.push(c);
-                true
-            }
-            (BatchRenderCommand::Rect(s), RenderCommand::Rect(c)) => {
-                s.push(c);
-                true
-            }
-            (BatchRenderCommand::Circle(s), RenderCommand::Circle(c)) => {
-                s.push(c);
-                true
-            }
-            (BatchRenderCommand::Line(s), RenderCommand::Line(c)) => {
-                s.push(c);
-                true
-            }
-            (BatchRenderCommand::Chunk(s), RenderCommand::Chunk(c)) => {
-                s.push(c);
-                true
-            }
-            _ => false,
-        }
-    }
+    Sprite(Ent, RectCommand),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -89,6 +31,7 @@ impl RectFill {
 #[derive(Debug, Clone, Copy)]
 pub struct RectCommand {
     pub pos: DVec2,
+    pub z: f64,
     pub dims: DVec2,
     pub angle: f64,
     pub fill: RectFill,
@@ -96,7 +39,7 @@ pub struct RectCommand {
 
 #[derive(Debug, Clone, Copy)]
 pub struct CharCommand {
-    pub pos: DVec2,
+    pub pos: DVec3,
     pub dims: DVec2,
     pub angle: f64,
     pub c: char,
@@ -107,6 +50,7 @@ pub struct CharCommand {
 pub struct CircleCommand {
     pub x: f64,
     pub y: f64,
+    pub z: f64,
     pub inner_radius: f64,
     pub outer_radius: f64,
     pub color: Color,
@@ -137,12 +81,23 @@ pub struct RenderCommands {
     pub circle_commands: Vec<CircleCommand>,
     pub line_commands: Vec<LineCommand>,
     pub chunk_commands: Vec<ChunkCommand>,
+    pub sprite_commands: BTreeMap<Ent, Vec<RectCommand>>,
 
     pub current_font_id: Ent,
 }
 
 impl RenderCommands {
-    pub fn new(fonts: Components<FontInfo>) -> Self {
+    pub fn from_fonts(fonts: &Components<(FontInfo, Texture)>) -> Self {
+        let mut font_info = Components::default();
+
+        for (id, (info, _tex)) in fonts.iter() {
+            font_info.spawn(*id, info.clone());
+        }
+
+        Self::new(font_info)
+    }
+
+    fn new(fonts: Components<FontInfo>) -> Self {
         let (id, _) = fonts.iter().next().unwrap();
         let id = *id;
         Self {
@@ -152,6 +107,7 @@ impl RenderCommands {
             circle_commands: Vec::new(),
             line_commands: Vec::new(),
             chunk_commands: Vec::new(),
+            sprite_commands: BTreeMap::new(),
             current_font_id: id,
         }
     }
@@ -163,6 +119,12 @@ impl RenderCommands {
             RenderCommand::Circle(c) => self.circle_commands.push(c),
             RenderCommand::Line(c) => self.line_commands.push(c),
             RenderCommand::Chunk(c) => self.chunk_commands.push(c),
+            RenderCommand::Sprite(id, rect) => {
+                self.sprite_commands
+                    .entry(id)
+                    .and_modify(|v| v.push(rect))
+                    .or_insert(vec![rect]);
+            }
         }
     }
 
@@ -197,22 +159,10 @@ impl RenderCommands {
         self.line(c, y).thickness(6.0).color(Color::GREEN);
     }
 
-    pub fn text(
-        &mut self,
-        iso: impl Into<Isometry2d>,
-        text: impl AsRef<str>,
-        font_size: f64,
-        color: Color,
-    ) -> TextBuilder<'_> {
+    pub fn text(&mut self, iso: impl Into<Isometry2d>, text: impl AsRef<str>) -> TextBuilder<'_> {
         let iso = iso.into();
-        self.paragraph(
-            iso,
-            self.current_font_id,
-            font_size,
-            text.as_ref(),
-            None,
-            color,
-        )
+        let font = self.fonts.get(self.current_font_id).unwrap().clone();
+        TextBuilder::new(self, iso, &font, self.current_font_id, text.as_ref())
     }
 
     pub fn text_with_shadow(
@@ -226,8 +176,8 @@ impl RenderCommands {
     ) {
         let iso = iso.into();
         let shadow = iso.offset(offset);
-        self.text(shadow, &text, font_size, shadow_color);
-        self.text(iso, &text, font_size, color);
+        self.text(shadow, &text).size(font_size).color(shadow_color);
+        self.text(iso, &text).size(font_size).color(color);
     }
 
     pub fn frame(
@@ -246,26 +196,17 @@ impl RenderCommands {
         self.linestring(vec![a, b, c, d, a])
     }
 
-    pub fn paragraph(
-        &mut self,
-        iso: impl Into<Isometry2d>,
-        font_id: Ent,
-        font_size: f64,
-        text: &str,
-        layout_width: Option<f64>,
-        color: Color,
-    ) -> TextBuilder<'_> {
-        let font = self.fonts.get(font_id).unwrap().clone();
-        TextBuilder::new(
-            self,
-            iso,
-            &font,
-            font_id,
-            font_size,
-            text,
-            layout_width,
-            color,
-        )
+    pub fn sprite(&mut self, iso: impl Into<Isometry2d>, dims: impl Into<DVec2>) {
+        let iso = iso.into();
+        let cmd = RectCommand {
+            pos: iso.tr(),
+            z: 0.5,
+            dims: dims.into(),
+            angle: iso.rotation as f64,
+            fill: RectFill::Sprite(Ent(0)),
+        };
+
+        self.enqueue(RenderCommand::Sprite(Ent(0), cmd));
     }
 
     pub fn chunk(
@@ -274,13 +215,7 @@ impl RenderCommands {
         iso: impl Into<Isometry2d>,
         dims: impl Into<DVec2>,
         height: [f32; 4],
-        sprite_id: Ent,
     ) {
-        if index.x < 10 && index.y < 10 && index.x >= 0 && index.y >= 0 {
-            self.rect(iso).dims(dims).sprite(sprite_id);
-            return;
-        }
-
         let iso = iso.into();
         let c = ChunkCommand {
             chunk: index,
@@ -302,6 +237,7 @@ fn generate_text_layout(
     text: &str,
     color: Color,
     layout_width: Option<f64>,
+    z: f64,
 ) -> (Vec<CharCommand>, DVec2) {
     let right = iso.local_x().as_dvec2();
     let down = -iso.local_y().as_dvec2();
@@ -340,6 +276,7 @@ fn generate_text_layout(
             let yoff = (data.origin_y as f64 - data.height as f64) * font_size;
             let xoff = data.origin_x as f64 * font_size;
             let pos = cursor - yoff * down - xoff * right;
+            let pos = DVec3::new(pos.x, pos.y, z);
             char_commands.push(CharCommand {
                 pos,
                 dims,
@@ -374,8 +311,14 @@ fn generate_text_layout(
 
 pub struct TextBuilder<'a> {
     commands: &'a mut RenderCommands,
-    command: Option<Vec<CharCommand>>,
-    extent: DVec2,
+    iso: Isometry2d,
+    z: f64,
+    font_id: Ent,
+    font: FontInfo,
+    font_size: f64,
+    text: String,
+    color: Color,
+    layout_width: Option<f64>,
 }
 
 impl<'a> TextBuilder<'a> {
@@ -384,38 +327,58 @@ impl<'a> TextBuilder<'a> {
         iso: impl Into<Isometry2d>,
         font: &FontInfo,
         font_id: Ent,
-        font_size: f64,
         text: &str,
-        layout_width: Option<f64>,
-        color: Color,
     ) -> TextBuilder<'a> {
-        let (command, extent) = generate_text_layout(
-            iso.into(),
-            font_id,
-            font,
-            font_size,
-            text,
-            color,
-            layout_width,
-        );
-
         Self {
             commands,
-            command: Some(command),
-            extent,
+            iso: iso.into(),
+            z: 0.1,
+            font_id,
+            font: font.clone(),
+            font_size: 32.0,
+            text: text.into(),
+            color: Color::WHITE,
+            layout_width: None,
         }
     }
 
-    pub fn extent(self) -> DVec2 {
-        self.extent
+    fn build(&self) -> (Vec<CharCommand>, DVec2) {
+        generate_text_layout(
+            self.iso,
+            self.font_id,
+            &self.font,
+            self.font_size,
+            &self.text,
+            self.color,
+            self.layout_width,
+            self.z,
+        )
+    }
+
+    pub fn size(mut self, size: f64) -> Self {
+        self.font_size = size;
+        self
+    }
+
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+
+    pub fn extent(&self) -> DVec2 {
+        self.build().1
+    }
+
+    pub fn z(mut self, z: f64) -> Self {
+        self.z = z;
+        self
     }
 }
 
 impl<'a> Drop for TextBuilder<'a> {
     fn drop(&mut self) {
-        if let Some(c) = self.command.take() {
-            self.commands.char_commands.extend(c);
-        }
+        let (c, _) = self.build();
+        self.commands.char_commands.extend(c);
     }
 }
 
@@ -426,6 +389,7 @@ pub struct CircleBuilder<'a> {
     inner_radius: f64,
     outer_radius: f64,
     color: Color,
+    z: f64,
 }
 
 impl<'a> CircleBuilder<'a> {
@@ -437,32 +401,38 @@ impl<'a> CircleBuilder<'a> {
             inner_radius: -4.0,
             outer_radius: 25.0,
             color: Color::new(0.0, 0.3, 1.0, 0.8),
+            z: 0.3,
         }
     }
 
-    pub fn radius(&mut self, radius: f64) -> &mut Self {
+    pub fn radius(mut self, radius: f64) -> Self {
         self.outer_radius = radius;
         self
     }
 
-    pub fn inner_radius(&mut self, radius: f64) -> &mut Self {
+    pub fn inner_radius(mut self, radius: f64) -> Self {
         self.inner_radius = radius;
         self
     }
 
-    pub fn radii(&mut self, inner: f64, outer: f64) -> &mut Self {
+    pub fn radii(mut self, inner: f64, outer: f64) -> Self {
         self.inner_radius = inner;
         self.outer_radius = outer;
         self
     }
 
-    pub fn diameter(&mut self, diameter: f64) -> &mut Self {
+    pub fn diameter(mut self, diameter: f64) -> Self {
         self.outer_radius = diameter / 2.0;
         self
     }
 
-    pub fn color(&mut self, color: Color) -> &mut Self {
+    pub fn color(mut self, color: Color) -> Self {
         self.color = color;
+        self
+    }
+
+    pub fn z(mut self, z: f64) -> Self {
+        self.z = z;
         self
     }
 }
@@ -472,6 +442,7 @@ impl<'a> Drop for CircleBuilder<'a> {
         let circle = CircleCommand {
             x: self.x,
             y: self.y,
+            z: self.z,
             inner_radius: self.inner_radius,
             outer_radius: self.outer_radius,
             color: self.color,
@@ -502,12 +473,12 @@ impl<'a> LineBuilder<'a> {
         }
     }
 
-    pub fn thickness(&mut self, thickness: f64) -> &mut Self {
+    pub fn thickness(mut self, thickness: f64) -> Self {
         self.thickness = thickness;
         self
     }
 
-    pub fn color(&mut self, color: Color) -> &mut Self {
+    pub fn color(mut self, color: Color) -> Self {
         self.color = color;
         self
     }
@@ -530,6 +501,7 @@ pub struct RectBuilder<'a> {
     pos: DVec2,
     dims: DVec2,
     angle: f64,
+    z: f64,
     fill: RectFill,
     centered: bool,
 }
@@ -542,6 +514,7 @@ impl<'a> RectBuilder<'a> {
             pos: iso.translation.as_dvec2(),
             dims: DVec2::splat(70.0),
             angle: iso.rotation as f64,
+            z: 0.5,
             fill: RectFill::Color(Color::new(0.2, 1.0, 0.2, 1.0)),
             centered: false,
         }
@@ -564,6 +537,11 @@ impl<'a> RectBuilder<'a> {
 
     pub fn centered(mut self) -> Self {
         self.centered = true;
+        self
+    }
+
+    pub fn z(mut self, z: f64) -> Self {
+        self.z = z;
         self
     }
 
@@ -591,8 +569,14 @@ impl<'a> Drop for RectBuilder<'a> {
             dims: self.dims,
             angle: self.angle,
             fill: self.fill,
+            z: self.z,
         };
-        self.commands.enqueue(RenderCommand::Rect(cmd));
+
+        if let RectFill::Sprite(id) = cmd.fill {
+            self.commands.enqueue(RenderCommand::Sprite(id, cmd));
+        } else {
+            self.commands.enqueue(RenderCommand::Rect(cmd));
+        }
     }
 }
 
@@ -613,12 +597,12 @@ impl<'a> LineStringBuilder<'a> {
         }
     }
 
-    pub fn thickness(&mut self, thickness: f64) -> &mut Self {
+    pub fn thickness(mut self, thickness: f64) -> Self {
         self.thickness = thickness;
         self
     }
 
-    pub fn color(&mut self, color: Color) -> &mut Self {
+    pub fn color(mut self, color: Color) -> Self {
         self.color = color;
         self
     }

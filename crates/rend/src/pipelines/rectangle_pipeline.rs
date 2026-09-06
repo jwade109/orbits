@@ -26,7 +26,7 @@ pub fn to_packed_array(cmd: &RectCommand, screen_size: DVec2) -> [f32; RECT_DATA
         cmd.angle as f32,
         screen_size.x as f32,
         screen_size.y as f32,
-        0.0, // padding
+        cmd.z as f32,
     ]
 }
 

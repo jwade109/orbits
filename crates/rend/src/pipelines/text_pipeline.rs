@@ -17,6 +17,7 @@ pub struct TextPipeline {
 struct TextTransform {
     x: f32,
     y: f32,
+    z: f32,
     width: f32,
     height: f32,
     angle: f32,
@@ -36,7 +37,7 @@ impl TextTransform {
             self.angle,
             self.sx,
             self.sy,
-            0.0,
+            self.z,
         ]
     }
 }
@@ -130,6 +131,7 @@ impl TextPipeline {
                 let transform = TextTransform {
                     x: cmd.pos.x as f32,
                     y: cmd.pos.y as f32,
+                    z: cmd.pos.z as f32,
                     width: cmd.dims.x as f32,
                     height: cmd.dims.y as f32,
                     sx: screen.x as f32,

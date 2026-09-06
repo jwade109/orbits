@@ -24,7 +24,11 @@ fn draw_button(
     color: Color,
 ) -> (DVec2, bool) {
     let padding = DVec2::splat(15.0);
-    let extent = cmd.text(p + padding, text, 22.0, Color::WHITE).extent();
+    let extent = cmd
+        .text(p + padding, text)
+        .size(22.0)
+        .color(Color::WHITE)
+        .extent();
     let extent = extent.max(DVec2::new(160.0, extent.y));
     let full_extent = extent + padding * 2.0;
     let rect_origin = p - extent.y * DVec2::Y;
@@ -43,7 +47,8 @@ fn draw_button(
 
     cmd.rect(rect_origin)
         .dims(expanded_extent)
-        .color(color.alpha(alpha));
+        .color(color.alpha(alpha))
+        .z(0.52);
     cmd.text_with_shadow(
         p + padding,
         (-2.0, -2.0),
@@ -71,7 +76,8 @@ fn draw_terrain(cmd: &mut RenderCommands, world: &World, view: &Viewport) {
         } else {
             world.inv_id
         };
-        cmd.chunk(chunk.index().as_ivec2(), iso, dims, chunk.height(), id);
+        // cmd.chunk(chunk.index().as_ivec2(), iso, dims, chunk.height(), id);
+        cmd.sprite(iso, dims);
         // }
     }
 }
@@ -235,6 +241,47 @@ pub fn draw_railcar<'a>(
     cmd.rect(iso).dims(dims).centered()
 }
 
+fn draw_debug_info(
+    cmd: &mut RenderCommands,
+    world: &World,
+    view: &Viewport,
+    sel: &SelectionInfo,
+    anim: &AnimationStates,
+    draw_calls: usize,
+    timers: &BTreeMap<&'static str, Duration>,
+) {
+    let p = DVec2::new(20.0, view.dims().y - 30.0);
+
+    let mut lines = vec![
+        format!("{} ticks", world.ticks),
+        format!("zoom           {:0.3}", world.camera.zoom),
+        format!("hovered        {:?}", sel.hovered),
+        format!("selected_nodes {:?}", sel.selected_nodes),
+        format!("pressed_node   {:?}", sel.pressed_node),
+        format!("selected_track {:?}", sel.selected_track),
+        format!("draw_calls     {:?}", draw_calls),
+    ];
+
+    for (id, num, tween, state) in anim.animations() {
+        lines.push(format!("{} {} {:?} {:0.2}", id, num, tween, state));
+    }
+
+    for (name, dur) in timers {
+        lines.push(format!("{} {:?}", name, dur.as_millis()));
+    }
+
+    let text = lines.join("\n");
+
+    for (off, color) in [(0.0, Color::WHITE)] {
+        let p = p - DVec2::splat(off);
+        let extent = cmd.text(p, &text).size(28.0).color(color).extent();
+
+        cmd.rect(p - extent.y * DVec2::Y)
+            .dims(extent)
+            .color(Color::BLACK.alpha(0.4));
+    }
+}
+
 pub fn draw_world(
     cmd: &mut RenderCommands,
     sel: &SelectionInfo,
@@ -251,7 +298,12 @@ pub fn draw_world(
     let view = Viewport::new(world.camera, screen_width);
     cmd.current_font_id = world.current_font_id.unwrap();
 
-    draw_terrain(cmd, world, &view);
+    if input.is_key_pressed(rdev::Key::Tab) {
+        draw_z_index_demo(cmd, &view);
+    } else {
+        draw_terrain(cmd, world, &view);
+    }
+
     if world.show_detail {
         draw_track_bounds(cmd, world, &view);
         draw_track_chunk_occupancy(cmd, world, &view);
@@ -266,47 +318,6 @@ pub fn draw_world(
         draw_track_nodes(cmd, world, &view);
     }
 
-    {
-        let p = DVec2::new(20.0, screen_width.y - 30.0);
-
-        let chars = "abcdefghijklmnopqrstuvwxyz";
-
-        let n = (world.ticks / 100) as usize % chars.len();
-        let c = chars.chars().nth(n).unwrap();
-
-        let mut lines = vec![
-            chars.to_uppercase().to_string(),
-            chars.to_string(),
-            format!("{} ticks", world.ticks),
-            c.to_string(),
-            format!("zoom           {:0.3}", world.camera.zoom),
-            format!("hovered        {:?}", sel.hovered),
-            format!("selected_nodes {:?}", sel.selected_nodes),
-            format!("pressed_node   {:?}", sel.pressed_node),
-            format!("selected_track {:?}", sel.selected_track),
-            format!("draw_calls     {:?}", draw_calls),
-        ];
-
-        for (id, num, tween, state) in anim.animations() {
-            lines.push(format!("{} {} {:?} {:0.2}", id, num, tween, state));
-        }
-
-        for (name, dur) in timers {
-            lines.push(format!("{} {:?}", name, dur.as_millis()));
-        }
-
-        let text = lines.join("\n");
-
-        for (off, color) in [(0.0, Color::WHITE)] {
-            let p = p - DVec2::splat(off);
-            let extent = cmd.text(p, &text, 28.0, color).extent();
-
-            cmd.rect(p - extent.y * DVec2::Y)
-                .dims(extent)
-                .color(Color::BLACK.alpha(0.4));
-        }
-    }
-
     draw_selected_track(cmd, world, sel, &view);
     draw_hovered_track(cmd, world, sel, &view);
     draw_railcars(cmd, world, &view);
@@ -317,6 +328,7 @@ pub fn draw_world(
     draw_clouds(cmd, world, &view);
     draw_ruler(cmd, sel, &view, mouse);
 
+    draw_debug_info(cmd, world, &view, sel, anim, draw_calls, timers);
     draw_font_ui(cmd, anim, events, fonts, mouse, input);
 
     cmd.circle(mouse).diameter(11.0).color(Color::RED);
@@ -335,6 +347,44 @@ pub fn draw_world(
     }
 }
 
+fn draw_z_index_demo(cmd: &mut RenderCommands, view: &Viewport) {
+    let do_drawing = |cmd: &mut RenderCommands, origin: &mut DVec2, has_z: bool| {
+        for z in linspace_f64(0.0, 1.0, 9) {
+            let p = *origin + DVec2::new(z * 1000.0, z * 600.0);
+            let q = view.world_to_screen(p + DVec2::new(20.0, 250.0));
+            let p = view.world_to_screen(p);
+            let color = Color::hsl(z * 0.5, 0.7, 0.4, 1.0);
+            let d = view.meters(250.0);
+            let dims = DVec2::splat(d);
+            let mut rect = cmd.rect(p).dims(dims).color(color);
+            if has_z {
+                rect.z(z);
+            } else {
+                drop(rect);
+            }
+
+            let text = format!(
+                "z = {z:0.2}\nhello ifjwefwef\nwow ifjwefwef\nyeee ifjwefwef\nyo ifjwefwef"
+            );
+            let txt = cmd
+                .text(q, text)
+                .size(view.meters(32.0))
+                .color(Color::WHITE.alpha(0.7));
+
+            if has_z {
+                txt.z(z);
+            }
+        }
+
+        *origin += DVec2::X * 700.0;
+    };
+
+    let mut origin = DVec2::new(200.0, 100.0);
+
+    do_drawing(cmd, &mut origin, true);
+    do_drawing(cmd, &mut origin, false);
+}
+
 fn draw_clouds(cmd: &mut RenderCommands, world: &World, view: &Viewport) {
     let alpha = (1.0 - view.zoom() * 10.0).clamp(0.0, 1.0) * 0.4;
 
@@ -342,7 +392,8 @@ fn draw_clouds(cmd: &mut RenderCommands, world: &World, view: &Viewport) {
         let p = view.world_to_screen_parallax(*pos);
         cmd.circle(p)
             .radius(view.meters(*radius))
-            .color(Color::WHITE.alpha(alpha));
+            .color(Color::WHITE.alpha(alpha))
+            .z(0.1);
     }
 }
 
@@ -368,7 +419,9 @@ fn draw_ruler(
 
     let text = distance_str(d);
 
-    cmd.text(view.w2s_iso(iso), text, 32.0, Color::WHITE);
+    cmd.text(view.w2s_iso(iso), text)
+        .size(32.0)
+        .color(Color::WHITE);
 
     Some(())
 }
@@ -388,7 +441,9 @@ fn draw_hovered_chunk(
     let size = 32.0f64.max(view.meters(3.0));
 
     let iso = index.isometry();
-    cmd.text(view.w2s_iso(iso), text, size, Color::WHITE.alpha(0.6));
+    cmd.text(view.w2s_iso(iso), text)
+        .size(size)
+        .color(Color::WHITE.alpha(0.6));
 
     let iso = view.w2s_iso(index.isometry());
     let dims = DVec2::splat(view.meters(TERRAIN_CHUNK_WIDTH_METERS));
@@ -542,7 +597,7 @@ fn draw_hovered_track(
         .thickness(8.0)
         .color(Color::PURPLE);
 
-    cmd.text(p, text, 32.0, Color::WHITE);
+    cmd.text(p, text).size(32.0).color(Color::WHITE);
 
     Some(())
 }
@@ -590,7 +645,7 @@ fn draw_hovered_node(
         node.forward(),
         node.backward()
     );
-    cmd.text(p, text, 32.0, Color::WHITE);
+    cmd.text(p, text).size(32.0).color(Color::WHITE);
 
     Some(())
 }

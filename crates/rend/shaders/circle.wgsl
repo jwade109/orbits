@@ -46,5 +46,6 @@ fn fs_main(in: VertexShaderOutput) -> @location(0) vec4<f32> {
     let r = length(in.pixels);
 
     color.a *= smoothstep(ri, ri + 2.0, r) * (1.0 - smoothstep(ro - 2.0, ro, r));
+
     return color;
 }

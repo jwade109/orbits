@@ -112,15 +112,15 @@ impl Texture {
         }
     }
 
-    pub fn blank_texture(rd: &Renderer, label: &str) -> Self {
+    pub fn blank_texture(rd: &Renderer, width: u32, height: u32, label: &str) -> Self {
         let bgl = Self::make_bind_group_layout(&rd.device, label);
 
         let size = (rd.config.width, rd.config.height);
 
         let texture_descriptor = wgpu::TextureDescriptor {
             size: wgpu::Extent3d {
-                width: rd.config.width.max(1),
-                height: rd.config.height.max(1),
+                width,
+                height,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
@@ -140,8 +140,8 @@ impl Texture {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
             mipmap_filter: wgpu::FilterMode::Nearest,
             ..Default::default()
         });

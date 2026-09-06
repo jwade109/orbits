@@ -137,7 +137,7 @@ struct RectData {
     angle:    f32,
     screen_x: f32,
     screen_y: f32,
-    _unused_z_value: f32,
+    z:        f32,
 }
 
 fn rect_corners(origin: vec2f, dims: vec2f, angle: f32) -> array<vec2<f32>, 4> {

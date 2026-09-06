@@ -25,7 +25,7 @@ fn vs_main(vertex: Vertex) -> VertexShaderOutput {
     let dims = vec2<f32>(w, h);
 
     var pos = corners[vertex.vertex_index] / dims * 2.0 - 1.0;
-    out.position = vec4<f32>(pos, 1.0, 1.0);
+    out.position = vec4<f32>(pos, data.z, 1.0);
     out.color = vec4f(data.r, data.g, data.b, data.a);
     return out;
 }

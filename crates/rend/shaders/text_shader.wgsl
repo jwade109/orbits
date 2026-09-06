@@ -25,7 +25,7 @@ struct TextTransform {
     angle:  f32,
     sx:     f32,
     sy:     f32,
-    _pad:   f32,
+    z:      f32,
 }
 
 struct Vertex {
@@ -82,7 +82,7 @@ fn vs_main(vertex: Vertex) -> VertexShaderOutput {
     uv.y = (f32(sample.origin_y) + uv.y * f32(sample.sample_height)) / f32(sample.image_height);
 
     var pos = positions[vertex.vertex_index] * 2.0 - 1.0;
-    out.position = vec4<f32>(pos, 1.0, 1.0);
+    out.position = vec4<f32>(pos, data.z, 1.0);
     out.uv = uv;
     return out;
 }
@@ -105,7 +105,7 @@ fn fs_main(in: VertexShaderOutput) -> @location(0) vec4<f32> {
     // }
 
     // let alpha = sqrt(sqrt(round(l * 5.0) / 5.0));
-    let alpha = smoothstep(0.09, 0.29, l);
+    let alpha = c.r; // smoothstep(0.09, 0.29, l);
 
-    return vec4<f32>(col.xyz, col.w * alpha);
+    return vec4<f32>(col.xyz * alpha, col.w * alpha);
 }

@@ -63,7 +63,7 @@ impl<'a> PipelineBuilder<'a> {
                 .create_pipeline_layout(&pipeline_layout_descriptor)
         };
 
-        let depth_stencil = has_depth_stencil.then(|| wgpu::DepthStencilState {
+        let depth_stencil = false.then(|| wgpu::DepthStencilState {
             format: Texture::DEPTH_FORMAT,
             depth_write_enabled: true,
             depth_compare: wgpu::CompareFunction::LessEqual,

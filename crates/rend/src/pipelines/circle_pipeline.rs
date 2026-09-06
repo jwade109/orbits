@@ -1,7 +1,7 @@
 use crate::Color;
 use crate::*;
 use glam::DVec2;
-use glm::{Mat4, Vec3};
+use glm::{DVec3, Mat4, Vec3};
 use wgpu::*;
 
 pub struct CirclePipeline {
@@ -84,6 +84,7 @@ impl CirclePipeline {
             let pos = DVec2::new(ul_x, ul_y);
             let dims = DVec2::new(cmd.outer_radius, cmd.outer_radius) * 2.0;
             let pos = pos.with_y(screen.y - pos.y - cmd.outer_radius * 2.0);
+            let pos = DVec3::new(pos.x, pos.y, cmd.z);
             let transform = screen_space_transform(pos, dims, screen, 0.0);
             self.set_transform(queue, i, &transform);
             self.set_color(queue, i, cmd.color);
@@ -105,7 +106,7 @@ impl CirclePipeline {
     }
 }
 
-pub fn screen_space_transform(pos: DVec2, dims: DVec2, screen: DVec2, _angle: f64) -> Mat4 {
+pub fn screen_space_transform(pos: DVec3, dims: DVec2, screen: DVec2, _angle: f64) -> Mat4 {
     // let aspect_ratio = (sx / sy) as f32;
 
     let width_scale = dims.x / screen.x;
@@ -114,6 +115,6 @@ pub fn screen_space_transform(pos: DVec2, dims: DVec2, screen: DVec2, _angle: f6
     let xoff = 2.0 * (pos.x + dims.x / 2.0) / screen.x - 1.0;
     let yoff = -(2.0 * (pos.y + dims.y / 2.0) / screen.y - 1.0);
 
-    translation_matrix(Vec3::new(xoff as f32, yoff as f32, 0.0))
+    translation_matrix(Vec3::new(xoff as f32, yoff as f32, pos.z as f32))
         * mat4_diagonal(width_scale as f32, height_scale as f32, 1.0, 1.0)
 }

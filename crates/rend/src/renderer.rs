@@ -82,15 +82,24 @@ impl<'a> Renderer<'a> {
         clear_color: Option<wgpu::Color>,
         view: &wgpu::TextureView,
         depth_texture: &Texture,
+        clear_depth: bool,
     ) -> wgpu::RenderPass<'b> {
-        let depth_stencil_attachment = Some(wgpu::RenderPassDepthStencilAttachment {
-            view: &depth_texture.view,
-            depth_ops: Some(wgpu::Operations {
-                load: wgpu::LoadOp::Clear(1.0),
-                store: wgpu::StoreOp::Store,
-            }),
-            stencil_ops: None,
-        });
+        let load = if clear_depth {
+            wgpu::LoadOp::Clear(1.0)
+        } else {
+            wgpu::LoadOp::Load
+        };
+
+        // let depth_stencil_attachment = Some(wgpu::RenderPassDepthStencilAttachment {
+        //     view: &depth_texture.view,
+        //     depth_ops: Some(wgpu::Operations {
+        //         load,
+        //         store: wgpu::StoreOp::Store,
+        //     }),
+        //     stencil_ops: None,
+        // });
+
+        let depth_stencil_attachment = None;
 
         let load = clear_color.map_or(wgpu::LoadOp::Load, |c| wgpu::LoadOp::Clear(c));
 

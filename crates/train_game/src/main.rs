@@ -66,7 +66,7 @@ impl<'a> TrainApp<'a> {
             }
         });
 
-        let font_id = rs.world.load_font(&rs.renderer, "consolas");
+        let font_id = rs.world.load_font(&rs.renderer, "consolas_spritesheet");
         rs.world.load_font(&rs.renderer, "cambria");
         rs.world.load_font(&rs.renderer, "garamond");
         rs.world.load_font(&rs.renderer, "arial");
@@ -172,13 +172,7 @@ impl<'a> RendApp for TrainApp<'a> {
     fn emit_render_commands(&mut self) -> RenderCommands {
         let start = Instant::now();
 
-        let mut font_info = Components::default();
-
-        for (id, (info, _tex)) in self.rs.world.fonts.iter() {
-            font_info.spawn(*id, info.clone());
-        }
-
-        let mut cmd = RenderCommands::new(font_info);
+        let mut cmd = RenderCommands::from_fonts(&self.rs.world.fonts);
         cmd.current_font_id = self.world.current_font_id.unwrap();
         let (width, height) = self.rs.window.get_size();
         let dims = DVec2::new(width as f64, height as f64);
@@ -218,7 +212,7 @@ impl<'a> RendApp for TrainApp<'a> {
     fn render(&mut self, commands: &RenderCommands) {
         let start = Instant::now();
 
-        let render = self.rs.render(&commands);
+        let render = self.rs.render(&commands, &self.input_state);
 
         let stop = Instant::now();
 

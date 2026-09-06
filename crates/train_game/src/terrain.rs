@@ -37,6 +37,8 @@ impl From<IVec2> for ChunkIndex {
 }
 
 impl ChunkIndex {
+    pub const ZERO: Self = Self(IVec2::ZERO);
+
     pub fn new(index: impl Into<IVec2>) -> Self {
         Self(index.into())
     }

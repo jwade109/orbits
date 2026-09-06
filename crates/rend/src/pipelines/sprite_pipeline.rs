@@ -32,11 +32,17 @@ impl SpritePipeline {
         Self { pipeline, mesh }
     }
 
-    pub fn draw(&self, rp: &mut RenderPass, material: &BindGroup, rect_data: &RectDataBuffer, n: u32) {
+    pub fn draw(
+        &self,
+        rp: &mut RenderPass,
+        material: &BindGroup,
+        rect_data: &RectDataBuffer,
+        n: usize,
+    ) {
         rp.set_pipeline(&self.pipeline);
         rp.set_bind_group(0, material, &[]);
         rp.set_bind_group(1, rect_data.buffer().bind_group(), &[]);
         self.mesh.set_as_active(rp);
-        rp.draw_indexed(0..self.mesh.index_count(), 0, 0..n);
+        rp.draw_indexed(0..self.mesh.index_count(), 0, 0..n as u32);
     }
 }
