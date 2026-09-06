@@ -131,7 +131,13 @@ pub struct ChunkCommand {
 
 pub struct RenderCommands {
     pub fonts: Components<FontInfo>,
-    commands: Vec<BatchRenderCommand>,
+
+    pub rect_commands: Vec<RectCommand>,
+    pub char_commands: Vec<CharCommand>,
+    pub circle_commands: Vec<CircleCommand>,
+    pub line_commands: Vec<LineCommand>,
+    pub chunk_commands: Vec<ChunkCommand>,
+
     pub current_font_id: Ent,
 }
 
@@ -141,25 +147,22 @@ impl RenderCommands {
         let id = *id;
         Self {
             fonts,
-            commands: Vec::new(),
+            rect_commands: Vec::new(),
+            char_commands: Vec::new(),
+            circle_commands: Vec::new(),
+            line_commands: Vec::new(),
+            chunk_commands: Vec::new(),
             current_font_id: id,
         }
     }
 
-    pub fn commands(&self) -> impl Iterator<Item = &BatchRenderCommand> {
-        self.commands.iter()
-    }
-
     pub fn enqueue(&mut self, command: RenderCommand) {
-        let is_batched = self
-            .commands
-            .last_mut()
-            .map(|last| last.try_enqueue(command.clone()))
-            .unwrap_or(false);
-
-        if !is_batched {
-            let b = BatchRenderCommand::new(command);
-            self.commands.push(b);
+        match command {
+            RenderCommand::Char(c) => self.char_commands.push(c),
+            RenderCommand::Rect(c) => self.rect_commands.push(c),
+            RenderCommand::Circle(c) => self.circle_commands.push(c),
+            RenderCommand::Line(c) => self.line_commands.push(c),
+            RenderCommand::Chunk(c) => self.chunk_commands.push(c),
         }
     }
 
@@ -299,7 +302,7 @@ fn generate_text_layout(
     text: &str,
     color: Color,
     layout_width: Option<f64>,
-) -> (BatchRenderCommand, DVec2) {
+) -> (Vec<CharCommand>, DVec2) {
     let right = iso.local_x().as_dvec2();
     let down = -iso.local_y().as_dvec2();
 
@@ -364,16 +367,14 @@ fn generate_text_layout(
         }
     }
 
-    let cmd = BatchRenderCommand::Char(font_id, char_commands);
-
     let extent = DVec2::new(max_sum_x, (row + 1) as f64 * (font.size as f64 * font_size));
 
-    (cmd, extent)
+    (char_commands, extent)
 }
 
 pub struct TextBuilder<'a> {
     commands: &'a mut RenderCommands,
-    command: Option<BatchRenderCommand>,
+    command: Option<Vec<CharCommand>>,
     extent: DVec2,
 }
 
@@ -412,7 +413,9 @@ impl<'a> TextBuilder<'a> {
 
 impl<'a> Drop for TextBuilder<'a> {
     fn drop(&mut self) {
-        self.commands.commands.push(self.command.take().unwrap());
+        if let Some(c) = self.command.take() {
+            self.commands.char_commands.extend(c);
+        }
     }
 }
 

@@ -372,6 +372,7 @@ impl<'a> RenderState<'a> {
                 font,
                 screen,
             );
+
             self.pipelines
                 .text_pipeline
                 .draw_text(&mut rp, material, chunk.len());
@@ -421,16 +422,15 @@ impl<'a> RenderState<'a> {
         view: &wgpu::TextureView,
     ) -> usize {
         let mut passes = 0;
-        for cmd in commands.commands() {
-            passes += match cmd {
-                // BatchRenderCommand::Char(font_id, c) => self.draw_ui(&view, *font_id, &c),
-                // BatchRenderCommand::Rect(c) => self.draw_rectangles(view, &c),
-                // BatchRenderCommand::Circle(c) => self.draw_circles(view, &c),
-                BatchRenderCommand::Line(c) => self.draw_lines(view, &c),
-                // BatchRenderCommand::Chunk(c) => self.draw_chunks(view, c),
-                _ => 0,
-            }
-        }
+
+        let font_id = commands.current_font_id;
+
+        passes += self.draw_chunks(view, &commands.chunk_commands);
+        passes += self.draw_rectangles(view, &commands.rect_commands);
+        passes += self.draw_circles(view, &commands.circle_commands);
+        passes += self.draw_lines(view, &commands.line_commands);
+        passes += self.draw_ui(view, font_id, &commands.char_commands);
+
         passes
     }
 
@@ -438,48 +438,35 @@ impl<'a> RenderState<'a> {
         let (sx, sy) = self.window.get_size();
         let screen = glam::DVec2::new(sx as f64, sy as f64);
 
-        for batch in commands.commands() {
-            let BatchRenderCommand::Rect(cmds) = batch else {
+        for cmd in &commands.rect_commands {
+            let RectFill::Sprite(id) = cmd.fill else {
                 continue;
             };
 
-            let sprite_commands: Vec<(&RectCommand, Ent)> = cmds
-                .iter()
-                .filter_map(|c| {
-                    if let RectFill::Sprite(id) = c.fill {
-                        Some((c, id))
-                    } else {
-                        None
-                    }
-                })
-                .collect();
+            let mut command_encoder = self
+                .renderer
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-            for (chunk, id) in sprite_commands {
-                let mut command_encoder = self
-                    .renderer
-                    .device
-                    .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+            let mut rp = self.get_render_pass(&mut command_encoder, None, view);
 
-                let mut rp = self.get_render_pass(&mut command_encoder, None, view);
+            self.world
+                .rect_data
+                .write(&self.renderer.queue, &[*cmd], screen);
 
-                self.world
-                    .rect_data
-                    .write(&self.renderer.queue, &[*chunk], screen);
+            let texture = self.world.textures.get(id).unwrap();
 
-                let texture = self.world.textures.get(id).unwrap();
+            self.pipelines.sprite_pipeline.draw(
+                &mut rp,
+                &texture.bind_group,
+                &self.world.rect_data,
+                1,
+            );
+            drop(rp);
 
-                self.pipelines.sprite_pipeline.draw(
-                    &mut rp,
-                    &texture.bind_group,
-                    &self.world.rect_data,
-                    1,
-                );
-                drop(rp);
-
-                self.renderer
-                    .queue
-                    .submit(std::iter::once(command_encoder.finish()));
-            }
+            self.renderer
+                .queue
+                .submit(std::iter::once(command_encoder.finish()));
         }
     }
 

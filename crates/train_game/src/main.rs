@@ -218,7 +218,11 @@ impl<'a> RendApp for TrainApp<'a> {
     fn render(&mut self, commands: &RenderCommands) {
         let start = Instant::now();
 
-        match self.rs.render(&commands) {
+        let render = self.rs.render(&commands);
+
+        let stop = Instant::now();
+
+        match render {
             Ok(Some((drawable, count))) => {
                 drawable.present();
                 self.draw_calls = count;
@@ -231,7 +235,7 @@ impl<'a> RendApp for TrainApp<'a> {
             Err(e) => error!("{:?}", e),
         }
 
-        self.timers.insert("render", Instant::now() - start);
+        self.timers.insert("render", stop - start);
     }
 
     fn should_close(&self) -> bool {

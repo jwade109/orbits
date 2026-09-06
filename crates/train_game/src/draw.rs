@@ -388,7 +388,7 @@ fn draw_hovered_chunk(
     let size = 32.0f64.max(view.meters(3.0));
 
     let iso = index.isometry();
-    cmd.text(view.w2s_iso(iso), text, size, Color::WHITE);
+    cmd.text(view.w2s_iso(iso), text, size, Color::WHITE.alpha(0.6));
 
     let iso = view.w2s_iso(index.isometry());
     let dims = DVec2::splat(view.meters(TERRAIN_CHUNK_WIDTH_METERS));

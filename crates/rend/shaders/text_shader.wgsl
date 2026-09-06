@@ -43,6 +43,8 @@ struct VertexShaderOutput {
 fn vs_main(vertex: Vertex) -> VertexShaderOutput {
     var out: VertexShaderOutput;
 
+    out.instance_index = vertex.instance_index;
+
     let data = transforms_array[vertex.instance_index];
     let sample = sample_info_array[vertex.instance_index];
 
@@ -99,7 +101,7 @@ fn fs_main(in: VertexShaderOutput) -> @location(0) vec4<f32> {
 
     // for debugging
     // if l < 0.03 {
-    //     return vec4<f32>(1.0, 0.0, 0.0, 0.3);
+    //     return vec4<f32>(col.xyz, 0.3);
     // }
 
     // let alpha = sqrt(sqrt(round(l * 5.0) / 5.0));

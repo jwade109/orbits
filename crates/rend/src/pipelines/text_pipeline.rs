@@ -1,7 +1,9 @@
 use crate::Texture;
 use crate::*;
+use bary_core::prelude::rand;
 use glam::DVec2;
 use glm::{Mat4, Vec3, Vec4};
+use log::info;
 use wgpu::*;
 
 pub struct TextPipeline {
@@ -109,32 +111,6 @@ impl TextPipeline {
         }
     }
 
-    fn set_color(&self, queue: &Queue, i: usize, color: Vec4) {
-        self.colors
-            .upload(queue, 16 * i as u64, any_as_u8_slice(&color));
-    }
-
-    fn set_transform(&self, queue: &Queue, i: usize, transform: TextTransform) {
-        self.transforms
-            .upload(queue, 32 * i as u64, any_as_u8_slice(&transform.to_gpu()));
-    }
-
-    pub fn set_range(&self, queue: &Queue, i: usize, range: &TextureSampleRange) {
-        let gpu = GpuSampleInfo {
-            origin_x: range.origin_x,
-            origin_y: range.origin_y,
-            sample_width: range.sample_width,
-            sample_height: range.sample_height,
-            image_width: range.image_width,
-            image_height: range.image_height,
-            _pad1: 0,
-            _pad2: 0,
-        };
-
-        self.range_info
-            .upload(queue, 32 * i as u64, any_as_u8_slice(&gpu));
-    }
-
     pub fn assign_buffer_data(
         &self,
         queue: &Queue,
@@ -142,23 +118,52 @@ impl TextPipeline {
         font: &FontInfo,
         screen: DVec2,
     ) {
-        for (i, text) in commands.iter().enumerate() {
-            let range = font.get_sample_range(text.c).unwrap();
+        let color_data: Vec<u8> = commands
+            .iter()
+            .map(|cmd| any_as_u8_slice(&cmd.color.to_vec()).to_vec())
+            .collect::<Vec<Vec<u8>>>()
+            .concat();
 
-            let transform = TextTransform {
-                x: text.pos.x as f32,
-                y: text.pos.y as f32,
-                width: text.dims.x as f32,
-                height: text.dims.y as f32,
-                sx: screen.x as f32,
-                sy: screen.y as f32,
-                angle: text.angle as f32,
-            };
+        let transform_data = commands
+            .iter()
+            .map(|cmd| {
+                let transform = TextTransform {
+                    x: cmd.pos.x as f32,
+                    y: cmd.pos.y as f32,
+                    width: cmd.dims.x as f32,
+                    height: cmd.dims.y as f32,
+                    sx: screen.x as f32,
+                    sy: screen.y as f32,
+                    angle: cmd.angle as f32,
+                };
 
-            self.set_range(queue, i, &range);
-            self.set_transform(queue, i, transform);
-            self.set_color(queue, i, text.color.to_vec())
-        }
+                any_as_u8_slice(&transform.to_gpu()).to_vec()
+            })
+            .collect::<Vec<Vec<u8>>>()
+            .concat();
+
+        let range_data = commands
+            .iter()
+            .map(|cmd| {
+                let range = font.get_sample_range(cmd.c).unwrap();
+                let gpu = GpuSampleInfo {
+                    origin_x: range.origin_x,
+                    origin_y: range.origin_y,
+                    sample_width: range.sample_width,
+                    sample_height: range.sample_height,
+                    image_width: range.image_width,
+                    image_height: range.image_height,
+                    _pad1: 0,
+                    _pad2: 0,
+                };
+                any_as_u8_slice(&gpu).to_vec()
+            })
+            .collect::<Vec<Vec<u8>>>()
+            .concat();
+
+        self.colors.write(queue, &color_data);
+        self.transforms.write(queue, &transform_data);
+        self.range_info.write(queue, &range_data);
     }
 
     pub fn draw_text(&self, rp: &mut RenderPass, material: &Texture, n: usize) {
@@ -174,17 +179,4 @@ impl TextPipeline {
         self.mesh.set_as_active(rp);
         rp.draw_indexed(0..self.mesh.index_count(), 0, 0..n as u32);
     }
-}
-
-pub fn screen_space_transform(pos: DVec2, dims: DVec2, screen: DVec2, _angle: f64) -> Mat4 {
-    // let aspect_ratio = (sx / sy) as f32;
-
-    let width_scale = dims.x / screen.x;
-    let height_scale = dims.y / screen.y;
-
-    let xoff = 2.0 * (pos.x + dims.x / 2.0) / screen.x - 1.0;
-    let yoff = -(2.0 * (pos.y + dims.y / 2.0) / screen.y - 1.0);
-
-    translation_matrix(Vec3::new(xoff as f32, yoff as f32, 0.0))
-        * mat4_diagonal(width_scale as f32, height_scale as f32, 1.0, 1.0)
 }
