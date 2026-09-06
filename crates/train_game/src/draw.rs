@@ -65,7 +65,13 @@ fn draw_terrain(cmd: &mut RenderCommands, world: &World, view: &Viewport) {
         let dims = DVec2::splat(view.meters(TERRAIN_CHUNK_WIDTH_METERS));
         // cmd.rect(iso).dims(dims);
         // if let Some(id) = chunk.gpu_data() {
-        cmd.chunk(chunk.index().as_ivec2(), iso, dims, chunk.height(), Ent(0));
+        let p = chunk.index().as_ivec2();
+        let id = if (p.x + p.y) % 2 == 0 {
+            world.mush_id
+        } else {
+            world.inv_id
+        };
+        cmd.chunk(chunk.index().as_ivec2(), iso, dims, chunk.height(), id);
         // }
     }
 }
@@ -273,7 +279,7 @@ pub fn draw_world(
             chars.to_string(),
             format!("{} ticks", world.ticks),
             c.to_string(),
-            format!("zoom           {:0.1}", world.camera.zoom),
+            format!("zoom           {:0.3}", world.camera.zoom),
             format!("hovered        {:?}", sel.hovered),
             format!("selected_nodes {:?}", sel.selected_nodes),
             format!("pressed_node   {:?}", sel.pressed_node),
@@ -308,6 +314,7 @@ pub fn draw_world(
     draw_calculated_route(cmd, world, &view);
     draw_hovered_node(cmd, world, sel, &view);
     draw_hovered_chunk(cmd, world, sel, &view);
+    draw_clouds(cmd, world, &view);
     draw_ruler(cmd, sel, &view, mouse);
 
     draw_font_ui(cmd, anim, events, fonts, mouse, input);
@@ -325,6 +332,17 @@ pub fn draw_world(
             Color::WHITE,
             Color::BLACK.alpha(0.7),
         );
+    }
+}
+
+fn draw_clouds(cmd: &mut RenderCommands, world: &World, view: &Viewport) {
+    let alpha = (1.0 - view.zoom() * 10.0).clamp(0.0, 1.0) * 0.4;
+
+    for (pos, radius) in &world.clouds {
+        let p = view.world_to_screen_parallax(*pos);
+        cmd.circle(p)
+            .radius(view.meters(*radius))
+            .color(Color::WHITE.alpha(alpha));
     }
 }
 

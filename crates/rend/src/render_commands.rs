@@ -127,7 +127,6 @@ pub struct ChunkCommand {
     pub dims: DVec2,
     pub angle: f64,
     pub height: [f32; 4],
-    pub mesh_id: Ent,
 }
 
 pub struct RenderCommands {
@@ -272,10 +271,10 @@ impl RenderCommands {
         iso: impl Into<Isometry2d>,
         dims: impl Into<DVec2>,
         height: [f32; 4],
-        mesh_id: Ent,
+        sprite_id: Ent,
     ) {
         if index.x < 10 && index.y < 10 && index.x >= 0 && index.y >= 0 {
-            self.rect(iso).dims(dims).sprite(Ent(0));
+            self.rect(iso).dims(dims).sprite(sprite_id);
             return;
         }
 
@@ -286,7 +285,6 @@ impl RenderCommands {
             dims: dims.into(),
             angle: iso.rotation as f64,
             height,
-            mesh_id,
         };
 
         self.enqueue(RenderCommand::Chunk(c));

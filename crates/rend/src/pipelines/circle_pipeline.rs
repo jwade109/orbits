@@ -13,7 +13,7 @@ pub struct CirclePipeline {
 }
 
 impl CirclePipeline {
-    pub const MAX_CIRCLES_PER_PASS: usize = 480;
+    pub const MAX_CIRCLES_PER_PASS: usize = 800;
 
     pub fn new(rd: &Renderer) -> Self {
         let colors =

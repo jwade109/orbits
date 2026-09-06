@@ -50,6 +50,10 @@ impl SelectionInfo {
 pub struct World {
     pub ticks: u64,
     pub current_font_id: Option<Ent>,
+
+    pub inv_id: Ent,
+    pub mush_id: Ent,
+
     pub time: f64,
     pub show_detail: bool,
 
@@ -61,6 +65,7 @@ pub struct World {
     pub segments: Components<TrackSegment>,
     pub cars: Components<RailCar>,
     pub consists: Components<RailConsist>,
+    pub clouds: Vec<(DVec3, f64)>,
 
     pub chunks: Components<TerrainChunk>,
     pub chunk_map: BTreeMap<ChunkIndex, Ent>,
@@ -69,7 +74,19 @@ pub struct World {
 }
 
 impl World {
-    pub fn new(font_id: Ent) -> Self {
+    pub fn new(font_id: Ent, inv_id: Ent, mush_id: Ent) -> Self {
+        let n_clouds = 500;
+
+        let clouds = (0..n_clouds)
+            .map(|_| {
+                let x = rand(-400000.0, 400000.0) as f64;
+                let y = rand(-400000.0, 400000.0) as f64;
+                let z = rand(0.4, 1.0) as f64;
+                let r = rand(6000.0, 22000.0) as f64;
+                (DVec3::new(x, y, z), r)
+            })
+            .collect();
+
         Self {
             ticks: 0,
             current_font_id: Some(font_id),
@@ -89,8 +106,11 @@ impl World {
             cars: Components::default(),
             chunks: Components::default(),
             consists: Components::default(),
+            clouds,
             chunk_map: BTreeMap::new(),
             calculated_route: None,
+            inv_id,
+            mush_id,
         }
     }
 }
@@ -179,8 +199,8 @@ pub fn update_world(
     sel.hovered_chunk = Some(get_chunk_index(view.screen_to_world(mouse)));
 }
 
-pub fn make_world(events: &mut EventBus, font_id: Ent) -> World {
-    let mut world: World = World::new(font_id);
+pub fn make_world(events: &mut EventBus, font_id: Ent, inv_id: Ent, mush_id: Ent) -> World {
+    let mut world: World = World::new(font_id, inv_id, mush_id);
 
     if load_world(&mut world, events, "train_world").is_none() {
         error!("Failed to load world");

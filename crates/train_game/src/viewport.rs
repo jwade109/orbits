@@ -1,6 +1,6 @@
 use bary_core::prelude::Isometry2d;
 use bary_sim::Camera;
-use glam::DVec2;
+use glam::{DVec2, DVec3, Vec3Swizzles};
 
 pub struct Viewport {
     camera: Camera,
@@ -17,6 +17,14 @@ impl Viewport {
 
     pub fn world_to_screen(&self, p: impl Into<DVec2>) -> DVec2 {
         self.camera.world_to_screen(p.into(), self.screen_width)
+    }
+
+    pub fn world_to_screen_parallax(&self, p: impl Into<DVec3>) -> DVec2 {
+        let p = p.into();
+        let xy = p.xy();
+        let off = (xy - self.camera.isometry.tr()) * p.z;
+
+        self.camera.world_to_screen(xy + off, self.screen_width)
     }
 
     pub fn screen_to_world(&self, p: impl Into<DVec2>) -> DVec2 {

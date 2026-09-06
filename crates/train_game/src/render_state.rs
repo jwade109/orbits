@@ -84,9 +84,7 @@ impl<'a> RenderState<'a> {
 
         let shadow_pipeline = ShadowPipeline::new(&renderer);
 
-        let invincible = Texture::load_sprite("assets/invincible.jpg", &renderer).unwrap();
-
-        let world = RenderWorld::new(rect_data, height_data_chunks, invincible);
+        let world = RenderWorld::new(rect_data, height_data_chunks);
 
         let pipelines = Pipelines {
             lava_lamp_pipeline,
@@ -425,23 +423,18 @@ impl<'a> RenderState<'a> {
         let mut passes = 0;
         for cmd in commands.commands() {
             passes += match cmd {
-                BatchRenderCommand::Char(font_id, c) => self.draw_ui(&view, *font_id, &c),
-                BatchRenderCommand::Rect(c) => self.draw_rectangles(view, &c),
-                BatchRenderCommand::Circle(c) => self.draw_circles(view, &c),
+                // BatchRenderCommand::Char(font_id, c) => self.draw_ui(&view, *font_id, &c),
+                // BatchRenderCommand::Rect(c) => self.draw_rectangles(view, &c),
+                // BatchRenderCommand::Circle(c) => self.draw_circles(view, &c),
                 BatchRenderCommand::Line(c) => self.draw_lines(view, &c),
-                BatchRenderCommand::Chunk(c) => self.draw_chunks(view, c),
+                // BatchRenderCommand::Chunk(c) => self.draw_chunks(view, c),
                 _ => 0,
             }
         }
         passes
     }
 
-    fn draw_sprites(
-        &self,
-        view: &wgpu::TextureView,
-        material: &wgpu::BindGroup,
-        commands: &RenderCommands,
-    ) {
+    fn draw_sprites(&self, view: &wgpu::TextureView, commands: &RenderCommands) {
         let (sx, sy) = self.window.get_size();
         let screen = glam::DVec2::new(sx as f64, sy as f64);
 
@@ -450,39 +443,43 @@ impl<'a> RenderState<'a> {
                 continue;
             };
 
-            let mut command_encoder = self
-                .renderer
-                .device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-
-            let cmds: Vec<RectCommand> = cmds
+            let sprite_commands: Vec<(&RectCommand, Ent)> = cmds
                 .iter()
-                .filter(|c| matches!(c.fill, RectFill::Sprite(_)))
-                .map(|c| *c)
+                .filter_map(|c| {
+                    if let RectFill::Sprite(id) = c.fill {
+                        Some((c, id))
+                    } else {
+                        None
+                    }
+                })
                 .collect();
 
-            let mut rp = self.get_render_pass(&mut command_encoder, None, view);
+            for (chunk, id) in sprite_commands {
+                let mut command_encoder = self
+                    .renderer
+                    .device
+                    .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-            for chunk in cmds.chunks(RectanglePipeline::RECTS_PER_PASS) {
+                let mut rp = self.get_render_pass(&mut command_encoder, None, view);
+
                 self.world
                     .rect_data
-                    .write(&self.renderer.queue, chunk, screen);
+                    .write(&self.renderer.queue, &[*chunk], screen);
 
-                let x = &self.world.invincible.bind_group;
+                let texture = self.world.textures.get(id).unwrap();
 
                 self.pipelines.sprite_pipeline.draw(
                     &mut rp,
-                    material,
+                    &texture.bind_group,
                     &self.world.rect_data,
-                    chunk.len() as u32,
+                    1,
                 );
+                drop(rp);
+
+                self.renderer
+                    .queue
+                    .submit(std::iter::once(command_encoder.finish()));
             }
-
-            drop(rp);
-
-            self.renderer
-                .queue
-                .submit(std::iter::once(command_encoder.finish()));
         }
     }
 
@@ -510,10 +507,8 @@ impl<'a> RenderState<'a> {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        self.draw_lava(&self.im_tex_1.view, 0.0);
-
         self.clear(&view, Color::rgb(117, 186, 255, 1.0));
-        self.draw_sprites(&view, &self.im_tex_1.bind_group, commands);
+        self.draw_sprites(&view, commands);
         let passes = self.apply_geometry_commands(commands, &view);
 
         self.renderer.device.poll(wgpu::Maintain::wait());

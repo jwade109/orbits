@@ -49,6 +49,9 @@ struct TrainApp<'a> {
     input_queue: MessageQueue<rdev::Event>,
     should_exit: bool,
     sounds: SoundManager,
+
+    inv_id: Ent,
+    mush_id: Ent,
 }
 
 impl<'a> TrainApp<'a> {
@@ -72,6 +75,9 @@ impl<'a> TrainApp<'a> {
         rs.world.load_font(&rs.renderer, "impact");
         rs.world.load_font(&rs.renderer, "courier_new");
 
+        let inv_id = rs.world.load_texture(&rs.renderer, "assets/invincible.jpg");
+        let mush_id = rs.world.load_texture(&rs.renderer, "assets/mushroom.jpg");
+
         rs.window.set_framebuffer_size_polling(true);
         rs.window.set_key_polling(true);
         rs.window.set_mouse_button_polling(true);
@@ -79,7 +85,7 @@ impl<'a> TrainApp<'a> {
 
         let mut events = EventBus::new();
 
-        let world = make_world(&mut events, font_id);
+        let world = make_world(&mut events, font_id, inv_id, mush_id);
 
         Self {
             last: Instant::now(),
@@ -95,6 +101,9 @@ impl<'a> TrainApp<'a> {
             input_queue,
             should_exit: false,
             sounds: SoundManager::new(),
+
+            inv_id,
+            mush_id,
         }
     }
 }

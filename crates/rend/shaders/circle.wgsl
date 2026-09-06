@@ -7,7 +7,7 @@
 // w: padding
 @group(2) @binding(0) var<uniform> radius_array: array<vec4<f32>, MAX_CIRCLES_PER_PASS>;
 
-const MAX_CIRCLES_PER_PASS: u32 = 480;
+const MAX_CIRCLES_PER_PASS: u32 = 800;
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
